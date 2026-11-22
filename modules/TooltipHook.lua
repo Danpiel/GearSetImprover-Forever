@@ -666,7 +666,10 @@ function GSI_TooltipHook:Initialize()
 
     local function HookTip(tip)
         if not tip then return end
-        if tip.HookScript then
+        -- OnTooltipSetItem no longer exists on the WoW Forever client (retail
+        -- tooltip system, items go through TooltipDataProcessor above); hooking
+        -- it throws and aborted the rest of Initialize. Hook it only if present.
+        if tip.HookScript and tip.HasScript and tip:HasScript("OnTooltipSetItem") then
             tip:HookScript("OnTooltipSetItem", function(selfTip)
                 local _, link = selfTip:GetItem()
                 if link then AppendScoreToTooltip(selfTip, link) end
