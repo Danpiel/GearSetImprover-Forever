@@ -1261,6 +1261,32 @@ function GSI_UI:DebugDump(arg)
             for i = 2, math.min(#r, 8) do sp.specializationInfo[i - 1] = tostring(r[i]) end
         end
     end
+    if C_SpecializationInfo then
+        local fnNames = {}
+        for k, v in pairs(C_SpecializationInfo) do
+            if type(v) == "function" then fnNames[#fnNames + 1] = k end
+        end
+        table.sort(fnNames)
+        sp.cSpecFunctions = table.concat(fnNames, ", ")
+        if C_SpecializationInfo.GetSpecialization then
+            local ok, s = pcall(C_SpecializationInfo.GetSpecialization)
+            sp.cSpecCurrent = ok and tostring(s) or "error"
+        end
+    end
+    if type(GetNumSpecializations) == "function" then
+        local ok, n = pcall(GetNumSpecializations)
+        sp.numSpecializations = ok and n or "error"
+        local getInfo = (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo) or _G.GetSpecializationInfo
+        if ok and type(n) == "number" and type(getInfo) == "function" then
+            sp.specList = {}
+            for i = 1, n do
+                local r = { pcall(getInfo, i) }
+                local row = {}
+                for j = 2, math.min(#r, 8) do row[j - 1] = tostring(r[j]) end
+                sp.specList[i] = table.concat(row, " | ")
+            end
+        end
+    end
     if type(GetShapeshiftFormID) == "function" then
         local ok, f = pcall(GetShapeshiftFormID)
         sp.shapeshiftFormID = ok and tostring(f) or "error"

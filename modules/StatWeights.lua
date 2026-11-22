@@ -136,6 +136,43 @@ function GSI_StatWeights:GetPrimaryTalentTab()
     return best
 end
 
+-- A druid specialization index -> GSI druid spec (1 Balance, 2 Bear, 3 Cat,
+-- 4 Restoration). The order differs between clients (retail: Balance, Feral,
+-- Guardian, Restoration; a classic-style client may have just three), so the
+-- spec's role and primary stat decide, with the position as the fallback.
+function GSI_StatWeights:MapDruidSpecialization(specIdx)
+    local getInfo = (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo) or _G.GetSpecializationInfo
+    local role, primaryStat
+    if type(getInfo) == "function" then
+        local ok, _, _, _, _, r, p = pcall(getInfo, specIdx)
+        if ok then role, primaryStat = r, p end
+    end
+    local numSpecs = 4
+    local getNum = _G.GetNumSpecializations
+        or (C_SpecializationInfo and C_SpecializationInfo.GetNumSpecializations)
+    if type(getNum) == "function" then
+        local ok, n = pcall(getNum)
+        if ok and type(n) == "number" and n > 0 then numSpecs = n end
+    end
+
+    if role == "HEALER" then return 4 end
+    if primaryStat == 4 then return 1 end -- LE_UNIT_STAT_INTELLECT, not healer: Balance
+    if role == "TANK" and numSpecs >= 4 then return 2 end
+    if role == "DAMAGER" and numSpecs >= 4 and primaryStat and primaryStat ~= 4 then return 3 end
+    if role ~= nil or primaryStat ~= nil then
+        -- A combined Feral spec (three-spec client): the feral role decides
+        if role == "TANK" or role == "DAMAGER" then return self:GetFeralSpec() end
+    end
+
+    -- Position only
+    if numSpecs >= 4 then
+        if specIdx == 1 then return 1 elseif specIdx == 2 then return 3 elseif specIdx == 3 then return 2 end
+        return 4
+    end
+    if specIdx == 1 then return 1 elseif specIdx == 3 then return 4 end
+    return self:GetFeralSpec()
+end
+
 -- The spec index (1..3, or 1..4 for Druid) the character plays right now.
 -- Second return: true when it came from talents / specialization data
 -- (false: no points spent, or the data is not loaded yet).
@@ -152,14 +189,14 @@ local function DetectUncached(self)
         return tab, true
     end
 
-    -- Clients with retail specializations (Druid order: Balance, Feral, Guardian, Restoration)
-    if type(GetSpecialization) == "function" then
-        local ok, specIdx = pcall(GetSpecialization)
+    -- Specialization API. The Forever client has no talent-tab API and no global
+    -- GetSpecialization: only C_SpecializationInfo (+ C_ClassTalents / C_Traits).
+    local getSpec = (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization) or _G.GetSpecialization
+    if type(getSpec) == "function" then
+        local ok, specIdx = pcall(getSpec)
         if ok and type(specIdx) == "number" and specIdx >= 1 and specIdx <= 4 then
             if class == "DRUID" then
-                if specIdx == 2 then return self:GetFeralSpec(), true end
-                if specIdx == 3 then return 2, true end
-                return specIdx, true
+                return self:MapDruidSpecialization(specIdx), true
             end
             if specIdx > 3 then return 3, true end
             return specIdx, true
@@ -295,6 +332,7 @@ do
         for _, ev in ipairs({
             "PLAYER_ENTERING_WORLD", "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED",
             "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_SPECIALIZATION_CHANGED", "TRAIT_CONFIG_UPDATED",
+            "ACTIVE_PLAYER_SPECIALIZATION_CHANGED",
         }) do
             pcall(watcher.RegisterEvent, watcher, ev)
         end
