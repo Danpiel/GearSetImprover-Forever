@@ -41,6 +41,21 @@ local WEAPON_SKILL_SUBCLASS = {
     DAGGER = { [15] = true },
 }
 
+-- WoW Forever reports combat ratings in GetItemStats (ITEM_MOD_CRIT_RATING_SHORT
+-- = 7 on a "+0.5% crit" item) while tooltips, caps and every weight profile work
+-- in percent. Ratings convert at fixed rates, with no level scaling (constants as
+-- in wowsims/forever base_stats_auto_gen.go). Defense rating is 1 per skill point.
+local RATING_PER_PERCENT = {
+    ITEM_MOD_CRIT_RATING = 14,      ITEM_MOD_CRIT_RATING_SHORT = 14,
+    ITEM_MOD_HIT_RATING = 10,       ITEM_MOD_HIT_RATING_SHORT = 10,
+    ITEM_MOD_HASTE_RATING = 10,     ITEM_MOD_HASTE_RATING_SHORT = 10,
+    ITEM_MOD_EXPERTISE_RATING = 10, ITEM_MOD_EXPERTISE_RATING_SHORT = 10,
+    ITEM_MOD_DODGE_RATING = 12,     ITEM_MOD_DODGE_RATING_SHORT = 12,
+    ITEM_MOD_PARRY_RATING = 15,     ITEM_MOD_PARRY_RATING_SHORT = 15,
+    ITEM_MOD_BLOCK_RATING = 5,      ITEM_MOD_BLOCK_RATING_SHORT = 5,
+}
+GSI_ItemScore.RATING_PER_PERCENT = RATING_PER_PERCENT
+
 local ParsedStatsCache = {}
 local ParsedStatsMetaCache = {}
 local ScoreCache = {}
@@ -199,6 +214,8 @@ function GSI_ItemScore:GetParsedStats(itemLink)
         for apiKey, value in pairs(apiStats) do
             local mapped = GSI_Config.StatMap[apiKey]
             if mapped and stats[mapped] ~= nil and value and value > 0 then
+                local perPct = RATING_PER_PERCENT[apiKey]
+                if perPct then value = value / perPct end
                 stats[mapped] = stats[mapped] + value
                 apiFoundStats[mapped] = true
                 foundAnyStat = true
