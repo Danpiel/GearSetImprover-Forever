@@ -5,6 +5,7 @@
 > **Personal fork** of [GearSetImprover Forever](https://www.curseforge.com/wow/addons/gearsetimprover) by Yakilo (v1.4.1). Not the CurseForge build; the upstream addon has no license, so this repository stays private. Changes:
 >
 > - Item stats: combat ratings from `GetItemStats` are converted to percent (crit 14, hit/haste/expertise 10, dodge 12, parry 15, block 5 rating per 1%), armor/resistances/weapon DPS come from the API, weapon speed is read on every client, and Russian tooltips are parsed.
+> - Set bonuses on clients whose set names are not in the English/German table (ruRU) are learned from the item tooltips and kept in SavedVariables.
 > - Spec: follows the in-game specialization (`C_SpecializationInfo`) by default; the header dropdown has an **Auto** entry, `/gsi spec auto` returns to it. Feral druids pick Cat or Bear once.
 > - Equipment Set per spec (Settings tab): equipped when the spec changes; `/gsi set` equips it by hand.
 > - Login error "Module TooltipHook error: bad argument #2" fixed.
