@@ -1,0 +1,45 @@
+## Interface: 16001
+## Title: GearSetImprover Forever
+## Notes: Automated gear scoring, stat comparisons, and Best Available Gear optimization built specifically for WoW Forever.
+## Author: Antigravity
+## Version: 1.4.1
+## X-Curse-Project-ID: 1711424
+## SavedVariables: GearSetImproverDB, GearSetImproverLog
+## IconTexture: Interface\AddOns\GearSetImprover\Textures\icon.png
+## AddonCompartmentFunc: GearSetImprover_OnAddonCompartmentClick
+
+## Modules
+modules\Config.lua
+modules\Profiles_v2_2.lua
+modules\ClassicData.lua
+modules\StatWeights.lua
+modules\RaceBonus.lua
+modules\TalentIntegration.lua
+modules\SocketBonus.lua
+modules\EnchantBonus.lua
+modules\SetBonus.lua
+modules\Overrides.lua
+modules\ItemScore.lua
+modules\UI_Shared.lua
+modules\Logger.lua
+modules\OptimizationEngine.lua
+modules\CompareEngine.lua
+modules\TooltipCache.lua
+modules\TooltipHook.lua
+modules\JunkTab.lua
+modules\MinimapButton.lua
+modules\UpgradeToast.lua
+modules\UI_Tab_Overview.lua
+modules\UI_Tab_Gear.lua
+modules\UI_Tab_BiB.lua
+modules\UI_Tab_Weights.lua
+modules\UI_Tab_Settings.lua
+modules\UI_Tab_Macros.lua
+modules\UI_Modals.lua
+modules\UI_BlizzardOptions.lua
+modules\UI.lua
+modules\SideTab.lua
+modules\MerchantOverlay.lua
+
+## Main
+GearSetImprover.lua

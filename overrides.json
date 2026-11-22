@@ -1,0 +1,339 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "version": "1.4.0",
+  "description": "GearSetImprover Effect & Proc Overrides. Formula: Value = Effect x Uptime (proc chance, duration, cooldown). Entries with flatStat: true represent pure flat tooltip stats and are excluded by default scoring to avoid double-counting.",
+  "items": {
+    "11815": {
+      "name": "Hand of Justice",
+      "version": "0.9.0",
+      "reason": "Proc: 2% chance on hit for 1 extra attack (Effect x Uptime = ~22 AP eq)",
+      "profiles": {
+        "WARRIOR": 22.0,
+        "ROGUE": 26.0,
+        "PALADIN": 18.0,
+        "HUNTER": 8.0,
+        "DEFAULT": 20.0
+      }
+    },
+    "13965": {
+      "name": "Blackhand's Breadth",
+      "version": "0.9.0",
+      "flatStat": true,
+      "reason": "+2% Critical Strike Chance (Flat Stat Conversion - parsed from tooltip)",
+      "profiles": {
+        "WARRIOR": 28.0,
+        "ROGUE": 28.0,
+        "HUNTER": 28.0,
+        "DEFAULT": 26.0
+      }
+    },
+    "11684": {
+      "name": "Ironfoe",
+      "version": "0.9.0",
+      "reason": "Proc: Chance on hit to gain 2 extra attacks on next swing (~35 AP eq)",
+      "profiles": {
+        "WARRIOR": 38.0,
+        "ROGUE": 35.0,
+        "DEFAULT": 30.0
+      }
+    },
+    "17112": {
+      "name": "Empyrean Demolisher",
+      "version": "0.9.0",
+      "reason": "Proc: +20% Melee Attack Speed for 10 sec (PPM 2.8 = ~32 AP eq)",
+      "profiles": {
+        "WARRIOR": 32.0,
+        "ROGUE": 34.0,
+        "DEFAULT": 28.0
+      }
+    },
+    "19019": {
+      "name": "Thunderfury, Blessed Blade of the Windseeker",
+      "version": "0.9.0",
+      "reason": "Proc: 300 Nature Damage + 20% Attack Speed Slow + AoE Threat (High Tank/Threat Proc)",
+      "profiles": {
+        "WARRIOR": 85.0,
+        "ROGUE": 60.0,
+        "PALADIN": 75.0,
+        "DEFAULT": 70.0
+      }
+    },
+    "19289": {
+      "name": "Darkmoon Card: Maelstrom",
+      "version": "0.9.0",
+      "reason": "Proc: 200-300 Nature Damage on melee hit (~24 AP eq)",
+      "profiles": {
+        "WARRIOR": 24.0,
+        "ROGUE": 26.0,
+        "PALADIN": 22.0,
+        "SHAMAN": 24.0,
+        "DEFAULT": 22.0
+      }
+    },
+    "19288": {
+      "name": "Darkmoon Card: Blue Dragon",
+      "version": "0.9.0",
+      "reason": "Proc: 2% on spell cast for 100% mana regen while casting for 15s (~28 MP5 eq)",
+      "profiles": {
+        "PRIEST": 45.0,
+        "DRUID": 40.0,
+        "SHAMAN": 38.0,
+        "PALADIN": 35.0,
+        "MAGE": 30.0,
+        "DEFAULT": 30.0
+      }
+    },
+    "20130": {
+      "name": "Diamond Flask",
+      "version": "0.9.0",
+      "reason": "On-Use: +75 AP for 60s (360s CD = 12.5 AP avg) + 9 HP/5 sec",
+      "profiles": {
+        "WARRIOR": 22.0,
+        "DEFAULT": 15.0
+      }
+    },
+    "14551": {
+      "name": "Edgemaster's Handguards",
+      "version": "0.9.0",
+      "flatStat": true,
+      "reason": "Equip: +7 Sword/Axe/Dagger Skill (Flat Stat Conversion - parsed from tooltip)",
+      "profiles": {
+        "WARRIOR": 65.0,
+        "ROGUE": 50.0,
+        "DEFAULT": 45.0
+      }
+    },
+    "13143": {
+      "name": "Mark of the Chosen",
+      "version": "0.9.0",
+      "reason": "Proc: 2% chance when struck to gain +25 to all stats for 60s (Uptime ~60% in combat)",
+      "profiles": {
+        "WARRIOR": 35.0,
+        "DRUID": 38.0,
+        "PALADIN": 35.0,
+        "DEFAULT": 25.0
+      }
+    },
+    "19379": {
+      "name": "Neltharion's Tear",
+      "version": "0.9.0",
+      "flatStat": true,
+      "reason": "Equip: +44 Spell Damage/Healing and +2% Spell Hit (Flat Stat Conversion - parsed from tooltip)",
+      "profiles": {
+        "MAGE": 74.0,
+        "WARLOCK": 76.0,
+        "PRIEST": 65.0,
+        "DEFAULT": 60.0
+      }
+    },
+    "19395": {
+      "name": "Rejuvenating Gem",
+      "version": "0.9.0",
+      "flatStat": true,
+      "reason": "Equip: +9 MP5 and +66 Healing Spells (Flat Stat Conversion - parsed from tooltip)",
+      "profiles": {
+        "PRIEST": 72.0,
+        "DRUID": 68.0,
+        "SHAMAN": 68.0,
+        "PALADIN": 65.0,
+        "DEFAULT": 60.0
+      }
+    },
+    "13209": {
+      "name": "Seal of the Dawn",
+      "version": "0.9.0",
+      "reason": "Equip: +81 Attack Power against Undead",
+      "situational": true,
+      "context": "Undead",
+      "profiles": {
+        "WARRIOR": 65.0,
+        "ROGUE": 65.0,
+        "PALADIN": 65.0,
+        "HUNTER": 65.0,
+        "DEFAULT": 50.0
+      }
+    },
+    "19812": {
+      "name": "Rune of the Dawn",
+      "version": "0.9.0",
+      "reason": "Equip: +48 Spell Damage/Healing against Undead",
+      "situational": true,
+      "context": "Undead",
+      "profiles": {
+        "MAGE": 48.0,
+        "WARLOCK": 48.0,
+        "PRIEST": 48.0,
+        "DEFAULT": 40.0
+      }
+    },
+    "12846": {
+      "name": "Argent Dawn Commission",
+      "version": "0.9.0",
+      "reason": "Equip: Allows collecting Scourgestones from Undead",
+      "situational": true,
+      "context": "Undead",
+      "profiles": {
+        "DEFAULT": 0.0
+      }
+    },
+    "18205": {
+      "name": "Dragon's Blood Necklace",
+      "version": "0.9.0",
+      "reason": "Equip: Increases defense and attack power against Dragonkin",
+      "situational": true,
+      "context": "Dragonkin",
+      "profiles": {
+        "WARRIOR": 30.0,
+        "DEFAULT": 20.0
+      }
+    },
+    "12590": {
+      "name": "Felstriker",
+      "version": "1.4.0",
+      "reason": "Proc: ~3-4% chance on hit for 100% Crit & Dodge/Parry bypass on next 3 attacks",
+      "profiles": {
+        "ROGUE": 42.0,
+        "WARRIOR": 36.0,
+        "HUNTER": 24.0,
+        "DEFAULT": 32.0
+      }
+    },
+    "17076": {
+      "name": "Bonereaver's Edge",
+      "version": "1.4.0",
+      "reason": "Proc: ~11.8% chance on hit for +100 Armor Penetration (stacks 3x, 10s)",
+      "profiles": {
+        "WARRIOR": 55.0,
+        "PALADIN": 42.0,
+        "SHAMAN": 38.0,
+        "DEFAULT": 40.0
+      }
+    },
+    "12798": {
+      "name": "Annihilator",
+      "version": "1.4.0",
+      "reason": "Proc: ~1 PPM reduces target Armor by 200 (stacks 3x = -600 Armor raid debuff)",
+      "situational": true,
+      "context": "Raid",
+      "profiles": {
+        "WARRIOR": 36.0,
+        "PALADIN": 28.0,
+        "SHAMAN": 26.0,
+        "DEFAULT": 24.0
+      }
+    },
+    "19169": {
+      "name": "Nightfall",
+      "version": "1.4.0",
+      "reason": "Proc: ~2 PPM Spell Vulnerability (+15% Spell Damage taken by boss for 5s)",
+      "situational": true,
+      "context": "Raid",
+      "profiles": {
+        "PALADIN": 35.0,
+        "SHAMAN": 38.0,
+        "WARRIOR": 32.0,
+        "HUNTER": 28.0,
+        "DEFAULT": 30.0
+      }
+    },
+    "17068": {
+      "name": "Deathbringer",
+      "version": "1.4.0",
+      "reason": "Proc: ~1 PPM Shadow Bolt for 110-140 Shadow Damage",
+      "profiles": {
+        "WARRIOR": 24.0,
+        "ROGUE": 22.0,
+        "SHAMAN": 24.0,
+        "DEFAULT": 20.0
+      }
+    },
+    "17075": {
+      "name": "Vis'kag the Bloodletter",
+      "version": "1.4.0",
+      "reason": "Proc: ~1 PPM Fatal Wound for 240 Physical Damage",
+      "profiles": {
+        "WARRIOR": 28.0,
+        "ROGUE": 28.0,
+        "PALADIN": 22.0,
+        "DEFAULT": 24.0
+      }
+    },
+    "18816": {
+      "name": "Perdition's Blade",
+      "version": "1.4.0",
+      "reason": "Proc: ~1.5 PPM Firebolt for 40-56 Fire Damage",
+      "profiles": {
+        "ROGUE": 20.0,
+        "WARRIOR": 16.0,
+        "DEFAULT": 16.0
+      }
+    },
+    "871": {
+      "name": "Flurry Axe",
+      "version": "1.4.0",
+      "reason": "Proc: ~4% chance on hit to gain 1 extra attack",
+      "profiles": {
+        "WARRIOR": 26.0,
+        "ROGUE": 24.0,
+        "PALADIN": 28.0,
+        "SHAMAN": 24.0,
+        "DEFAULT": 22.0
+      }
+    },
+    "17705": {
+      "name": "Thrash Blade",
+      "version": "1.4.0",
+      "reason": "Proc: ~2% chance on hit to gain 1 extra attack",
+      "profiles": {
+        "WARRIOR": 18.0,
+        "ROGUE": 18.0,
+        "PALADIN": 16.0,
+        "DEFAULT": 15.0
+      }
+    },
+    "13505": {
+      "name": "Runeblade of Baron Rivendare",
+      "version": "1.4.0",
+      "reason": "Aura: Increases movement speed (+8%) and health regeneration",
+      "profiles": {
+        "WARRIOR": 18.0,
+        "PALADIN": 18.0,
+        "HUNTER": 12.0,
+        "DEFAULT": 15.0
+      }
+    },
+    "9449": {
+      "name": "Manual Crowd Pummeler",
+      "version": "1.4.0",
+      "reason": "On-Use: +50% Attack Speed for 30s (3 charges; peak Feral Bear/Cat burst)",
+      "profiles": {
+        "DRUID": 65.0,
+        "WARRIOR": 35.0,
+        "PALADIN": 35.0,
+        "SHAMAN": 35.0,
+        "DEFAULT": 30.0
+      }
+    },
+    "12632": {
+      "name": "Storm Gauntlets",
+      "version": "1.4.0",
+      "reason": "Proc: Adds 3 Lightning damage to melee attacks (scales with Nature SP & Crit)",
+      "profiles": {
+        "SHAMAN": 16.0,
+        "PALADIN": 18.0,
+        "HUNTER": 10.0,
+        "DEFAULT": 12.0
+      }
+    },
+    "14554": {
+      "name": "Cloudkeeper Legplates",
+      "version": "1.4.0",
+      "reason": "On-Use: +100 Attack Power for 30s (15m CD; boss burst value ~14 AP eq)",
+      "profiles": {
+        "WARRIOR": 14.0,
+        "PALADIN": 14.0,
+        "DEFAULT": 10.0
+      }
+    }
+  }
+}
