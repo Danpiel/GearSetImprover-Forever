@@ -147,6 +147,16 @@ GSI_Config.StatMap = {
     ITEM_MOD_SPIRIT_SHORT                  = "Spirit",
     ITEM_MOD_SPIRIT                        = "Spirit",
     ITEM_MOD_ARMOR_SHORT                   = "Armor",
+    -- GetItemStats reports armor and resistances as RESISTANCEn_NAME
+    -- (0 armor, 1 holy, 2 fire, 3 nature, 4 frost, 5 shadow, 6 arcane)
+    RESISTANCE0_NAME                       = "Armor",
+    RESISTANCE2_NAME                       = "FireResist",
+    RESISTANCE3_NAME                       = "NatureResist",
+    RESISTANCE4_NAME                       = "FrostResist",
+    RESISTANCE5_NAME                       = "ShadowResist",
+    RESISTANCE6_NAME                       = "ArcaneResist",
+    ITEM_MOD_FERAL_ATTACK_POWER_SHORT      = "FeralAttackPower",
+    ITEM_MOD_FERAL_ATTACK_POWER            = "FeralAttackPower",
     ITEM_MOD_ARMOR                         = "Armor",
     ITEM_MOD_DEFENSE_SKILL_RATING_SHORT    = "Defense",
     ITEM_MOD_DEFENSE_SKILL_RATING          = "Defense",
