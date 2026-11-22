@@ -77,8 +77,55 @@ end
 -- changes that role and stays in auto mode.
 -- ------------------------------------------------------------
 
+-- WoW Forever has one specialization per class (C_SpecializationInfo always
+-- answers 1) and no talent-tab API: the class's three vanilla trees are trait
+-- groups of the active config's single trait tree, in tree order by orderIndex,
+-- and the points spent in each come from the group currency (the same reading
+-- as EllesmereUI's Forever talent window and dual spec block).
+-- Returns points ({ [treeIndex] = points }), names, state: "ok", "notready" (no
+-- active config yet, e.g. at login) or "nogroups" (a client without these trees).
+local function ByOrderIndex(a, b) return (a.orderIndex or 0) < (b.orderIndex or 0) end
+local function TraitGroupPoints()
+    if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo
+            and C_Traits.GetGroupDisplayInfoByTreeID and C_Traits.GetGroupCurrencyInfo) then
+        return nil
+    end
+    local configID = C_ClassTalents.GetActiveConfigID()
+    local config = configID and C_Traits.GetConfigInfo(configID)
+    local treeID = config and config.treeIDs and config.treeIDs[1]
+    if not treeID then return nil, nil, "notready" end
+    local groups = C_Traits.GetGroupDisplayInfoByTreeID(treeID)
+    if type(groups) ~= "table" or #groups == 0 then return nil, nil, "nogroups" end
+    table.sort(groups, ByOrderIndex)
+    local ids, names = {}, {}
+    for i, g in ipairs(groups) do
+        ids[i] = g.groupID
+        names[i] = g.displayName
+    end
+    local spent = {}
+    for _, g in ipairs(C_Traits.GetGroupCurrencyInfo(configID, ids) or {}) do
+        local c = g.currencyInfos and g.currencyInfos[1]
+        if c and g.traitNodeGroupID then spent[g.traitNodeGroupID] = c.spent or 0 end
+    end
+    local points = {}
+    for i, id in ipairs(ids) do points[i] = spent[id] or 0 end
+    return points, names, "ok"
+end
+GSI_StatWeights.TraitGroupPoints = function()
+    local ok, points, names, state = pcall(TraitGroupPoints)
+    if ok then return points, names, state end
+    return nil, nil, "notready"
+end
+
 local function TalentPointsPerTab()
-    if type(GetNumTalentTabs) ~= "function" then return nil end
+    if type(GetNumTalentTabs) ~= "function" then
+        local points = GSI_StatWeights.TraitGroupPoints()
+        if not points then return nil end
+        local total = 0
+        for _, p in ipairs(points) do total = total + (tonumber(p) or 0) end
+        if total == 0 then return nil end
+        return points
+    end
     local ok, numTabs = pcall(GetNumTalentTabs)
     if not ok or type(numTabs) ~= "number" or numTabs < 1 then return nil end
     local points, total = {}, 0
@@ -189,8 +236,18 @@ local function DetectUncached(self)
         return tab, true
     end
 
-    -- Specialization API. The Forever client has no talent-tab API and no global
-    -- GetSpecialization: only C_SpecializationInfo (+ C_ClassTalents / C_Traits).
+    -- On Forever the trait trees are the only real source: while they are not
+    -- loaded yet (login) or hold no points, do not ask the specialization API,
+    -- which always answers spec 1 there (Balance for a druid).
+    if type(GetNumTalentTabs) ~= "function" then
+        local _, _, traitState = GSI_StatWeights.TraitGroupPoints()
+        if traitState == "ok" or traitState == "notready" then
+            if class == "DRUID" then return self:GetFeralSpec(), false end
+            return 1, false
+        end
+    end
+
+    -- Specialization API (clients with real specializations)
     local getSpec = (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization) or _G.GetSpecialization
     if type(getSpec) == "function" then
         local ok, specIdx = pcall(getSpec)
@@ -217,7 +274,9 @@ function GSI_StatWeights:DetectCurrentSpec()
     if not c then
         local spec, fromTalents = DetectUncached(self)
         c = { spec = spec, fromTalents = fromTalents }
-        self._detectCache = c
+        -- A guess (talent data not loaded yet, no points) is not kept: the next
+        -- call looks again, so the real spec shows up without waiting for an event.
+        if fromTalents then self._detectCache = c end
     end
     return c.spec, c.fromTalents
 end
@@ -332,7 +391,7 @@ do
         for _, ev in ipairs({
             "PLAYER_ENTERING_WORLD", "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED",
             "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_SPECIALIZATION_CHANGED", "TRAIT_CONFIG_UPDATED",
-            "ACTIVE_PLAYER_SPECIALIZATION_CHANGED",
+            "ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "TRAIT_TREE_CURRENCY_INFO_UPDATED", "SPELLS_CHANGED",
         }) do
             pcall(watcher.RegisterEvent, watcher, ev)
         end

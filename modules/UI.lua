@@ -1261,6 +1261,17 @@ function GSI_UI:DebugDump(arg)
             for i = 2, math.min(#r, 8) do sp.specializationInfo[i - 1] = tostring(r[i]) end
         end
     end
+    if GSI_StatWeights and GSI_StatWeights.TraitGroupPoints then
+        local points, names = GSI_StatWeights.TraitGroupPoints()
+        if points then
+            sp.traitGroups = {}
+            for i, p in ipairs(points) do
+                sp.traitGroups[i] = string.format("%s = %s", tostring(names and names[i]), tostring(p))
+            end
+        else
+            sp.traitGroups = "none"
+        end
+    end
     if C_SpecializationInfo then
         local fnNames = {}
         for k, v in pairs(C_SpecializationInfo) do
