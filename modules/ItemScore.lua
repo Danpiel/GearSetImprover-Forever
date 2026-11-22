@@ -182,12 +182,14 @@ local function ParseRussianLine(l, stats, apiFound)
         found = true
     end
 
-    -- Primary stats ("к силе" only at the end: "к силе атаки" is attack power)
+    -- Primary stats ("к силе атаки" is attack power, not strength)
     Add("Stamina", l:match("%+" .. RU_NUM .. " к выносливости"))
     Add("Agility", l:match("%+" .. RU_NUM .. " к ловкости"))
     Add("Intellect", l:match("%+" .. RU_NUM .. " к интеллекту"))
     Add("Spirit", l:match("%+" .. RU_NUM .. " к духу"))
-    Add("Strength", l:match("%+" .. RU_NUM .. " к силе%s*%.?$"))
+    for num, rest in l:gmatch("%+" .. RU_NUM .. " к силе(%S*%s*%S*)") do
+        if not rest:find("^%s*атаки") then Add("Strength", num) end
+    end
     local all = l:match("%+" .. RU_NUM .. " ко всем характеристикам")
     if all then
         for _, k in ipairs({ "Stamina", "Agility", "Strength", "Intellect", "Spirit" }) do Add(k, all) end
@@ -282,6 +284,7 @@ local function ParseRussianLine(l, stats, apiFound)
 
     return found, universal
 end
+GSI_ItemScore.ParseRussianLine = ParseRussianLine
 
 -- Checks if an item is currently equipped by the player (prevents cap double-addition)
 local function IsItemCurrentlyEquipped(itemLink, targetSlotID)

@@ -382,12 +382,91 @@ GSI_SetBonus.Sets = {
 
 local _setNameCache = {}
 
+-- ------------------------------------------------------------
+-- Learned sets. The table above is keyed by English and German set names,
+-- so on another client (ruRU) no set was ever found and no bonus counted.
+-- Bonuses not yet active are shown with their piece count, from the client's
+-- own ITEM_SET_BONUS_GRAY ("(%d) Set: %s"; ruRU "Комплект (%d |4предмет:
+-- предмета:предметов;): %s"), so scanning a set item learns each such
+-- threshold's stats; seen with few pieces on, that is the whole set. They
+-- are kept per set name in GearSetImproverDB.learnedSets and used when the
+-- table has no definition. Bonus texts go through the Russian line parser
+-- (EN/DE sets are in the table already); procs are not learned.
+-- ------------------------------------------------------------
+GSI_SetBonus._learnedDefs = {}
+GSI_SetBonus._learnedLinks = {}
+
+local _grayBonusPattern = nil
+local function GrayBonusPattern()
+    if _grayBonusPattern ~= nil then return _grayBonusPattern or nil end
+    local fmt = _G.ITEM_SET_BONUS_GRAY
+    if type(fmt) ~= "string" or not fmt:find("%%d") or not fmt:find("%%s") then
+        _grayBonusPattern = false
+        return nil
+    end
+    local p = fmt:gsub("|4[^;]*;", "\001")            -- plural forms
+    p = p:gsub("%%d", "\002"):gsub("%%s", "\003")
+    p = p:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")  -- escape the rest
+    p = p:gsub("\001", ".-"):gsub("\002", "(%%d+)"):gsub("\003", "(.+)")
+    _grayBonusPattern = "^%s*" .. p
+    return _grayBonusPattern
+end
+
+function GSI_SetBonus:LearnSetBonuses(itemLink, setName)
+    if not itemLink or not setName or self.Sets[setName] then return end
+    if self._learnedLinks[itemLink] then return end
+    self._learnedLinks[itemLink] = true
+    local parse = GSI_ItemScore and GSI_ItemScore.ParseRussianLine
+    local lower = GSI_ItemScore and GSI_ItemScore.LowerUTF8
+    local pattern = GrayBonusPattern()
+    if not (parse and lower and pattern and GearSetImproverDB) then return end
+
+    local tip = EnsureSetScanTooltip()
+    tip:ClearLines()
+    local ok = pcall(function() tip:SetHyperlink(itemLink) end)
+    if not ok then return end
+    local learned = nil
+    for i = 1, tip:NumLines() do
+        local fs = _G["GSI_SetScanTooltipTextLeft" .. i]
+        local text = fs and fs:GetText()
+        if text then
+            local k, bonus = text:match(pattern)
+            k = tonumber(k)
+            if k and bonus and bonus:find("[\208\209]") then
+                local stats = {}
+                local okP, found = pcall(parse, lower(bonus), stats, {})
+                if okP and found and next(stats) then
+                    learned = learned or {}
+                    learned[k] = stats
+                end
+            end
+        end
+    end
+    if learned then
+        GearSetImproverDB.learnedSets = GearSetImproverDB.learnedSets or {}
+        local t = GearSetImproverDB.learnedSets[setName] or {}
+        for k, stats in pairs(learned) do t[k] = stats end
+        GearSetImproverDB.learnedSets[setName] = t
+        self._learnedDefs[setName] = nil
+    end
+end
+
 -- Resolves alias names to their canonical set definition
 function GSI_SetBonus:GetSetDefinition(setName)
     if not setName then return nil end
     local def = self.Sets[setName]
     if def and def.alias then
         return self.Sets[def.alias], def.alias
+    end
+    if not def then
+        def = self._learnedDefs[setName]
+        if not def then
+            local learned = GearSetImproverDB and GearSetImproverDB.learnedSets and GearSetImproverDB.learnedSets[setName]
+            if learned and next(learned) then
+                def = { type = "learned", thresholds = learned }
+                self._learnedDefs[setName] = def
+            end
+        end
     end
     return def, setName
 end
@@ -421,6 +500,7 @@ function GSI_SetBonus:GetSetNameFromLink(itemLink)
         end
         if setName and setName ~= "" then
             _setNameCache[itemLink] = setName
+            self:LearnSetBonuses(itemLink, setName)
             return setName
         end
     end
@@ -441,6 +521,7 @@ function GSI_SetBonus:GetSetNameFromLink(itemLink)
                 setName = setName:gsub("^%s+", ""):gsub("%s+$", "")
                 if setName ~= "" then
                     _setNameCache[itemLink] = setName
+                    self:LearnSetBonuses(itemLink, setName)
                     return setName
                 end
             end
