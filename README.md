@@ -2,6 +2,14 @@
 
 **GearSetImprover Forever** is a gear scoring and Best-in-Bag optimizer built exclusively for **WoW Forever (Client 1.60.1 / Interface 16001)**.
 
+> **Personal fork** of [GearSetImprover Forever](https://www.curseforge.com/wow/addons/gearsetimprover) by Yakilo (v1.4.1). Not the CurseForge build; the upstream addon has no license, so this repository stays private. Changes:
+>
+> - Item stats: combat ratings from `GetItemStats` are converted to percent (crit 14, hit/haste/expertise 10, dodge 12, parry 15, block 5 rating per 1%), armor/resistances/weapon DPS come from the API, weapon speed is read on every client, and Russian tooltips are parsed.
+> - Spec: follows the in-game specialization (`C_SpecializationInfo`) by default; the header dropdown has an **Auto** entry, `/gsi spec auto` returns to it. Feral druids pick Cat or Bear once.
+> - Equipment Set per spec (Settings tab): equipped when the spec changes; `/gsi set` equips it by hand.
+> - Login error "Module TooltipHook error: bad argument #2" fixed.
+> - `/gsi dump` writes item/tooltip/spec diagnostics to SavedVariables.
+
 ---
 
 ### Why this addon?
