@@ -783,6 +783,7 @@ scanBtn:SetScript("OnClick", function(_, mouseBtn)
         mainFrame.tabFrames["BIB"].scanned = false
     end
     GSI_UI:SelectTab("BIB")
+    GSI_UI._scanRequestedByUser = true
     if GSI_UI.RunOptimization then
         GSI_UI:RunOptimization()
     end

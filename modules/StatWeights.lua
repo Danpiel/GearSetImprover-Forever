@@ -111,10 +111,20 @@ local function TraitGroupPoints()
     for i, id in ipairs(ids) do points[i] = spent[id] or 0 end
     return points, names, "ok"
 end
+local traitTreesSeen = false
 GSI_StatWeights.TraitGroupPoints = function()
     local ok, points, names, state = pcall(TraitGroupPoints)
-    if ok then return points, names, state end
-    return nil, nil, "notready"
+    if not ok then return nil, nil, "notready" end
+    -- Once the trees have been read, an empty answer means they are being
+    -- reloaded (e.g. while a talent is learned), not a client without them:
+    -- it must not fall through to the specialization API, whose spec 1 would
+    -- look like a respec to Balance and swap the gear set.
+    if state == "ok" then
+        traitTreesSeen = true
+    elseif state == "nogroups" and traitTreesSeen then
+        state = "notready"
+    end
+    return points, names, state
 end
 
 local function TalentPointsPerTab()
@@ -293,10 +303,20 @@ function GSI_StatWeights:GetActiveSpecIndex()
     return (self:DetectCurrentSpec())
 end
 
+-- Everything scored with the old spec's weights is rebuilt: caches, the bag
+-- scan result (rescanned), open item tooltips and upgrade toasts.
 local function RefreshAfterSpecChange()
     if GSI_ItemScore and GSI_ItemScore.ResetCache then pcall(GSI_ItemScore.ResetCache, GSI_ItemScore) end
     if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then pcall(GSI_OptimizationEngine.ResetCache, GSI_OptimizationEngine) end
     if GSI_TooltipHook and GSI_TooltipHook.ResetCache then pcall(GSI_TooltipHook.ResetCache, GSI_TooltipHook) end
+    if GSI_UI and GSI_UI.MarkScanStale then pcall(GSI_UI.MarkScanStale, GSI_UI) end
+    if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook) end
+    if GSI_UpgradeToast and GSI_UpgradeToast.ReevaluatePending then
+        -- After the spec's gear set has been put on (the callbacks run right
+        -- after this), so toasts compare against the gear actually worn.
+        local function Reevaluate() pcall(GSI_UpgradeToast.ReevaluatePending, GSI_UpgradeToast) end
+        if C_Timer and C_Timer.After then C_Timer.After(1.0, Reevaluate) else Reevaluate() end
+    end
     if GSI_UI then
         if GSI_UI.UpdateSpecButton then pcall(GSI_UI.UpdateSpecButton, GSI_UI) end
         if GSI_UI.UpdateModeUI then pcall(GSI_UI.UpdateModeUI, GSI_UI) end

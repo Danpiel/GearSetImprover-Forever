@@ -6,7 +6,8 @@
 >
 > - Item stats: combat ratings from `GetItemStats` are converted to percent (crit 14, hit/haste/expertise 10, dodge 12, parry 15, block 5 rating per 1%), armor/resistances/weapon DPS come from the API, weapon speed is read on every client, and Russian tooltips are parsed.
 > - Set bonuses on clients whose set names are not in the English/German table (ruRU) are learned from the item tooltips and kept in SavedVariables.
-> - Spec: follows the in-game specialization (`C_SpecializationInfo`) by default; the header dropdown has an **Auto** entry, `/gsi spec auto` returns to it. Feral druids pick Cat or Bear once.
+> - Spec: follows the talent tree with the most points by default (on Forever the three trees are trait groups of one talent tree); the header dropdown has an **Auto** entry, `/gsi spec auto` returns to it. Feral druids pick Cat or Bear once.
+> - On a spec or talent change, open item tooltips, upgrade toasts and the Best in Bag list are scored again with the new weights; the "Upgrade(s) found" chat line is printed once per scan instead of on every talent event.
 > - Equipment Set per spec (Settings tab): equipped when the spec changes; `/gsi set` equips it by hand.
 > - Login error "Module TooltipHook error: bad argument #2" fixed.
 > - `/gsi dump` writes item/tooltip/spec diagnostics to SavedVariables.
