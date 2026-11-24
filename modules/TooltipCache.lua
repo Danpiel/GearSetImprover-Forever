@@ -65,6 +65,7 @@ local function ReleaseLinesContainerInternal(container)
             line.g = nil
             line.b = nil
             line.wrap = nil
+            line.bold = nil
             if linePoolTop < maxLinePool then
                 linePoolTop = linePoolTop + 1
                 linePool[linePoolTop] = line

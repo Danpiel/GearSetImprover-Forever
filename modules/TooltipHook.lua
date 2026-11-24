@@ -210,6 +210,54 @@ local function HasTalentRank(enPattern, dePattern)
     return r and r > 0
 end
 
+-- The lines GSI wrote, font string -> its text: the duplicate guard finds
+-- them without a tag in the text.
+local ownLines = setmetatable({}, { __mode = "k" })
+-- Font strings drawn bold, tooltip -> { [fontString] = original font }
+local boldLines = setmetatable({}, { __mode = "k" })
+local clearHooked = setmetatable({}, { __mode = "k" })
+
+local function RestoreFonts(tip)
+    local list = boldLines[tip]
+    if not list then return end
+    boldLines[tip] = nil
+    for fs, orig in pairs(list) do
+        if orig.object then
+            fs:SetFontObject(orig.object)
+        else
+            fs:SetFont(orig.font, orig.size, orig.flags or "")
+        end
+    end
+end
+
+-- Adds a line to the tooltip. bold: the line's own font with an outline,
+-- put back when the tooltip is cleared (OnTooltipCleared).
+local function AddOwnLine(tip, text, r, g, b, wrap, bold)
+    if r then
+        tip:AddLine(text, r, g, b, wrap)
+    else
+        tip:AddLine(text)
+    end
+    local name = tip.GetName and tip:GetName()
+    local fs = name and tip.NumLines and _G[name .. "TextLeft" .. tip:NumLines()]
+    if not fs then return end
+    ownLines[fs] = fs:GetText()
+    if not bold then return end
+    if not clearHooked[tip] then
+        if not (tip.HasScript and tip:HasScript("OnTooltipCleared")) then return end
+        tip:HookScript("OnTooltipCleared", RestoreFonts)
+        clearHooked[tip] = true
+    end
+    local font, size, flags = fs:GetFont()
+    if not font then return end
+    local list = boldLines[tip] or {}
+    boldLines[tip] = list
+    if not list[fs] then
+        list[fs] = { object = fs:GetFontObject(), font = font, size = size, flags = flags }
+    end
+    fs:SetFont(font, size, "OUTLINE")
+end
+
 local function AppendScoreToTooltip(tooltip, itemLink)
     local cachedLines = nil
     local shouldCache = true
@@ -230,7 +278,7 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             for i = numLines, math.max(1, numLines - 15), -1 do
                 local lineObj = _G[tipName .. "TextLeft" .. i]
                 local text = lineObj and lineObj.GetText and lineObj:GetText()
-                if text and (text:find("GSI Score", 1, true) or text:find("[GSI Override:", 1, true)) then
+                if text and (ownLines[lineObj] == text or text:find("[GSI Override:", 1, true)) then
                     return
                 end
             end
@@ -260,11 +308,7 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 end
                 for i = 1, #hitLines do
                     local l = hitLines[i]
-                    if l.r then
-                        tooltip:AddLine(l.text, l.r, l.g, l.b, l.wrap)
-                    else
-                        tooltip:AddLine(l.text)
-                    end
+                    AddOwnLine(tooltip, l.text, l.r, l.g, l.b, l.wrap, l.bold)
                 end
                 tooltip:Show()
                 return
@@ -379,14 +423,12 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             cachedLines = GSI_TooltipCache:AcquireLinesContainer()
         end
 
-        local function AddTipLine(text, r, g, b, wrap)
-            if r then
-                tooltip:AddLine(text, r, g, b, wrap)
-            else
-                tooltip:AddLine(text)
-            end
+        local function AddTipLine(text, r, g, b, wrap, bold)
+            AddOwnLine(tooltip, text, r, g, b, wrap, bold)
             if cachedLines and GSI_TooltipCache and GSI_TooltipCache.AcquireLine then
-                cachedLines[#cachedLines + 1] = GSI_TooltipCache:AcquireLine(text, r, g, b, wrap)
+                local l = GSI_TooltipCache:AcquireLine(text, r, g, b, wrap)
+                l.bold = bold and true or nil
+                cachedLines[#cachedLines + 1] = l
             end
         end
 
@@ -468,7 +510,6 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             end
         end
 
-        local isMultiProfile = (#linesToShow > 1)
         local addedAnyScore = false
         local itemLoading = false
         local canDW = (GSI_ClassicData.CanDualWield and GSI_ClassicData:CanDualWield()) == true
@@ -541,26 +582,21 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                     and string.format("%.2f", newScore)
                     or string.format("%.1f", newScore)
 
-                if isMultiProfile then
-                    local sData = classData and classData.specs and classData.specs[specIdx]
-                    local sName = (sData and sData.name) or ("Spec " .. specIdx)
-                    local rawMode = pInfo.modeLabel or modeVal
-                    local modeName = (rawMode == "AoE / Raid") and "AoE" or rawMode
-                    if vsSetName then
-                        modeName = modeName .. " |cff999999vs " .. vsSetName .. "|r"
-                    end
-                    local activeMarker = (specIdx == activeSpecIndex) and "|cff00ff00*|r" or ""
-                    AddTipLine(string.format(
-                        "%sGSI Score (%s %s%s%s): %s%s%s%s%s",
-                        COLOR_LABEL, sName, modeName, activeMarker, COLOR_LABEL,
-                        COLOR_VALUE, scoreFormatted, deltaPart, levelNotice, COLOR_END
-                    ))
-                else
-                    AddTipLine(string.format(
-                        "%sGSI Score: %s%s%s%s%s",
-                        COLOR_LABEL, COLOR_VALUE, scoreFormatted, deltaPart, levelNotice, COLOR_END
-                    ))
+                -- "Restoration AoE vs Resto AoE: 11.19 (+4.05)": spec and mode, the
+                -- set without GSI's "GSI: " prefix; the spec you play is bold
+                local sData = classData and classData.specs and classData.specs[specIdx]
+                local sName = (sData and sData.name) or ("Spec " .. specIdx)
+                local rawMode = pInfo.modeLabel or modeVal
+                local modeName = (rawMode == "AoE / Raid") and "AoE" or rawMode
+                if vsSetName then
+                    local shownSet = (vsSetName:gsub("^GSI: ", ""))
+                    modeName = modeName .. " |cff999999vs " .. shownSet .. "|r"
                 end
+                AddTipLine(string.format(
+                    "%s%s %s%s: %s%s%s%s%s",
+                    COLOR_LABEL, sName, modeName, COLOR_LABEL,
+                    COLOR_VALUE, scoreFormatted, deltaPart, levelNotice, COLOR_END
+                ), nil, nil, nil, nil, specIdx == activeSpecIndex)
 
                 -- Talent dependency hints (EN + DE talent pattern detection, strictly English hints)
                 if not statsFetched then
