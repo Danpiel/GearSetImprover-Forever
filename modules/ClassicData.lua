@@ -188,7 +188,9 @@ GSI_ClassicData.SlotNames = {
 }
 GSI_ClassicData.SlotNamesDE = GSI_ClassicData.SlotNames
 
--- Metadata for all 9 classes and 28 talent specializations
+-- Metadata for all 9 classes and 28 talent specializations.
+-- icon: the specialization's official game icon (GetSpecializationInfo); Rogue
+-- Combat takes Outlaw's, Feral Bear and Cat take Guardian's and Feral's.
 GSI_ClassicData.Classes = {
     ["WARRIOR"] = {
         name = "Warrior",
@@ -206,7 +208,7 @@ GSI_ClassicData.Classes = {
         armor = 4,
         specs = {
             [1] = { name = "Holy", nameDE = "Holy", role = "healer", icon = 135920 },
-            [2] = { name = "Protection", nameDE = "Protection", role = "tank", melee = true, icon = 135893 },
+            [2] = { name = "Protection", nameDE = "Protection", role = "tank", melee = true, icon = 236264 },
             [3] = { name = "Retribution", nameDE = "Retribution", role = "dps", melee = true, icon = 135873 },
         }
     },
@@ -215,9 +217,9 @@ GSI_ClassicData.Classes = {
         nameDE = "Hunter",
         armor = 3, -- Mail at level 40+, Leather before
         specs = {
-            [1] = { name = "Beast Mastery", nameDE = "Beast Mastery", role = "dps", ranged = true, icon = 132212 },
-            [2] = { name = "Marksmanship", nameDE = "Marksmanship", role = "dps", ranged = true, icon = 132222 },
-            [3] = { name = "Survival", nameDE = "Survival", role = "dps", hybrid = true, icon = 132223 },
+            [1] = { name = "Beast Mastery", nameDE = "Beast Mastery", role = "dps", ranged = true, icon = 461112 },
+            [2] = { name = "Marksmanship", nameDE = "Marksmanship", role = "dps", ranged = true, icon = 236179 },
+            [3] = { name = "Survival", nameDE = "Survival", role = "dps", hybrid = true, icon = 461113 },
         }
     },
     ["ROGUE"] = {
@@ -225,8 +227,8 @@ GSI_ClassicData.Classes = {
         nameDE = "Rogue",
         armor = 2, -- Leather
         specs = {
-            [1] = { name = "Assassination", nameDE = "Assassination", role = "dps", melee = true, icon = 132292 },
-            [2] = { name = "Combat", nameDE = "Combat", role = "dps", melee = true, icon = 132344 },
+            [1] = { name = "Assassination", nameDE = "Assassination", role = "dps", melee = true, icon = 236270 },
+            [2] = { name = "Combat", nameDE = "Combat", role = "dps", melee = true, icon = 236286 },
             [3] = { name = "Subtlety", nameDE = "Subtlety", role = "dps", melee = true, icon = 132320 },
         }
     },
@@ -236,7 +238,7 @@ GSI_ClassicData.Classes = {
         armor = 1, -- Cloth
         specs = {
             [1] = { name = "Discipline", nameDE = "Discipline", role = "healer", icon = 135940 },
-            [2] = { name = "Holy", nameDE = "Holy", role = "healer", icon = 135920 },
+            [2] = { name = "Holy", nameDE = "Holy", role = "healer", icon = 237542 },
             [3] = { name = "Shadow", nameDE = "Shadow", role = "dps", caster = true, icon = 136207 },
         }
     },
@@ -246,7 +248,7 @@ GSI_ClassicData.Classes = {
         armor = 3,
         specs = {
             [1] = { name = "Elemental", nameDE = "Elemental", role = "dps", caster = true, icon = 136048 },
-            [2] = { name = "Enhancement", nameDE = "Enhancement", role = "dps", melee = true, icon = 136051 },
+            [2] = { name = "Enhancement", nameDE = "Enhancement", role = "dps", melee = true, icon = 237581 },
             [3] = { name = "Restoration", nameDE = "Restoration", role = "healer", icon = 136052 },
         }
     },
@@ -255,8 +257,8 @@ GSI_ClassicData.Classes = {
         nameDE = "Mage",
         armor = 1,
         specs = {
-            [1] = { name = "Arcane", nameDE = "Arcane", role = "dps", caster = true, icon = 136096 },
-            [2] = { name = "Fire", nameDE = "Fire", role = "dps", caster = true, icon = 135812 },
+            [1] = { name = "Arcane", nameDE = "Arcane", role = "dps", caster = true, icon = 135932 },
+            [2] = { name = "Fire", nameDE = "Fire", role = "dps", caster = true, icon = 135810 },
             [3] = { name = "Frost", nameDE = "Frost", role = "dps", caster = true, icon = 135846 },
         }
     },
@@ -277,7 +279,7 @@ GSI_ClassicData.Classes = {
         specs = {
             [1] = { name = "Balance", nameDE = "Balance", role = "dps", caster = true, icon = 136096 },
             [2] = { name = "Feral Bear", nameDE = "Feral Bear", role = "tank", melee = true, icon = 132276 },
-            [3] = { name = "Feral Cat", nameDE = "Feral Cat", role = "dps", melee = true, icon = 132144 },
+            [3] = { name = "Feral Cat", nameDE = "Feral Cat", role = "dps", melee = true, icon = 132115 },
             [4] = { name = "Restoration", nameDE = "Restoration", role = "healer", icon = 136041 },
         }
     },

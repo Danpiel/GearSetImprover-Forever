@@ -116,7 +116,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "prot_def",
             name = "GSI: Prot Def",
-            icon = 135893,
+            icon = 236264,
             command = "/gsi equip prot survival",
             desc = "Paladin Tank Survival",
             specIndex = 2,
@@ -190,7 +190,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "cat_st",
             name = "GSI: Cat ST",
-            icon = 132144,
+            icon = 132115,
             command = "/gsi equip cat st",
             desc = "Cat Single Target DPS",
             specIndex = 3,
@@ -228,7 +228,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "bm",
             name = "GSI: BeastMaster",
-            icon = 132212,
+            icon = 461112,
             command = "/gsi equip bm st",
             desc = "Beast Mastery Single Target",
             specIndex = 1,
@@ -246,7 +246,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "mm",
             name = "GSI: Marksman",
-            icon = 132222,
+            icon = 236179,
             command = "/gsi equip mm st",
             desc = "Marksmanship Single Target",
             specIndex = 2,
@@ -264,7 +264,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "surv",
             name = "GSI: Survival",
-            icon = 132223,
+            icon = 461113,
             command = "/gsi equip surv st",
             desc = "Survival Single Target",
             specIndex = 3,
@@ -284,7 +284,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "assa",
             name = "GSI: Assassinate",
-            icon = 132292,
+            icon = 236270,
             command = "/gsi equip assa st",
             desc = "Assassination Single Target",
             specIndex = 1,
@@ -302,7 +302,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "combat_st",
             name = "GSI: Combat ST",
-            icon = 132344,
+            icon = 236286,
             command = "/gsi equip combat st",
             desc = "Combat Single Target",
             specIndex = 2,
@@ -358,7 +358,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "holy",
             name = "GSI: Holy Heal",
-            icon = 135920,
+            icon = 237542,
             command = "/gsi equip holy st",
             desc = "Holy Single Target Healing",
             specIndex = 2,
@@ -414,7 +414,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "enh",
             name = "GSI: Enhancement",
-            icon = 136051,
+            icon = 237581,
             command = "/gsi equip enh st",
             desc = "Enhancement Single Target DPS",
             specIndex = 2,
@@ -452,7 +452,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "arcane",
             name = "GSI: Arcane",
-            icon = 136096,
+            icon = 135932,
             command = "/gsi equip arcane st",
             desc = "Arcane Single Target DPS",
             specIndex = 1,
@@ -470,7 +470,7 @@ local GSI_MACRO_PRESETS = {
         {
             id = "fire",
             name = "GSI: Fire ST",
-            icon = 135812,
+            icon = 135810,
             command = "/gsi equip fire st",
             desc = "Fire Single Target DPS",
             specIndex = 2,
@@ -1771,56 +1771,36 @@ function GSI_UI:GetDualSpecTarget()
 end
 
 local DUAL_SPEC_MACRO = "GSI Dual Spec"
-local DUAL_SPEC_UNKNOWN_ICON = 134400 -- INV_Misc_QuestionMark
-local DUAL_SPEC_OLD_ICON = 136243     -- Trade_Engineering (gear), the macro's first icon
 
-local function ClassSpecIcon(specIndex)
+-- The official icon of the spec the other talent group plays (ClassicData),
+-- nil while that is not known.
+local function DualSpecTargetIcon()
+    local spec = GSI_UI:GetDualSpecTarget()
     local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[PlayerClassKey()]
-    local sd = cd and cd.specs and cd.specs[specIndex]
-    local icon = sd and tonumber(sd.icon)
-    if icon and icon > 0 then return icon end
-    return nil
+    local sd = spec and cd and cd.specs and cd.specs[spec]
+    return sd and sd.icon
 end
 
 function GSI_UI:GetDualSpecIcon()
-    local spec = self:GetDualSpecTarget()
-    return (spec and ClassSpecIcon(spec)) or DUAL_SPEC_UNKNOWN_ICON
-end
-
--- An icon GSI put on the macro; one the player picked stays as it is.
-local function IsGsiDualSpecIcon(icon)
-    if type(icon) == "string" then
-        local l = icon:lower()
-        return l:find("questionmark", 1, true) ~= nil or l:find("trade_engineering", 1, true) ~= nil
-    end
-    icon = tonumber(icon)
-    if not icon then return false end
-    if icon == DUAL_SPEC_UNKNOWN_ICON or icon == DUAL_SPEC_OLD_ICON then return true end
-    local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[PlayerClassKey()]
-    for _, sd in pairs((cd and cd.specs) or {}) do
-        if tonumber(sd.icon) == icon then return true end
-    end
-    return false
+    return DualSpecTargetIcon() or 134400 -- INV_Misc_QuestionMark
 end
 
 -- Points the existing GSI Dual Spec macro at the spec it now switches to
 -- (macros cannot be edited in combat: that waits for the combat to end).
 local dualIconAfterCombat = false
 function GSI_UI:RefreshDualSpecMacroIcon()
-    if not (EditMacro and GetMacroInfo) then return end
-    if InCombatLockdown and InCombatLockdown() then
+    if InCombatLockdown() then
         dualIconAfterCombat = true
         return
     end
     dualIconAfterCombat = false
     local idx = self:FindMacro(DUAL_SPEC_MACRO)
-    if not idx then return end
+    local want = DualSpecTargetIcon()
+    if not (idx and want) then return end
     local name, icon, body = GetMacroInfo(idx)
-    if not name or not IsGsiDualSpecIcon(icon) then return end
-    local spec = self:GetDualSpecTarget()
-    local want = spec and ClassSpecIcon(spec)
-    if not want or tonumber(icon) == want then return end
-    pcall(EditMacro, idx, name, want, body)
+    if icon ~= want then
+        EditMacro(idx, name, want, body)
+    end
 end
 
 do
