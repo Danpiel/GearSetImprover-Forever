@@ -382,12 +382,91 @@ GSI_SetBonus.Sets = {
 
 local _setNameCache = {}
 
+-- ------------------------------------------------------------
+-- Learned sets. The table above is keyed by English and German set names,
+-- so on another client (ruRU) no set was ever found and no bonus counted.
+-- Bonuses not yet active are shown with their piece count, from the client's
+-- own ITEM_SET_BONUS_GRAY ("(%d) Set: %s"; ruRU "Комплект (%d |4предмет:
+-- предмета:предметов;): %s"), so scanning a set item learns each such
+-- threshold's stats; seen with few pieces on, that is the whole set. They
+-- are kept per set name in GearSetImproverDB.learnedSets and used when the
+-- table has no definition. Bonus texts go through the Russian line parser
+-- (EN/DE sets are in the table already); procs are not learned.
+-- ------------------------------------------------------------
+GSI_SetBonus._learnedDefs = {}
+GSI_SetBonus._learnedLinks = {}
+
+local _grayBonusPattern = nil
+local function GrayBonusPattern()
+    if _grayBonusPattern ~= nil then return _grayBonusPattern or nil end
+    local fmt = _G.ITEM_SET_BONUS_GRAY
+    if type(fmt) ~= "string" or not fmt:find("%%d") or not fmt:find("%%s") then
+        _grayBonusPattern = false
+        return nil
+    end
+    local p = fmt:gsub("|4[^;]*;", "\001")            -- plural forms
+    p = p:gsub("%%d", "\002"):gsub("%%s", "\003")
+    p = p:gsub("([%^%$%(%)%%%.%[%]%*%+%-%?])", "%%%1")  -- escape the rest
+    p = p:gsub("\001", ".-"):gsub("\002", "(%%d+)"):gsub("\003", "(.+)")
+    _grayBonusPattern = "^%s*" .. p
+    return _grayBonusPattern
+end
+
+function GSI_SetBonus:LearnSetBonuses(itemLink, setName)
+    if not itemLink or not setName or self.Sets[setName] then return end
+    if self._learnedLinks[itemLink] then return end
+    self._learnedLinks[itemLink] = true
+    local parse = GSI_ItemScore and GSI_ItemScore.ParseRussianLine
+    local lower = GSI_ItemScore and GSI_ItemScore.LowerUTF8
+    local pattern = GrayBonusPattern()
+    if not (parse and lower and pattern and GearSetImproverDB) then return end
+
+    local tip = EnsureSetScanTooltip()
+    tip:ClearLines()
+    local ok = pcall(function() tip:SetHyperlink(itemLink) end)
+    if not ok then return end
+    local learned = nil
+    for i = 1, tip:NumLines() do
+        local fs = _G["GSI_SetScanTooltipTextLeft" .. i]
+        local text = fs and fs:GetText()
+        if text then
+            local k, bonus = text:match(pattern)
+            k = tonumber(k)
+            if k and bonus and bonus:find("[\208\209]") then
+                local stats = {}
+                local okP, found = pcall(parse, lower(bonus), stats, {})
+                if okP and found and next(stats) then
+                    learned = learned or {}
+                    learned[k] = stats
+                end
+            end
+        end
+    end
+    if learned then
+        GearSetImproverDB.learnedSets = GearSetImproverDB.learnedSets or {}
+        local t = GearSetImproverDB.learnedSets[setName] or {}
+        for k, stats in pairs(learned) do t[k] = stats end
+        GearSetImproverDB.learnedSets[setName] = t
+        self._learnedDefs[setName] = nil
+    end
+end
+
 -- Resolves alias names to their canonical set definition
 function GSI_SetBonus:GetSetDefinition(setName)
     if not setName then return nil end
     local def = self.Sets[setName]
     if def and def.alias then
         return self.Sets[def.alias], def.alias
+    end
+    if not def then
+        def = self._learnedDefs[setName]
+        if not def then
+            local learned = GearSetImproverDB and GearSetImproverDB.learnedSets and GearSetImproverDB.learnedSets[setName]
+            if learned and next(learned) then
+                def = { type = "learned", thresholds = learned }
+                self._learnedDefs[setName] = def
+            end
+        end
     end
     return def, setName
 end
@@ -421,6 +500,7 @@ function GSI_SetBonus:GetSetNameFromLink(itemLink)
         end
         if setName and setName ~= "" then
             _setNameCache[itemLink] = setName
+            self:LearnSetBonuses(itemLink, setName)
             return setName
         end
     end
@@ -441,6 +521,7 @@ function GSI_SetBonus:GetSetNameFromLink(itemLink)
                 setName = setName:gsub("^%s+", ""):gsub("%s+$", "")
                 if setName ~= "" then
                     _setNameCache[itemLink] = setName
+                    self:LearnSetBonuses(itemLink, setName)
                     return setName
                 end
             end
@@ -494,10 +575,11 @@ function GSI_SetBonus:EnsureEquippedSetsUpdated()
     end
 end
 
--- Returns the active bonus stats given a table of { [setName] = pieceCount }
--- Takes variable limits (maxEquipped) into account
-function GSI_SetBonus:GetActiveSetBonusStats(setCounts)
-    local totalStats = {}
+-- Returns a list of individual active threshold stat tables given { [setName] = pieceCount }
+-- Evaluating per-threshold preserves multi-tier SpellPower/HealingPower semantics
+-- (e.g. Soulforge 4pc +18 SP/+18 Heal vs 6pc +23 SP; Devout 3pc/6pc vs 8pc +20 Heal).
+function GSI_SetBonus:GetActiveSetBonusThresholds(setCounts)
+    local activeThresholds = {}
     if not setCounts then
         self:EnsureEquippedSetsUpdated()
         setCounts = self._equippedSets
@@ -515,21 +597,72 @@ function GSI_SetBonus:GetActiveSetBonusStats(setCounts)
             if def and def.thresholds then
                 for threshold, stats in pairs(def.thresholds) do
                     if effectiveCount >= threshold then
-                        for stat, val in pairs(stats) do
-                            totalStats[stat] = (totalStats[stat] or 0) + val
-                        end
+                        table.insert(activeThresholds, stats)
                     end
                 end
             end
         end
     end
 
+    return activeThresholds
+end
+
+-- Scores a single set-bonus threshold stat table without SpellPower/HealingPower double-counting
+function GSI_SetBonus:ScoreThresholdStats(thStats, weights, role)
+    if not thStats then return 0 end
+    weights = weights or (GSI_StatWeights and GSI_StatWeights:GetWeights()) or {}
+    role = role or (GSI_StatWeights and GSI_StatWeights.GetRole and GSI_StatWeights:GetRole()) or "dps"
+
+    local thSP = thStats.SpellPower or 0
+    local thHeal = thStats.HealingPower or 0
+    local healToDmgFactor = (GSI_Config and GSI_Config.Rules_v2_2 and GSI_Config.Rules_v2_2.heal_to_damage and GSI_Config.Rules_v2_2.heal_to_damage.factor)
+        or (GSI_Config and GSI_Config.Rules and GSI_Config.Rules.HealToDamageFactor)
+        or (1 / 3)
+    local healerDmgWeight = (GSI_Config and GSI_Config.Rules_v2_2 and GSI_Config.Rules_v2_2.healer_spell_damage_weight)
+        or (GSI_Config and GSI_Config.Rules and GSI_Config.Rules.HealerSpellDamageWeight)
+        or 0
+
+    local score = 0
+    for stat, val in pairs(thStats) do
+        if type(val) == "number" and val > 0 then
+            local w = weights[stat] or 0
+            if stat == "HealingPower" and role ~= "healer" then
+                if thSP > 0 then
+                    w = 0
+                elseif weights.HealingPower == nil and (weights.SpellPower or 0) > 0 then
+                    w = (weights.SpellPower or 0) * healToDmgFactor
+                end
+            elseif stat == "SpellPower" and role == "healer" then
+                if thHeal == 0 then
+                    w = weights.HealingPower or weights.HEAL or 1.0
+                else
+                    w = healerDmgWeight
+                end
+            end
+            score = score + (val * w)
+        end
+    end
+    return score
+end
+
+-- Returns the active bonus stats given a table of { [setName] = pieceCount }
+-- Takes variable limits (maxEquipped) into account
+function GSI_SetBonus:GetActiveSetBonusStats(setCounts)
+    local totalStats = {}
+    local activeThresholds = self:GetActiveSetBonusThresholds(setCounts)
+    for _, stats in ipairs(activeThresholds) do
+        for stat, val in pairs(stats) do
+            totalStats[stat] = (totalStats[stat] or 0) + val
+        end
+    end
+
     return totalStats
 end
 
--- Calculates the total GSI Score contribution of all active set bonuses in a setup
-function GSI_SetBonus:GetActiveSetBonusScore(setup, weights)
+-- Calculates the total GSI Score contribution of all active set bonuses in a setup (per-threshold)
+function GSI_SetBonus:GetActiveSetBonusScore(setup, weights, role)
     weights = weights or (GSI_StatWeights and GSI_StatWeights:GetWeights()) or {}
+    role = role or (GSI_StatWeights and GSI_StatWeights.GetRole and GSI_StatWeights:GetRole()) or "dps"
     local setCounts = {}
 
     if setup then
@@ -549,11 +682,10 @@ function GSI_SetBonus:GetActiveSetBonusScore(setup, weights)
         setCounts = self._equippedSets
     end
 
-    local bonusStats = self:GetActiveSetBonusStats(setCounts)
+    local activeThresholds = self:GetActiveSetBonusThresholds(setCounts)
     local score = 0
-    for stat, val in pairs(bonusStats) do
-        local w = weights[stat] or 0
-        score = score + (val * w)
+    for _, thStats in ipairs(activeThresholds) do
+        score = score + self:ScoreThresholdStats(thStats, weights, role)
     end
 
     return math.floor(score * 100 + 0.5) / 100
@@ -561,11 +693,12 @@ end
 
 -- Returns threshold progression info for an item:
 -- count (excluding the inspected item itself), countWithItem, isItemEquipped, maxEquipped, nextThreshold, nextStats, nextScoreDelta
-function GSI_SetBonus:GetThresholdProgression(itemLink, currentSetup, weights)
+function GSI_SetBonus:GetThresholdProgression(itemLink, currentSetup, weights, role)
     local rawSetName = self:GetSetNameFromLink(itemLink)
     if not rawSetName then return nil end
 
     weights = weights or (GSI_StatWeights and GSI_StatWeights:GetWeights()) or {}
+    role = role or (GSI_StatWeights and GSI_StatWeights.GetRole and GSI_StatWeights:GetRole()) or "dps"
     local def, canonicalName = self:GetSetDefinition(rawSetName)
     local setName = canonicalName or rawSetName
     local maxEq = def and def.maxEquipped
@@ -632,9 +765,7 @@ function GSI_SetBonus:GetThresholdProgression(itemLink, currentSetup, weights)
 
     local nextScoreDelta = 0
     if nextStats then
-        for stat, val in pairs(nextStats) do
-            nextScoreDelta = nextScoreDelta + (val * (weights[stat] or 0))
-        end
+        nextScoreDelta = self:ScoreThresholdStats(nextStats, weights, role)
     end
 
     return {
@@ -650,9 +781,9 @@ function GSI_SetBonus:GetThresholdProgression(itemLink, currentSetup, weights)
 end
 
 -- Single item set bonus evaluator (preview)
-function GSI_SetBonus:GetSetBonusScore(itemLink, weights)
+function GSI_SetBonus:GetSetBonusScore(itemLink, weights, role)
     if not itemLink then return 0 end
-    local prog = self:GetThresholdProgression(itemLink, nil, weights)
+    local prog = self:GetThresholdProgression(itemLink, nil, weights, role)
     if not prog then return 0 end
 
     -- If this set has reached its maximum allowed piece limit (e.g. 1 for crafted tier sets)

@@ -422,6 +422,19 @@ function GSI_UI:ScheduleOptimization(delay, force)
     end
 end
 
+-- Scan results were scored with the weights of that moment. After a spec or
+-- talent change they are stale: the list hides them and the bags are scanned
+-- again while the window is open (a burst of talent events gives one scan, the
+-- timer restarts on each); a closed window scans anyway when it opens.
+function GSI_UI:MarkScanStale()
+    GSI_UI._staleGen = (GSI_UI._staleGen or 0) + 1
+    GSI_UI.scanStale = true
+    local mf = GSI_UI.mainFrame
+    if mf and mf:IsShown() then
+        GSI_UI:ScheduleOptimization(0.5, false)
+    end
+end
+
 function GSI_UI:RunOptimization(onComplete)
     if GSI_UI.isOptimizing then
         GSI_UI.needsReoptimization = true
@@ -451,6 +464,7 @@ function GSI_UI:RunOptimization(onComplete)
         GSI_OptimizationEngine:ResetCache()
     end
 
+    local staleGen = GSI_UI._staleGen or 0
     local ok, err = pcall(function()
         GSI_OptimizationEngine:OptimizeBagGearAsync(nil, function(bestSetup, bestScore, upgrades, totalGain, scanStats)
             GSI_UI.isOptimizing = false
@@ -458,12 +472,21 @@ function GSI_UI:RunOptimization(onComplete)
             GSI_UI.lastUpgrades = upgrades
             GSI_UI.lastTotalGain = totalGain
             GSI_UI.lastScanStats = scanStats
+            -- A scan that started before the last spec / talent change used the
+            -- old weights: it stays stale until the rescan MarkScanStale scheduled.
+            if (GSI_UI._staleGen or 0) == staleGen then
+                GSI_UI.scanStale = false
+            end
 
             if bibFrame then
                 bibFrame.scanned = true
                 bibFrame.upgrades = upgrades
                 bibFrame.totalGain = totalGain
                 bibFrame.scanStats = scanStats
+                -- The chat line belongs to this scan, printed by the next list update
+                bibFrame.announcePending = bibFrame:IsShown() and true or false
+                bibFrame.userRequestedScan = GSI_UI._scanRequestedByUser
+                GSI_UI._scanRequestedByUser = nil
                 if bibFrame:IsShown() then
                     GSI_UI:UpdateBiBList(bibFrame)
                 end
@@ -609,6 +632,7 @@ function GSI_UI:DrawBiB(parent)
                 PlaySound(SOUNDKIT and SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON or 856)
             end
         end)
+        GSI_UI._scanRequestedByUser = true
         GSI_UI:RunOptimization()
     end)
 
@@ -719,9 +743,28 @@ function GSI_UI:UpdateBiBList(parent)
         return
     end
 
+    if GSI_UI.scanStale then
+        if parent.equipAllBtn then parent.equipAllBtn:Hide() end
+        parent.statusText:SetText("|cffffff00Spec / talents changed: rescanning bags with the new weights...|r")
+        for _, r in ipairs(parent.rows or {}) do r:Hide() end
+        return
+    end
+
     local upgrades = parent.upgrades or {}
     local count = 0
     for _ in pairs(upgrades) do count = count + 1 end
+
+    -- Chat line: once per scan (redraws of this tab, e.g. on every talent
+    -- event, used to print the same old result again), and after an automatic
+    -- rescan only when the result differs from the last one printed.
+    local announce = parent.announcePending
+    parent.announcePending = false
+    local summary = string.format("%d:%.1f", count, parent.totalGain or 0)
+    if announce and not parent.userRequestedScan and summary == GSI_UI._lastAnnouncedScan then
+        announce = false
+    end
+    parent.userRequestedScan = nil
+    if announce then GSI_UI._lastAnnouncedScan = summary end
 
     local timeStr = date and date("%H:%M:%S") or ""
     local scanStats = parent.scanStats
@@ -733,11 +776,15 @@ function GSI_UI:UpdateBiBList(parent)
     if count == 0 then
         if parent.equipAllBtn then parent.equipAllBtn:Hide() end
         parent.statusText:SetText(string.format("|cff00ff00Your current gear is already optimal!|r |cff888888[%s%s]|r", timeStr, statsDetail))
-        print(string.format("|cffffcc00[GearSetImprover]|r Gear optimization complete: No upgrades found (gear is optimal)%s.", statsDetail))
+        if announce then
+            print(string.format("|cffffcc00[GearSetImprover]|r Gear optimization complete: No upgrades found (gear is optimal)%s.", statsDetail))
+        end
     else
         if parent.equipAllBtn then parent.equipAllBtn:Show() end
         parent.statusText:SetText(string.format("|cff00ff00%d Upgrade(s) found!|r Total Gain: |cff00ff00+%.1f GSI Score|r |cff888888[%s%s]|r", count, parent.totalGain or 0, timeStr, statsDetail))
-        print(string.format("|cffffcc00[GearSetImprover]|r |cff00ff00%d Upgrade(s)|r found! Total gain: |cff00ff00+%.1f GSI Score|r.", count, parent.totalGain or 0))
+        if announce then
+            print(string.format("|cffffcc00[GearSetImprover]|r |cff00ff00%d Upgrade(s)|r found! Total gain: |cff00ff00+%.1f GSI Score|r.", count, parent.totalGain or 0))
+        end
     end
 
     for _, r in ipairs(parent.rows) do r:Hide() end

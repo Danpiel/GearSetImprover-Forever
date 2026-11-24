@@ -2052,6 +2052,37 @@ function GSI_UpgradeToast:ProcessQueue()
     end
 end
 
+-- The toast on screen and the queued ones were scored with the weights of the
+-- moment the item came in. After a spec change score them again: those that
+-- are no longer upgrades go away, the others come back with the new gain.
+-- (Talents cannot change in combat; the toast's secure button cannot be
+-- hidden there either, so nothing happens in combat.)
+function GSI_UpgradeToast:ReevaluatePending()
+    if IsInCombat() then return end
+    local items = {}
+    if currentToast and not currentToast.isTestToast then
+        items[#items + 1] = currentToast
+    end
+    local keep = {}
+    for _, t in ipairs(toastQueue) do
+        if t.isTestToast then keep[#keep + 1] = t else items[#items + 1] = t end
+    end
+    if #items == 0 then return end
+    for i = #toastQueue, 1, -1 do toastQueue[i] = nil end
+    for i, t in ipairs(keep) do toastQueue[i] = t end
+    if currentToast and not currentToast.isTestToast then
+        self:Dismiss(true)
+    end
+    for _, t in ipairs(items) do
+        if t.itemGUID then recentNotified[t.itemGUID] = nil end
+        if t.itemLink then recentNotified[t.itemLink] = nil end
+        local bag, slot = FindItemInBags(t.itemGUID, t.itemLink, t.idNum)
+        if bag ~= nil and slot ~= nil then
+            self:EvaluateNewItem(t.itemLink, bag, slot, t.itemGUID)
+        end
+    end
+end
+
 -- ------------------------------------------------------------
 -- ASYNCHRONOUS ITEM CACHE HOOK
 -- ------------------------------------------------------------

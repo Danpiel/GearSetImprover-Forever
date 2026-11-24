@@ -629,6 +629,31 @@ function GSI_TooltipHook:ResetCache()
     end
 end
 
+-- An item tooltip that is already open keeps the score lines it was built
+-- with. After a spec or talent change rebuild the open ones from fresh scores:
+-- RefreshData (retail tooltip data) re-runs the item post-call, which appends
+-- the new lines; older tooltips get the same link set again.
+local OPEN_TIP_NAMES = {
+    "GameTooltip", "ShoppingTooltip1", "ShoppingTooltip2",
+    "ItemRefTooltip", "ItemRefShoppingTooltip1", "ItemRefShoppingTooltip2",
+}
+function GSI_TooltipHook:RefreshShownTooltips()
+    self:ResetCache()
+    for _, name in ipairs(OPEN_TIP_NAMES) do
+        local tip = _G[name]
+        if tip and tip.IsShown and tip:IsShown() and tip.GetItem then
+            local okItem, _, link = pcall(tip.GetItem, tip)
+            if okItem and link then
+                if tip.RefreshData then
+                    pcall(tip.RefreshData, tip)
+                elseif tip.SetHyperlink then
+                    pcall(tip.SetHyperlink, tip, link)
+                end
+            end
+        end
+    end
+end
+
 function GSI_TooltipHook.AppendScoreToTooltip(self_or_tip, tip_or_link, link_maybe)
     if link_maybe ~= nil then
         AppendScoreToTooltip(tip_or_link, link_maybe)
@@ -666,7 +691,7 @@ function GSI_TooltipHook:Initialize()
 
     local function HookTip(tip)
         if not tip then return end
-        if tip.HookScript then
+        if tip.HookScript and tip.HasScript and tip:HasScript("OnTooltipSetItem") then
             tip:HookScript("OnTooltipSetItem", function(selfTip)
                 local _, link = selfTip:GetItem()
                 if link then AppendScoreToTooltip(selfTip, link) end

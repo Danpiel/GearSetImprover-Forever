@@ -302,10 +302,45 @@ specMenu:HookScript("OnHide", function()
 end)
 
 local specMenuItems = {}
+
+-- Top row: follow the spec the character plays (talent detection)
+local specAutoItem = CreateFrame("Button", nil, specMenu, BACKDROP_TEMPLATE)
+specAutoItem:SetSize(172, 25)
+specAutoItem:SetPoint("TOP", 0, -4)
+specAutoItem:SetFrameLevel(510)
+specAutoItem:EnableMouse(true)
+specAutoItem:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+SkinButton(specAutoItem, "Auto", "SECONDARY")
+specAutoItem.icon = specAutoItem:CreateTexture(nil, "ARTWORK")
+specAutoItem.icon:SetSize(16, 16)
+specAutoItem.icon:SetPoint("LEFT", specAutoItem, "LEFT", 6, 0)
+specAutoItem.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+specAutoItem.icon:SetTexture(136243) -- Trade_Engineering (gear)
+LayoutSingleLineButtonText(specAutoItem, specAutoItem.icon, "RIGHT", 6, specAutoItem, "RIGHT", -6)
+specAutoItem:SetScript("OnClick", function()
+    specMenu:Hide()
+    closeMenuFrame:Hide()
+    if GSI_StatWeights and GSI_StatWeights.SetSpecAuto then
+        GSI_StatWeights:SetSpecAuto(true)
+    end
+    GSI_UI:UpdateSpecButton()
+    GSI_UI:UpdateModeUI()
+    pcall(function() GSI_UI:UpdateTitleScore() end)
+    GSI_UI:RefreshPanel(true)
+end)
+specAutoItem:SetScript("OnEnter", function(selfBtn)
+    GameTooltip:SetOwner(selfBtn, "ANCHOR_LEFT")
+    GameTooltip:AddLine("Auto: current specialization", 1, 0.82, 0)
+    GameTooltip:AddLine("Scores follow the talent tree you have the most points in and switch by themselves when you respec. Picking a spec below pins it instead.", 1, 1, 1, true)
+    GameTooltip:AddLine("Feral druids: Cat or Bear below sets your feral role and stays on Auto.", 0.7, 0.9, 1, true)
+    GameTooltip:Show()
+end)
+specAutoItem:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
 for i = 1, 4 do
     local btn = CreateFrame("Button", nil, specMenu, BACKDROP_TEMPLATE)
     btn:SetSize(172, 25)
-    btn:SetPoint("TOP", 0, -4 - ((i-1)*27))
+    btn:SetPoint("TOP", 0, -4 - (i*27))
     btn:SetFrameLevel(510)
     btn:EnableMouse(true)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -323,7 +358,9 @@ for i = 1, 4 do
     local specIdx = i
     btn:SetScript("OnClick", function(selfBtn)
         local targetSpec = (selfBtn and selfBtn.specIndex) or specIdx
-        if GearSetImproverDB then
+        if GSI_StatWeights and GSI_StatWeights.ChooseSpec then
+            GSI_StatWeights:ChooseSpec(targetSpec)
+        elseif GearSetImproverDB then
             GearSetImproverDB.selectedSpec = targetSpec
         end
         specMenu:Hide()
@@ -355,7 +392,8 @@ function GSI_UI:UpdateSpecButton()
             iconID = fallbackIcons[class] or 134400
         end
 
-        mainFrame.specBtn:SetText(specName)
+        local isAuto = GSI_StatWeights.IsSpecAuto and GSI_StatWeights:IsSpecAuto()
+        mainFrame.specBtn:SetText(isAuto and ("Auto: " .. specName) or specName)
         LayoutSingleLineButtonText(mainFrame.specBtn, mainFrame.specBtn.icon, "RIGHT", 5, mainFrame.specBtn.arrow, "LEFT", -3)
         if mainFrame.specBtn.icon then
             mainFrame.specBtn.icon:SetTexture(iconID)
@@ -420,15 +458,21 @@ mainFrame.specBtn:SetScript("OnClick", function()
         local class = GetPlayerClassKey()
         local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
         local numSpecs = (class == "DRUID") and 4 or 3
-        specMenu:SetHeight((numSpecs * 27) + 8)
+        specMenu:SetHeight(((numSpecs + 1) * 27) + 8)
 
         local currentSpec = GSI_StatWeights:GetActiveSpecIndex()
+        local isAuto = GSI_StatWeights.IsSpecAuto and GSI_StatWeights:IsSpecAuto()
+        local detected = GSI_StatWeights.DetectCurrentSpec and GSI_StatWeights:DetectCurrentSpec() or currentSpec
+        local detData = classData and classData.specs and classData.specs[detected]
+        local autoLabel = "Auto: " .. ((detData and detData.name) or ("Spec " .. tostring(detected)))
+        specAutoItem:SetText(isAuto and string.format("|cff00ff00%s|r", autoLabel) or autoLabel)
+        LayoutSingleLineButtonText(specAutoItem, specAutoItem.icon, "RIGHT", 6, specAutoItem, "RIGHT", -6)
         for i = 1, 4 do
             if i <= numSpecs then
                 local specData = classData and classData.specs and classData.specs[i]
                 local name = (specData and specData.name) or ("Spec " .. i)
                 local icon = specData and specData.icon or 134400
-                if i == currentSpec then
+                if i == currentSpec and not isAuto then
                     specMenuItems[i]:SetText(string.format("|cff00ff00%s|r", name))
                 else
                     specMenuItems[i]:SetText(name)
@@ -739,6 +783,7 @@ scanBtn:SetScript("OnClick", function(_, mouseBtn)
         mainFrame.tabFrames["BIB"].scanned = false
     end
     GSI_UI:SelectTab("BIB")
+    GSI_UI._scanRequestedByUser = true
     if GSI_UI.RunOptimization then
         GSI_UI:RunOptimization()
     end
@@ -995,10 +1040,31 @@ function GSI_UI:HandleSlashCommand(msg)
         return
     end
 
+    if cmd == "spec" and (tokens[1] == "auto" or tokens[1] == "a") then
+        GSI_StatWeights:SetSpecAuto(true)
+        local spec = GSI_StatWeights:GetActiveSpecIndex()
+        local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[GetPlayerClassKey()]
+        local sd = cd and cd.specs and cd.specs[spec]
+        print(string.format("|cffffcc00[GearSetImprover]|r Specialization: |cff00ff00Auto|r (now |cff00ff00%s|r, follows your talents).", (sd and sd.name) or ("Spec " .. spec)))
+        return
+    end
+
+    if cmd == "set" then
+        if GSI_UI.EquipSpecSet then
+            GSI_UI:EquipSpecSet(GSI_StatWeights:GetActiveSpecIndex(), false, true)
+        end
+        return
+    end
+
+    if cmd == "dump" then
+        self:DebugDump(tokens[1])
+        return
+    end
+
     if cmd == "spec" then
         local targetSpec = ParseSpecAndModeTokens(tokens)
         if targetSpec then
-            GearSetImproverDB.selectedSpec = targetSpec
+            GSI_StatWeights:ChooseSpec(targetSpec)
             if GSI_ItemScore and GSI_ItemScore.ResetCache then GSI_ItemScore:ResetCache() end
             if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then GSI_OptimizationEngine:ResetCache() end
             pcall(function() GSI_UI:UpdateSpecButton() end)
@@ -1011,7 +1077,7 @@ function GSI_UI:HandleSlashCommand(msg)
             local specName = (specData and specData.name) or ("Spec " .. targetSpec)
             print(string.format("|cffffcc00[GearSetImprover]|r Specialization set to |cff00ff00%s|r. Type |cffffcc00/gsi equip|r to equip Best Available Gear.", specName))
         else
-            print("|cffffcc00[GearSetImprover]|r Specify a valid spec: 1-3 (or 1-4 for Druids) or spec name. Example: |cffffcc00/gsi spec bear|r or |cffffcc00/gsi spec cat|r")
+            print("|cffffcc00[GearSetImprover]|r Specify a valid spec: 1-3 (or 1-4 for Druids) or spec name, or |cffffcc00auto|r. Example: |cffffcc00/gsi spec bear|r, |cffffcc00/gsi spec auto|r")
         end
         return
     end
@@ -1043,6 +1109,221 @@ function GSI_UI:HandleSlashCommand(msg)
     end
 
     self:Toggle()
+end
+
+-- ----------------------------------------------------------------------------
+-- /gsi dump: diagnostics for localized clients. Writes what the client
+-- reports for each equipped and bag item (GetItemStats, tooltip lines, what
+-- the parser made of them), the localized stat format strings, the talent /
+-- specialization APIs and the Equipment Manager sets into
+-- GearSetImproverDB._dump, which reaches SavedVariables on /reload or logout.
+-- "/gsi dump clear" removes it again.
+-- ----------------------------------------------------------------------------
+function GSI_UI:DebugDump(arg)
+    if not GearSetImproverDB then return end
+    if arg == "clear" then
+        GearSetImproverDB._dump = nil
+        print("|cffffcc00[GearSetImprover]|r Diagnostics dump removed.")
+        return
+    end
+
+    local d = { time = date and date("%Y-%m-%d %H:%M:%S") or "?" }
+    d.locale = GetLocale and GetLocale() or "?"
+    if GetBuildInfo then d.build = { GetBuildInfo() } end
+    d.addonVersion = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("GearSetImprover", "Version")) or "?"
+
+    -- Localized strings the tooltip lines are built from
+    d.globals = {}
+    local wanted = {
+        ARMOR_TEMPLATE = true, DPS_TEMPLATE = true, DAMAGE_TEMPLATE = true, SHIELD_BLOCK_TEMPLATE = true,
+        ITEM_SET_BONUS = true, ITEM_SET_BONUS_GRAY = true, ITEM_RESIST_SINGLE = true, ITEM_RESIST_ALL = true,
+        ITEM_SOCKET_BONUS = true, ITEM_MIN_LEVEL = true, ITEM_REQ_SKILL = true, DURABILITY_TEMPLATE = true,
+    }
+    pcall(function()
+        for k, v in pairs(_G) do
+            if type(k) == "string" and type(v) == "string"
+               and (wanted[k] or k:find("^ITEM_MOD_") or k:find("^ITEM_SPELL_TRIGGER")) then
+                d.globals[k] = v
+            end
+        end
+    end)
+
+    local function CopyStats(link)
+        local fn = (C_Item and C_Item.GetItemStats) or _G.GetItemStats
+        local out = {}
+        if fn then
+            local ok, t = pcall(fn, link)
+            if ok and type(t) == "table" then
+                for k, v in pairs(t) do out[tostring(k)] = v end
+            end
+        end
+        return out
+    end
+
+    local function TooltipLines(link)
+        local lines = {}
+        if C_TooltipInfo and C_TooltipInfo.GetHyperlink then
+            local ok, data = pcall(C_TooltipInfo.GetHyperlink, link)
+            if ok and type(data) == "table" and type(data.lines) == "table" then
+                for _, l in ipairs(data.lines) do
+                    local left = l.leftText
+                    if type(left) == "string" then
+                        if l.rightText and l.rightText ~= "" then left = left .. "  ||  " .. l.rightText end
+                        lines[#lines + 1] = left
+                    end
+                end
+            end
+        end
+        return lines
+    end
+
+    local function Parsed(link)
+        local out = {}
+        if GSI_ItemScore and GSI_ItemScore.GetParsedStats then
+            local ok, s = pcall(GSI_ItemScore.GetParsedStats, GSI_ItemScore, link)
+            if ok and type(s) == "table" then
+                for k, v in pairs(s) do
+                    if type(v) == "number" and v ~= 0 then out[k] = v
+                    elseif type(v) == "string" then out[k] = v end
+                end
+            end
+        end
+        return out
+    end
+
+    local function AddItem(list, where, link)
+        list[#list + 1] = { where = where, link = link, stats = CopyStats(link), lines = TooltipLines(link), parsed = Parsed(link) }
+    end
+
+    d.items = {}
+    for slot = 1, 19 do
+        local link = GetInventoryItemLink("player", slot)
+        if link then AddItem(d.items, "slot" .. slot, link) end
+    end
+    local getNumSlots = (C_Container and C_Container.GetContainerNumSlots) or _G.GetContainerNumSlots
+    local getLink = (C_Container and C_Container.GetContainerItemLink) or _G.GetContainerItemLink
+    local isEquippable = (C_Item and C_Item.IsEquippableItem) or _G.IsEquippableItem
+    local bagCount = 0
+    if getNumSlots and getLink then
+        for bag = 0, (NUM_BAG_SLOTS or 4) do
+            local ok, n = pcall(getNumSlots, bag)
+            for s = 1, ((ok and type(n) == "number") and n or 0) do
+                local link = getLink(bag, s)
+                if link and bagCount < 40 and (not isEquippable or isEquippable(link)) then
+                    bagCount = bagCount + 1
+                    AddItem(d.items, "bag" .. bag .. ":" .. s, link)
+                end
+            end
+        end
+    end
+
+    -- Talent / specialization APIs
+    local sp = { apis = {} }
+    for _, name in ipairs({ "GetNumTalentTabs", "GetTalentTabInfo", "GetNumTalents", "GetTalentInfo",
+                            "GetSpecialization", "GetSpecializationInfo", "GetNumSpecializations",
+                            "GetActiveTalentGroup", "GetShapeshiftFormID" }) do
+        sp.apis[name] = type(_G[name])
+    end
+    sp.apis.C_SpecializationInfo = type(C_SpecializationInfo)
+    sp.apis.C_ClassTalents = type(C_ClassTalents)
+    sp.apis.C_Traits = type(C_Traits)
+    sp.class = select(2, UnitClass("player"))
+    sp.level = UnitLevel("player")
+    if type(GetNumTalentTabs) == "function" then
+        local ok, n = pcall(GetNumTalentTabs)
+        sp.numTabs = ok and n or "error"
+        sp.tabs = {}
+        for tab = 1, ((ok and type(n) == "number") and n or 0) do
+            local entry = { tabInfo = {} }
+            if type(GetTalentTabInfo) == "function" then
+                local r = { pcall(GetTalentTabInfo, tab) }
+                for i = 2, math.min(#r, 9) do entry.tabInfo[i - 1] = tostring(r[i]) end
+            end
+            local okN, cnt = false, nil
+            if type(GetNumTalents) == "function" then okN, cnt = pcall(GetNumTalents, tab) end
+            entry.numTalents = okN and cnt or "error"
+            entry.ranks = {}
+            for i = 1, ((okN and type(cnt) == "number") and cnt or 0) do
+                local t = { pcall(GetTalentInfo, tab, i) }
+                if t[1] then
+                    entry.ranks[#entry.ranks + 1] = string.format("%s r=%s/%s (t%s c%s)",
+                        tostring(t[2]), tostring(t[6]), tostring(t[7]), tostring(t[4]), tostring(t[5]))
+                end
+            end
+            sp.tabs[tab] = entry
+        end
+    end
+    if type(GetSpecialization) == "function" then
+        local ok, s = pcall(GetSpecialization)
+        sp.specialization = ok and tostring(s) or "error"
+        if ok and s and type(GetSpecializationInfo) == "function" then
+            local r = { pcall(GetSpecializationInfo, s) }
+            sp.specializationInfo = {}
+            for i = 2, math.min(#r, 8) do sp.specializationInfo[i - 1] = tostring(r[i]) end
+        end
+    end
+    if GSI_StatWeights and GSI_StatWeights.TraitGroupPoints then
+        local points, names = GSI_StatWeights.TraitGroupPoints()
+        if points then
+            sp.traitGroups = {}
+            for i, p in ipairs(points) do
+                sp.traitGroups[i] = string.format("%s = %s", tostring(names and names[i]), tostring(p))
+            end
+        else
+            sp.traitGroups = "none"
+        end
+    end
+    if C_SpecializationInfo then
+        local fnNames = {}
+        for k, v in pairs(C_SpecializationInfo) do
+            if type(v) == "function" then fnNames[#fnNames + 1] = k end
+        end
+        table.sort(fnNames)
+        sp.cSpecFunctions = table.concat(fnNames, ", ")
+        if C_SpecializationInfo.GetSpecialization then
+            local ok, s = pcall(C_SpecializationInfo.GetSpecialization)
+            sp.cSpecCurrent = ok and tostring(s) or "error"
+        end
+    end
+    if type(GetNumSpecializations) == "function" then
+        local ok, n = pcall(GetNumSpecializations)
+        sp.numSpecializations = ok and n or "error"
+        local getInfo = (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo) or _G.GetSpecializationInfo
+        if ok and type(n) == "number" and type(getInfo) == "function" then
+            sp.specList = {}
+            for i = 1, n do
+                local r = { pcall(getInfo, i) }
+                local row = {}
+                for j = 2, math.min(#r, 8) do row[j - 1] = tostring(r[j]) end
+                sp.specList[i] = table.concat(row, " | ")
+            end
+        end
+    end
+    if type(GetShapeshiftFormID) == "function" then
+        local ok, f = pcall(GetShapeshiftFormID)
+        sp.shapeshiftFormID = ok and tostring(f) or "error"
+    end
+    if GSI_StatWeights then
+        sp.gsiActiveSpec = GSI_StatWeights:GetActiveSpecIndex()
+        if GSI_StatWeights.DetectCurrentSpec then
+            local s, fromTalents = GSI_StatWeights:DetectCurrentSpec()
+            sp.gsiDetectedSpec = s
+            sp.gsiDetectedFromTalents = fromTalents and true or false
+        end
+        sp.gsiAuto = GSI_StatWeights.IsSpecAuto and GSI_StatWeights:IsSpecAuto() and true or false
+    end
+    d.spec = sp
+
+    -- Equipment Manager sets
+    d.sets = {}
+    if GSI_UI.GetEquipmentSetList then
+        for _, s in ipairs(GSI_UI:GetEquipmentSetList()) do
+            d.sets[#d.sets + 1] = { id = s.id, name = s.name, icon = s.icon, equipped = s.equipped }
+        end
+    end
+
+    GearSetImproverDB._dump = d
+    print(string.format("|cffffcc00[GearSetImprover]|r Diagnostics saved (%d items, locale %s). Type |cffffcc00/reload|r to write them to disk.", #d.items, d.locale))
 end
 
 function GSI_UI:Initialize()

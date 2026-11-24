@@ -69,7 +69,7 @@ function GSI_UI:RegisterBlizzardOptions()
         end)
     end
 
-    local version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("GearSetImprover", "Version")) or (GetAddOnMetadata and GetAddOnMetadata("GearSetImprover", "Version")) or "1.4.1"
+    local version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("GearSetImprover", "Version")) or (GetAddOnMetadata and GetAddOnMetadata("GearSetImprover", "Version")) or "1.4.4"
     local title = content:CreateFontString(nil, "ARTWORK")
     title:SetPoint("TOPLEFT", 16, -16)
     GSI_UI:ApplyFont(title, "TITLE")

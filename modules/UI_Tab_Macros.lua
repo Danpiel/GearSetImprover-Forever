@@ -1172,7 +1172,10 @@ function GSI_UI:PrintSlashHelp()
     print("      |cffffff00/gsi equip prot survival|r or |cffffff00/gsi equip prot threat|r")
     print("      |cffffff00/gsiequip bear survival|r or |cffffff00/gsiequip cat st|r (Druid)")
     print("  |cff00ff00/gsi macros|r - Macro Manager for 1-click Action Bar macros")
-    print("  |cff00ff00/gsi spec <1-3|name>|r - Switch active profile specialization")
+    print("  |cff00ff00/gsi spec <1-3|name>|r - Pin a specialization (scores stop following your talents)")
+    print("  |cff00ff00/gsi spec auto|r - Follow your current talent specialization (default)")
+    print("  |cff00ff00/gsi set|r - Equip the Equipment Set chosen for the current spec (Settings tab)")
+    print("  |cff00ff00/gsi dump|r - Save item/tooltip/spec diagnostics to SavedVariables (then /reload)")
     print("  |cff00ff00/gsi mode <survival|threat|st|aoe>|r - Switch active mode")
     print("  |cff00ff00/gsi toast|r (or |cff00ff00/gsi testtoast|r) - Test on-screen upgrade toast alert")
     print("  |cff00ff00/gsi anchor|r - Toggle movable screen anchor for upgrade toasts")
@@ -1363,7 +1366,12 @@ function GSI_UI:EquipBestInBag(targetSpec, targetMode, onDone, targetPreset)
     end
 
     if targetSpec then
-        GearSetImproverDB.selectedSpec = tonumber(targetSpec)
+        -- Equipping for the spec already detected keeps Auto on; another spec pins it.
+        if GSI_StatWeights.ChooseSpec then
+            GSI_StatWeights:ChooseSpec(tonumber(targetSpec))
+        else
+            GearSetImproverDB.selectedSpec = tonumber(targetSpec)
+        end
     end
     if targetMode then
         if targetMode.type == "tank" then
@@ -1480,3 +1488,126 @@ function GSI_UI:EquipBestInBag(targetSpec, targetMode, onDone, targetPreset)
     end)
 end
 
+-- ---------------------------------------------------------------
+-- Equipment Set per spec
+-- Each character can tie one of its Equipment Manager sets to each spec
+-- (GearSetImproverDB.specSets["Name-Realm"][specIndex] = set name). When the
+-- talent-detected spec changes, that set is put on (queued until combat
+-- ends), unless GearSetImproverDB.specSetAutoEquip is false.
+-- ---------------------------------------------------------------
+
+local function SpecSetCharKey()
+    local name = UnitName and UnitName("player") or "?"
+    local realm = GetRealmName and GetRealmName() or "?"
+    return tostring(name) .. "-" .. tostring(realm)
+end
+
+local function SpecDisplayName(specIndex)
+    local class = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass())
+        or select(2, UnitClass("player")) or "WARRIOR"
+    local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
+    local sd = cd and cd.specs and cd.specs[specIndex]
+    return (sd and sd.name) or ("Spec " .. tostring(specIndex))
+end
+
+function GSI_UI:GetSpecSetName(specIndex)
+    local all = GearSetImproverDB and GearSetImproverDB.specSets
+    local t = all and all[SpecSetCharKey()]
+    return t and t[tonumber(specIndex) or 0] or nil
+end
+
+function GSI_UI:SetSpecSetName(specIndex, setName)
+    specIndex = tonumber(specIndex)
+    if not specIndex then return end
+    if not GearSetImproverDB then GearSetImproverDB = {} end
+    GearSetImproverDB.specSets = GearSetImproverDB.specSets or {}
+    local key = SpecSetCharKey()
+    GearSetImproverDB.specSets[key] = GearSetImproverDB.specSets[key] or {}
+    GearSetImproverDB.specSets[key][specIndex] = (setName and setName ~= "") and setName or nil
+end
+
+function GSI_UI:IsSpecSetAutoEquip()
+    return not (GearSetImproverDB and GearSetImproverDB.specSetAutoEquip == false)
+end
+
+-- The character's Equipment Manager sets: { {id=, name=, icon=, equipped=}, ... }
+function GSI_UI:GetEquipmentSetList()
+    local list = {}
+    if not (C_EquipmentSet and C_EquipmentSet.GetEquipmentSetIDs and C_EquipmentSet.GetEquipmentSetInfo) then
+        return list
+    end
+    local ok, ids = pcall(C_EquipmentSet.GetEquipmentSetIDs)
+    if not ok or type(ids) ~= "table" then return list end
+    for _, id in ipairs(ids) do
+        local okI, name, icon, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, id)
+        if okI and name then
+            list[#list + 1] = { id = id, name = name, icon = icon, equipped = isEquipped and true or false }
+        end
+    end
+    table.sort(list, function(a, b) return a.name < b.name end)
+    return list
+end
+
+local pendingSpecSet = nil
+local specSetRegenFrame = nil
+
+local function WaitForCombatEnd(specIndex)
+    pendingSpecSet = specIndex
+    if not specSetRegenFrame and CreateFrame then
+        specSetRegenFrame = CreateFrame("Frame")
+        specSetRegenFrame:SetScript("OnEvent", function(self)
+            self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+            local spec = pendingSpecSet
+            pendingSpecSet = nil
+            if spec then GSI_UI:EquipSpecSet(spec) end
+        end)
+    end
+    if specSetRegenFrame then
+        specSetRegenFrame:RegisterEvent("PLAYER_REGEN_ENABLED")
+    end
+end
+
+-- Puts on the set tied to specIndex. quiet: no chat line when nothing is tied.
+-- Returns true when the set is on (or was just equipped).
+function GSI_UI:EquipSpecSet(specIndex, quiet, verbose)
+    specIndex = tonumber(specIndex)
+    local setName = specIndex and self:GetSpecSetName(specIndex)
+    if not setName then
+        if not quiet then
+            print(string.format("|cffffcc00[GearSetImprover]|r No Equipment Set chosen for |cff00ff00%s|r. Pick one in the Settings tab.", SpecDisplayName(specIndex)))
+        end
+        return false
+    end
+    if not (C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.UseEquipmentSet) then
+        return false
+    end
+    local setID = C_EquipmentSet.GetEquipmentSetID(setName)
+    if not setID then
+        print(string.format("|cffff4444[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' (for %s) no longer exists.", setName, SpecDisplayName(specIndex)))
+        return false
+    end
+    local okI, _, _, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
+    if okI and isEquipped then
+        if verbose then
+            print(string.format("|cffffcc00[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' is already on.", setName))
+        end
+        return true
+    end
+    if InCombatLockdown and InCombatLockdown() then
+        WaitForCombatEnd(specIndex)
+        print(string.format("|cffffcc00[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' will be equipped when combat ends.", setName))
+        return false
+    end
+    local ok = pcall(C_EquipmentSet.UseEquipmentSet, setID)
+    if ok then
+        print(string.format("|cff00ff00[GearSetImprover]|r Equipped set '|cffffcc00%s|r' for |cff00ff00%s|r.", setName, SpecDisplayName(specIndex)))
+    end
+    return ok
+end
+
+if GSI_StatWeights and GSI_StatWeights.RegisterSpecChangeCallback then
+    GSI_StatWeights:RegisterSpecChangeCallback(function(newSpec)
+        if not GSI_UI:IsSpecSetAutoEquip() then return end
+        GSI_UI:EquipSpecSet(newSpec, true)
+    end)
+end

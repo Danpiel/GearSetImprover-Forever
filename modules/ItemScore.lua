@@ -8,6 +8,7 @@ GSI_ItemScore = {}
 
 local INVSLOT_MAINHAND = _G.INVSLOT_MAINHAND or 16
 local INVSLOT_OFFHAND  = _G.INVSLOT_OFFHAND or 17
+local INVSLOT_RANGED   = _G.INVSLOT_RANGED or 18
 
 local function IsShieldTankSpec(class, specIndex)
     return (class == "WARRIOR" and specIndex == 3) or (class == "PALADIN" and specIndex == 2)
@@ -35,10 +36,64 @@ local SPELL_SCHOOL_STATS = {
     HolySpellPower = true,
 }
 local WEAPON_SKILL_SUBCLASS = {
-    AXE = { [0] = true, [1] = true },
-    SWORD = { [7] = true, [8] = true },
-    MACE = { [4] = true, [5] = true },
-    DAGGER = { [15] = true },
+    AXE      = { [0] = true, [1] = true },
+    BOW      = { [2] = true },
+    GUN      = { [3] = true },
+    MACE     = { [4] = true, [5] = true },
+    POLEARM  = { [6] = true },
+    SWORD    = { [7] = true, [8] = true },
+    STAFF    = { [10] = true },
+    FIST     = { [13] = true },
+    DAGGER   = { [15] = true },
+    THROWN   = { [16] = true },
+    CROSSBOW = { [18] = true },
+    WAND     = { [19] = true },
+}
+local RANGED_WEAPON_SKILL_TYPES = {
+    BOW = true,
+    GUN = true,
+    CROSSBOW = true,
+    THROWN = true,
+    WAND = true,
+}
+
+-- WoW Forever returns internal Level-60 rating values from GetItemStats() while tooltips
+-- display flat percentages/skills; prefer tooltip parsing and use these divisors as fallback.
+local RATING_API_KEYS = {
+    ITEM_MOD_CRIT_RATING_SHORT          = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_CRIT_RATING                = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_CRIT_MELEE_RATING_SHORT    = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_CRIT_MELEE_RATING          = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_CRIT_RANGED_RATING_SHORT   = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_CRIT_RANGED_RATING         = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_CRIT_SPELL_RATING_SHORT    = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_CRIT_SPELL_RATING          = { stat = "Crit",               divisor = 14.0 },
+    ITEM_MOD_HIT_RATING_SHORT           = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HIT_RATING                 = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HIT_MELEE_RATING_SHORT     = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HIT_MELEE_RATING           = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HIT_RANGED_RATING_SHORT    = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HIT_RANGED_RATING          = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HIT_SPELL_RATING_SHORT     = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HIT_SPELL_RATING           = { stat = "Hit",                divisor = 10.0 },
+    ITEM_MOD_HASTE_RATING_SHORT         = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_HASTE_RATING               = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_HASTE_MELEE_RATING_SHORT   = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_HASTE_MELEE_RATING         = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_HASTE_RANGED_RATING_SHORT  = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_HASTE_RANGED_RATING        = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_HASTE_SPELL_RATING_SHORT   = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_HASTE_SPELL_RATING         = { stat = "Haste",              divisor = 10.0 },
+    ITEM_MOD_DODGE_RATING_SHORT         = { stat = "Dodge",              divisor = 12.0 },
+    ITEM_MOD_DODGE_RATING               = { stat = "Dodge",              divisor = 12.0 },
+    ITEM_MOD_PARRY_RATING_SHORT         = { stat = "Parry",              divisor = 15.0 },
+    ITEM_MOD_PARRY_RATING               = { stat = "Parry",              divisor = 15.0 },
+    ITEM_MOD_BLOCK_RATING_SHORT         = { stat = "Block",              divisor = 5.0 },
+    ITEM_MOD_BLOCK_RATING               = { stat = "Block",              divisor = 5.0 },
+    ITEM_MOD_DEFENSE_SKILL_RATING_SHORT = { stat = "Defense",            divisor = 1.5 },
+    ITEM_MOD_DEFENSE_SKILL_RATING       = { stat = "Defense",            divisor = 1.5 },
+    ITEM_MOD_EXPERTISE_RATING_SHORT     = { stat = "AvoidanceReduction", divisor = 10.0 },
+    ITEM_MOD_EXPERTISE_RATING           = { stat = "AvoidanceReduction", divisor = 10.0 },
 }
 
 local ParsedStatsCache = {}
@@ -93,6 +148,183 @@ local function CleanNumber(str)
     return tonumber(str) or 0
 end
 
+-- string.lower only folds ASCII. Fold Cyrillic (UTF-8 D0 90..D0 AF, Ё) and the
+-- German capital umlauts too, so localized tooltip lines can be matched in lower case.
+local UTF8_LOWER = {}
+do
+    local char = string.char
+    for i = 0, 31 do
+        local upper = char(0xD0, 0x90 + i)
+        UTF8_LOWER[upper] = (i < 16) and char(0xD0, 0xB0 + i) or char(0xD1, 0x80 + i - 16)
+    end
+    UTF8_LOWER[char(0xD0, 0x81)] = char(0xD1, 0x91) -- Ё
+    UTF8_LOWER[char(0xC3, 0x84)] = char(0xC3, 0xA4) -- Ä
+    UTF8_LOWER[char(0xC3, 0x96)] = char(0xC3, 0xB6) -- Ö
+    UTF8_LOWER[char(0xC3, 0x9C)] = char(0xC3, 0xBC) -- Ü
+end
+
+local function LowerUTF8(s)
+    s = s:lower()
+    s = s:gsub("\208[\129\144-\175]", UTF8_LOWER)
+    s = s:gsub("\195[\132\150\156]", UTF8_LOWER)
+    return s
+end
+GSI_ItemScore.LowerUTF8 = LowerUTF8
+
+-- ------------------------------------------------------------
+-- Russian tooltip lines (ruRU). The EN/DE scraper below never matches them,
+-- so on a Russian client everything GetItemStats leaves out was lost.
+-- Wording as on the Forever ruRU client, e.g.
+--   "Броня: 85", "+10 к ловкости", "Если на персонаже: +16 к силе атаки.",
+--   "Если на персонаже: повышает вероятность критического удара на 0.5%.",
+--   "Если на персонаже: усиливает творимое исцеление максимум на 11 ед., а урон
+--    от магических эффектов и заклинаний – максимум на 4 ед.",
+--   "Если на персонаже: восстанавливает 4 ед. маны раз в 5 сек."
+-- l is the line folded with LowerUTF8. As in the EN/DE scraper, a stat the
+-- API already reported is not added again. Returns found, universalSpellPower.
+-- ------------------------------------------------------------
+local RU_NUM = "([%d%.,]+)"
+local RU_RESIST = {
+    { "огню", "FireResist" },
+    { "силам природы", "NatureResist" }, { "природ", "NatureResist" },
+    { "магии льда", "FrostResist" }, { "льду", "FrostResist" }, { "холод", "FrostResist" },
+    { "темной магии", "ShadowResist" }, { "тёмной магии", "ShadowResist" }, { "тьме", "ShadowResist" },
+    { "тайной магии", "ArcaneResist" }, { "тайн", "ArcaneResist" },
+}
+local RU_SCHOOL = {
+    { "огн", "FireSpellPower" }, { "льд", "FrostSpellPower" }, { "холод", "FrostSpellPower" },
+    { "темн", "ShadowSpellPower" }, { "тёмн", "ShadowSpellPower" }, { "тьм", "ShadowSpellPower" },
+    { "природ", "NatureSpellPower" }, { "тайн", "ArcaneSpellPower" }, { "свет", "HolySpellPower" },
+}
+
+local function ParseRussianLine(l, stats, apiFound)
+    -- Requirements, durability, set bonuses, on-use effects and procs are not item stats
+    if l:find("требуется") or l:find("прочность") or l:find("классы:") or l:find("^%(%d+%)")
+       or l:find("^комплект") or l:find("использование:") or l:find("при попадании")
+       or l:find("цена продажи") then
+        return false, false
+    end
+
+    local found, universal = false, false
+    local function Add(stat, str)
+        if not str then return end
+        if not apiFound[stat] then
+            stats[stat] = (stats[stat] or 0) + CleanNumber(str)
+        end
+        found = true
+    end
+
+    -- Armor (base armor line or bonus armor; largest value wins as in EN/DE)
+    local arm = l:match("^броня:?%s*" .. RU_NUM) or l:match("%+" .. RU_NUM .. " к броне")
+    if arm then
+        local v = CleanNumber(arm)
+        if v > (stats.Armor or 0) then stats.Armor = v end
+        found = true
+    end
+
+    -- Primary stats ("к силе атаки" is attack power, not strength)
+    Add("Stamina", l:match("%+" .. RU_NUM .. " к выносливости"))
+    Add("Agility", l:match("%+" .. RU_NUM .. " к ловкости"))
+    Add("Intellect", l:match("%+" .. RU_NUM .. " к интеллекту"))
+    Add("Spirit", l:match("%+" .. RU_NUM .. " к духу"))
+    for num, rest in l:gmatch("%+" .. RU_NUM .. " к силе(%S*%s*%S*)") do
+        if not rest:find("^%s*атаки") then Add("Strength", num) end
+    end
+    local all = l:match("%+" .. RU_NUM .. " ко всем характеристикам")
+    if all then
+        for _, k in ipairs({ "Stamina", "Agility", "Strength", "Intellect", "Spirit" }) do Add(k, all) end
+    end
+
+    -- Attack power: ranged, feral forms, plain (versus creature types are situational)
+    if l:find("силе атаки") or l:find("силу атаки") or l:find("сила атаки") then
+        local num = l:match("%+" .. RU_NUM .. " к силе атаки") or l:match("сил%S* атаки.-на " .. RU_NUM)
+        if l:find("дальнего боя") then
+            Add("RangedAttackPower", num)
+        elseif l:find("в облике") then
+            Add("FeralAttackPower", num)
+        elseif not l:find("против") then
+            Add("AttackPower", num)
+        end
+    end
+
+    -- Percent combat stats
+    if l:find("%%") then
+        if l:find("снижает") and (l:find("уклон") or l:find("парир")) then
+            -- Expertise: "снижает вероятность того, что ваши атаки будут парированы / от них уклонятся"
+            Add("AvoidanceReduction", l:match("на " .. RU_NUM .. "%%"))
+        elseif l:find("критическ") then
+            Add("Crit", l:match("критическ.-на " .. RU_NUM .. "%%") or l:match("%+" .. RU_NUM .. "%% к критическ"))
+        elseif l:find("попадани") or l:find("меткост") then
+            Add("Hit", l:match("на " .. RU_NUM .. "%%") or l:match("%+" .. RU_NUM .. "%% к меткости"))
+        elseif l:find("уклон") then
+            Add("Dodge", l:match("на " .. RU_NUM .. "%%"))
+        elseif l:find("парир") then
+            Add("Parry", l:match("на " .. RU_NUM .. "%%"))
+        elseif l:find("блок") and not l:find("показател") then
+            Add("Block", l:match("на " .. RU_NUM .. "%%"))
+        elseif l:find("скорость") and not l:find("передвиж") and not l:find("бега") and not l:find("сек") then
+            Add("Haste", l:match("скорость.-на " .. RU_NUM .. "%%"))
+        end
+    end
+
+    -- Defense skill, block value, weapon skill
+    Add("Defense", l:match("навык%S* защиты.-на " .. RU_NUM) or l:match("%+" .. RU_NUM .. " к защите"))
+    Add("BlockValue", l:match("показател%S* блокировани.-на " .. RU_NUM)
+        or l:match("%+" .. RU_NUM .. " к показателю блокирования") or l:match("^блок:?%s*" .. RU_NUM))
+    local ws = l:match("навык%S* владения.-на " .. RU_NUM)
+    if ws then
+        Add("WeaponSkill", ws)
+        if l:find("топор") then stats.WeaponSkillType = "AXE"
+        elseif l:find("меч") then stats.WeaponSkillType = "SWORD"
+        elseif l:find("кинжал") then stats.WeaponSkillType = "DAGGER"
+        elseif l:find("дробящ") or l:find("булав") then stats.WeaponSkillType = "MACE"
+        else stats.WeaponSkillType = "ALL" end
+    end
+
+    -- Spell power family
+    local sp = l:match("урон и силу исцеления.-максимум на " .. RU_NUM)
+    if sp then
+        Add("SpellPower", sp)
+        universal = true
+    else
+        Add("HealingPower", l:match("исцеление максимум на " .. RU_NUM) or l:match("%+" .. RU_NUM .. " к силе исцеления"))
+        local dmg = l:match("урон от магических эффектов и заклинаний.-максимум на " .. RU_NUM)
+            or l:match("%+" .. RU_NUM .. " к силе заклинаний")
+        if dmg then
+            Add("SpellPower", dmg)
+        elseif l:find("урон") and l:find("максимум на") and not l:find("исцелен") then
+            local v = l:match("максимум на " .. RU_NUM)
+            for _, s in ipairs(RU_SCHOOL) do
+                if l:find(s[1]) then
+                    stats[s[2]] = (stats[s[2]] or 0) + CleanNumber(v)
+                    found = true
+                    break
+                end
+            end
+        end
+    end
+    Add("SpellPenetration", l:match("сопротивлени.-целей.-на " .. RU_NUM))
+
+    -- Regeneration
+    Add("MP5", l:match(RU_NUM .. " ед%. маны раз в 5 сек") or l:match(RU_NUM .. " маны в 5 сек"))
+    Add("HP5", l:match(RU_NUM .. " ед%. здоровья раз в 5 сек") or l:match(RU_NUM .. " здоровья в 5 сек"))
+
+    -- Resistances
+    local rv, rest = l:match("%+" .. RU_NUM .. " к сопротивлению (.*)")
+    if not rv then rest, rv = l:match("сопротивлени%S* (.-) на " .. RU_NUM) end
+    if rv and rest then
+        if rest:find("всем") then
+            for _, k in ipairs({ "FireResist", "NatureResist", "FrostResist", "ShadowResist", "ArcaneResist" }) do Add(k, rv) end
+        else
+            for _, r in ipairs(RU_RESIST) do
+                if rest:find(r[1]) then Add(r[2], rv) break end
+            end
+        end
+    end
+
+    return found, universal
+end
+GSI_ItemScore.ParseRussianLine = ParseRussianLine
 -- Checks if an item is currently equipped by the player (prevents cap double-addition)
 local function IsItemCurrentlyEquipped(itemLink, targetSlotID)
     local itemID = ExtractItemID(itemLink)
@@ -142,22 +374,39 @@ function GSI_ItemScore:GetWeaponInfo(itemLink)
     local dps = 0
     local speed = 2.0
 
-    for i = 1, _scanTooltip:NumLines() do
-        local line = GetTooltipLine(_scanTooltip, i)
-        if line and line:find("%d") then
-            local dpsStr = line:match("%(([%d,%.]+)%s*[Ss]chaden pro [Ss]ekunde%)")
-                        or line:match("%(([%d,%.]+)%s*damage per second%)")
-                        or line:match("%(([%d,%.]+)%s*[Dd][Pp][Ss]%)")
-                        or line:match("([%d,%.]+)%s*[Dd][Pp][Ss]")
-            if dpsStr and dps == 0 then
-                dps = CleanNumber(dpsStr)
-            end
+    -- DPS straight from the API (locale-independent); the tooltip is the fallback
+    local apiStats = GetItemStatsFn and GetItemStatsFn(itemLink)
+    local apiDps = apiStats and (apiStats.ITEM_MOD_DAMAGE_PER_SECOND_SHORT or apiStats.ITEM_MOD_DAMAGE_PER_SECOND)
+    if type(apiDps) == "number" and apiDps > 0 then
+        dps = apiDps
+    end
 
-            local spdStr = line:match("[Gg]eschwindigkeit%s+([%d,%.]+)")
-                        or line:match("[Tt]empo%s+([%d,%.]+)")
-                        or line:match("[Ss]peed%s+([%d,%.]+)")
-            if spdStr then
-                speed = CleanNumber(spdStr)
+    -- The speed sits in the right-hand text of the damage line ("Speed 3.60",
+    -- ruRU "Скорость 3,60"), which the left-only scan never saw: read both.
+    local tipName = _scanTooltip:GetName()
+    for i = 1, _scanTooltip:NumLines() do
+        local left = GetTooltipLine(_scanTooltip, i)
+        local rightObj = _G[tipName .. "TextRight" .. i]
+        local right = rightObj and rightObj:IsShown() and rightObj:GetText() or nil
+        for _, line in ipairs({ left or "", right or "" }) do
+            if line:find("%d") then
+                local dpsStr = line:match("%(([%d,%.]+)%s*[Ss]chaden pro [Ss]ekunde%)")
+                            or line:match("%(([%d,%.]+)%s*damage per second%)")
+                            or line:match("%(([%d,%.]+)%s*ед%.%s*урона в секунду%)")
+                            or line:match("%(([%d,%.]+)%s*[Dd][Pp][Ss]%)")
+                            or line:match("([%d,%.]+)%s*[Dd][Pp][Ss]")
+                if dpsStr and dps == 0 then
+                    dps = CleanNumber(dpsStr)
+                end
+
+                local spdStr = line:match("[Gg]eschwindigkeit%s+([%d,%.]+)")
+                            or line:match("[Tt]empo%s+([%d,%.]+)")
+                            or line:match("[Ss]peed%s+([%d,%.]+)")
+                            or line:match("Скорость%s+([%d,%.]+)")
+                            or line:match("скорость%s+([%d,%.]+)")
+                if spdStr then
+                    speed = CleanNumber(spdStr)
+                end
             end
         end
     end
@@ -192,18 +441,29 @@ function GSI_ItemScore:GetParsedStats(itemLink)
     local foundAnyStat = false
     local hasUniversalSP = false
     local apiFoundStats = {}
+    local apiRatingFallback = {}
 
     -- 1. Base stats from WoW API (when supported by client)
+    -- Rating keys (Crit, Hit, Haste, Dodge, Parry, Block, Defense, Expertise) return internal
+    -- Level-60 ratings rather than tooltip flat percentages, so defer them as converted fallback
+    -- and let the tooltip parser read the authoritative flat values first.
     local apiStats = GetItemStatsFn and GetItemStatsFn(itemLink)
     if apiStats then
         for apiKey, value in pairs(apiStats) do
-            local mapped = GSI_Config.StatMap[apiKey]
-            if mapped and stats[mapped] ~= nil and value and value > 0 then
-                stats[mapped] = stats[mapped] + value
-                apiFoundStats[mapped] = true
-                foundAnyStat = true
-                if apiKey == "ITEM_MOD_SPELL_POWER" or apiKey == "ITEM_MOD_SPELL_POWER_SHORT" then
-                    hasUniversalSP = true
+            if value and value > 0 then
+                local ratingCfg = RATING_API_KEYS[apiKey]
+                if ratingCfg then
+                    apiRatingFallback[ratingCfg.stat] = (apiRatingFallback[ratingCfg.stat] or 0) + (value / ratingCfg.divisor)
+                else
+                    local mapped = GSI_Config.StatMap[apiKey]
+                    if mapped and stats[mapped] ~= nil then
+                        stats[mapped] = stats[mapped] + value
+                        apiFoundStats[mapped] = true
+                        foundAnyStat = true
+                        if apiKey == "ITEM_MOD_SPELL_POWER" or apiKey == "ITEM_MOD_SPELL_POWER_SHORT" then
+                            hasUniversalSP = true
+                        end
+                    end
                 end
             end
         end
@@ -219,10 +479,16 @@ function GSI_ItemScore:GetParsedStats(itemLink)
         for i = 1, numLines do
             local line = GetTooltipLine(_scanTooltip, i)
             -- Skip digit-free lines immediately to cut regex work
-            if line and line:find("%d") then
-                local l = line:lower()
+            if line and line:find("%d") and line:find("[\208\209]") then
+                -- Cyrillic line: Russian client
+                local found, universal = ParseRussianLine(LowerUTF8(line), stats, apiFoundStats)
+                if found then foundAnyStat = true end
+                if universal then hasUniversalSP = true end
+            elseif line and line:find("%d") then
+                local l = line:lower():gsub("Ä", "ä"):gsub("Ö", "ö"):gsub("Ü", "ü")
                 if not l:find("haltbarkeit") and not l:find("durability")
                    and not l:match("^%(%d+%)%s*set:") and not l:match("^set:")
+                   and not l:match("^verzaubert:") and not l:match("^enchanted:")
                 then
                     -- Armor vs Armor Penetration (never parse "ignore X armor" into defensive Armor)
                     if not l:find("ignor") and not l:find("penetration") and not l:find("durchschlag")
@@ -339,8 +605,10 @@ function GSI_ItemScore:GetParsedStats(itemLink)
 
                     -- Defense
                     local defStr = l:match("verteidigung.*um%s+([%d%.,]+)")
+                                or l:match("verteidigung%s*%+%s*([%d%.,]+)")
                                 or l:match("%+?%s*([%d%.,]+)%s+verteidigung")
                                 or l:match("defense.*by%s+([%d%.,]+)")
+                                or l:match("defense%s*%+%s*([%d%.,]+)")
                                 or l:match("%+?%s*([%d%.,]+)%s+defense")
                     if defStr then
                         local v = CleanNumber(defStr)
@@ -356,6 +624,7 @@ function GSI_ItemScore:GetParsedStats(itemLink)
                     then
                         local dgeStr = l:match("auszuweichen.*um%s+([%d%.,]+)%%")
                                     or l:match("ausweichen.*um%s+([%d%.,]+)%%")
+                                    or l:match("ausweich.*um%s+([%d%.,]+)%%")
                                     or l:match("%+?%s*([%d%.,]+)%%%s+ausweichen")
                                     or l:match("dodge.*by%s+([%d%.,]+)%%")
                                     or l:match("%+?%s*([%d%.,]+)%%%s+dodge")
@@ -373,6 +642,7 @@ function GSI_ItemScore:GetParsedStats(itemLink)
                        and not l:find("parried") and not l:find("pariert")
                     then
                         local parStr = l:match("parieren.*um%s+([%d%.,]+)%%")
+                                    or l:match("parier.*um%s+([%d%.,]+)%%")
                                     or l:match("%+?%s*([%d%.,]+)%%%s+parieren")
                                     or l:match("parry.*by%s+([%d%.,]+)%%")
                                     or l:match("%+?%s*([%d%.,]+)%%%s+parry")
@@ -504,7 +774,9 @@ function GSI_ItemScore:GetParsedStats(itemLink)
                                 or l:match("attack power in cat.*by%s+([%d%.,]+)")
                                 or l:match("%+?%s*([%d%.,]+)%s+attack power in cat")
                     if fapStr then
-                        stats.FeralAttackPower = stats.FeralAttackPower + CleanNumber(fapStr)
+                        if not apiFoundStats.FeralAttackPower then
+                            stats.FeralAttackPower = stats.FeralAttackPower + CleanNumber(fapStr)
+                        end
                         foundAnyStat = true
                     end
 
@@ -531,6 +803,13 @@ function GSI_ItemScore:GetParsedStats(itemLink)
                     if not l:find("%%") and not l:find("requires") and not l:find("benötigt") and not l:find("erfordert")
                        and not l:find("riding") and not l:find("reiten") and not l:find("fishing") and not l:find("angeln")
                        and not l:find("defense") and not l:find("verteidigung")
+                       and not l:find("skinning") and not l:find("kürschner") and not l:find("mining") and not l:find("bergbau")
+                       and not l:find("herbalism") and not l:find("kräuterkunde") and not l:find("engineering") and not l:find("ingenieurs")
+                       and not l:find("lockpicking") and not l:find("schlossknacken") and not l:find("blacksmith") and not l:find("schmiede")
+                       and not l:find("alchemy") and not l:find("alchimie") and not l:find("enchanting") and not l:find("verzauber")
+                       and not l:find("tailoring") and not l:find("schneider") and not l:find("leatherwork") and not l:find("leder")
+                       and not l:find("cooking") and not l:find("koch") and not l:find("first aid") and not l:find("erste hilfe")
+                       and not l:find("stealth") and not l:find("verstohlenheit") and not l:find("disarm") and not l:find("entwaffn")
                     then
                         local wsStr = l:match("waffenfertigkeit.*um%s+([%d%.,]+)")
                                    or l:match("%+?%s*([%d%.,]+)%s+waffenfertigkeit")
@@ -543,12 +822,45 @@ function GSI_ItemScore:GetParsedStats(itemLink)
                                    or l:match("skill with .*by%s+([%d%.,]+)")
                                    or l:match("%+?%s*([%d%.,]+)%s+[a-z]+%s+skill")
                                    or l:match("expertise.*by%s+([%d%.,]+)")
+                        if not wsStr and (l:find("increased ") or l:find("erhöht ")) then
+                            if l:find("crossbow") or l:find("bow") or l:find("gun") or l:find("thrown") or l:find("wand")
+                               or l:find("fist") or l:find("polearm") or l:find("staff") or l:find("staves")
+                               or l:find("axe") or l:find("sword") or l:find("dagger") or l:find("mace")
+                               or l:find("armbrust") or l:find("armbrüste") or l:find("bogen") or l:find("bögen")
+                               or l:find("schusswaffe") or l:find("gewehr") or l:find("wurfwaffe")
+                               or l:find("zauberstab") or l:find("zauberstäbe")
+                               or l:find("faustwaffe") or l:find("stangenwaffe") or l:find("stab") or l:find("stäbe")
+                               or l:find("axt") or l:find("äxte") or l:find("schwert") or l:find("dolch")
+                               or l:find("streitkolben") or l:find("kolben")
+                            then
+                                wsStr = l:match("increased%s+[a-z%-%s]+%+%s*([%d%.,]+)")
+                                     or l:match("erhöht%s+[a-zäöüß%-%s]+%+%s*([%d%.,]+)")
+                            end
+                        end
                         if wsStr then
                             local v = CleanNumber(wsStr)
                             if not apiFoundStats.WeaponSkill then
                                 stats.WeaponSkill = stats.WeaponSkill + v
                             end
-                            if l:find("axt") or l:find("äxte") or l:find("axe") then
+                            -- Specific weapon types MUST be checked before general "waffenfertigkeit"
+                            -- (e.g. "schusswaffenfertigkeit" / "faustwaffenfertigkeit" contain "waffenfertigkeit")
+                            if l:find("armbrust") or l:find("armbrüste") or l:find("crossbow") then
+                                stats.WeaponSkillType = "CROSSBOW"
+                            elseif l:find("bogen") or l:find("bögen") or l:find("bow") then
+                                stats.WeaponSkillType = "BOW"
+                            elseif l:find("schusswaffe") or l:find("gewehr") or l:find("gun") then
+                                stats.WeaponSkillType = "GUN"
+                            elseif l:find("wurfwaffe") or l:find("thrown") then
+                                stats.WeaponSkillType = "THROWN"
+                            elseif l:find("zauberstab") or l:find("zauberstäbe") or l:find("wand") then
+                                stats.WeaponSkillType = "WAND"
+                            elseif l:find("faustwaffe") or l:find("fist") then
+                                stats.WeaponSkillType = "FIST"
+                            elseif l:find("stangenwaffe") or l:find("polearm") then
+                                stats.WeaponSkillType = "POLEARM"
+                            elseif l:find("stab") or l:find("stäbe") or l:find("staff") or l:find("staves") then
+                                stats.WeaponSkillType = "STAFF"
+                            elseif l:find("axt") or l:find("äxte") or l:find("axe") then
                                 stats.WeaponSkillType = "AXE"
                             elseif l:find("schwert") or l:find("schwerter") or l:find("sword") then
                                 stats.WeaponSkillType = "SWORD"
@@ -556,8 +868,13 @@ function GSI_ItemScore:GetParsedStats(itemLink)
                                 stats.WeaponSkillType = "DAGGER"
                             elseif l:find("streitkolben") or l:find("kolben") or l:find("mace") then
                                 stats.WeaponSkillType = "MACE"
-                            else
+                            elseif l:find("waffenfertigkeit") or l:find("weapon skill")
+                                or l:find("waffenkunde") or l:find("expertise")
+                                or l:find("alle waffen") or l:find("all weapon")
+                            then
                                 stats.WeaponSkillType = "ALL"
+                            else
+                                stats.WeaponSkillType = "UNKNOWN"
                             end
                             foundAnyStat = true
                         end
@@ -598,52 +915,97 @@ function GSI_ItemScore:GetParsedStats(itemLink)
                         foundAnyStat = true
                     end
 
-                    -- Spell Power (universal "Increases spell power" / "damage and healing" OR pure spell damage)
-                    local spStr = l:match("magische zauber und effekte.*um bis zu%s+([%d%.,]+)")
-                               or l:match("zauber und magische effekte.*um bis zu%s+([%d%.,]+)")
-                               or l:match("zauberschaden und heilung um bis zu%s+([%d%.,]+)")
-                               or l:match("zauberschaden um bis zu%s+([%d%.,]+)")
-                               or l:match("zaubermacht.*um%s+([%d%.,]+)")
-                               or l:match("%+?%s*([%d%.,]+)%s+zaubermacht")
-                               or l:match("damage and healing done by magical spells.*by up to%s+([%d%.,]+)")
-                               or l:match("increases spell power by%s+([%d%.,]+)")
-                               or l:match("spell power.*by%s+([%d%.,]+)")
-                               or l:match("%+?%s*([%d%.,]+)%s+spell power")
-                               or l:match("damage done by magical spells.*by up to%s+([%d%.,]+)")
-                               or l:match("damage done by up to%s+([%d%.,]+).*magical spells")
-                    if spStr then
-                        local v = CleanNumber(spStr)
-                        if not apiFoundStats.SpellPower then
-                            stats.SpellPower = stats.SpellPower + v
+                    -- Spell Power & Healing Power (handle dual-value lines first, then universal SP, pure SP, pure Heal)
+                    local matchedDualSPHeal = false
+                    local dualHealStr, dualDmgStr = l:match("heilung[^%d]*um bis zu%s+([%d%.,]+).-schaden[^%d]*um bis zu%s+([%d%.,]+)")
+                    if not dualHealStr then
+                        dualDmgStr, dualHealStr = l:match("schaden[^%d]*um bis zu%s+([%d%.,]+).-heilung[^%d]*um bis zu%s+([%d%.,]+)")
+                    end
+                    if not dualHealStr then
+                        dualHealStr, dualDmgStr = l:match("healing done[^%d]*by up to%s+([%d%.,]+).-damage done[^%d]*by up to%s+([%d%.,]+)")
+                    end
+                    if not dualHealStr then
+                        dualDmgStr, dualHealStr = l:match("damage done[^%d]*by up to%s+([%d%.,]+).-healing done[^%d]*by up to%s+([%d%.,]+)")
+                    end
+                    if not dualHealStr then
+                        dualHealStr, dualDmgStr = l:match("increases healing[^%d]*by up to%s+([%d%.,]+).-damage[^%d]*by up to%s+([%d%.,]+)")
+                    end
+                    if not dualHealStr then
+                        dualDmgStr, dualHealStr = l:match("increases damage[^%d]*by up to%s+([%d%.,]+).-healing[^%d]*by up to%s+([%d%.,]+)")
+                    end
+
+                    if dualHealStr and dualDmgStr then
+                        local hv = CleanNumber(dualHealStr)
+                        local dv = CleanNumber(dualDmgStr)
+                        if not apiFoundStats.HealingPower then
+                            stats.HealingPower = stats.HealingPower + hv
                         end
-                        if l:find("spell power") or l:find("zaubermacht")
-                           or l:find("damage and healing") or l:find("schaden und heilung")
-                           or (l:find("magische zauber und effekte") and l:find("heilung"))
-                           or (l:find("zauber und magische effekte") and l:find("heilung"))
-                        then
+                        if not apiFoundStats.SpellPower then
+                            stats.SpellPower = stats.SpellPower + dv
+                        end
+                        if dv > 0 and dv == hv then
                             hasUniversalSP = true
                         end
+                        matchedDualSPHeal = true
                         foundAnyStat = true
                     end
 
-                    -- Pure Healing Power (exclude universal "damage and healing" lines)
-                    if not l:find("damage and healing") and not l:find("schaden und heilung") then
-                        local healStr = l:match("heilzauber erzielte heilung um bis zu%s+([%d%.,]+)")
-                                     or l:match("erzielte heilung um bis zu%s+([%d%.,]+)")
-                                     or l:match("verursachte heilung um bis zu%s+([%d%.,]+)")
-                                     or l:match("gewirkte heilung um bis zu%s+([%d%.,]+)")
-                                     or l:match("%+?%s*([%d%.,]+)%s+heilung")
-                                     or l:match("healing done by spells.*by up to%s+([%d%.,]+)")
-                                     or l:match("healing done by up to%s+([%d%.,]+)")
-                                     or l:match("increases healing.*by up to%s+([%d%.,]+)")
-                                     or l:match("increases healing.*by%s+([%d%.,]+)")
-                                     or l:match("%+?%s*([%d%.,]+)%s+healing spells")
-                        if healStr then
-                            local v = CleanNumber(healStr)
-                            if not apiFoundStats.HealingPower then
-                                stats.HealingPower = stats.HealingPower + v
+                    if not matchedDualSPHeal then
+                        -- Universal Spell Power ("Increases spell power" / "damage and healing") OR pure spell damage.
+                        -- Pure German healing lines without "schaden" must NEVER parse into SpellPower or set hasUniversalSP.
+                        local isUniversalLine = false
+                        local spStr = l:match("schaden und [^%d]*heilung um bis zu%s+([%d%.,]+)")
+                                   or l:match("heilung und [^%d]*schaden um bis zu%s+([%d%.,]+)")
+                                   or l:match("zauberschaden und heilung um bis zu%s+([%d%.,]+)")
+                                   or l:match("zaubermacht.*um%s+([%d%.,]+)")
+                                   or l:match("%+?%s*([%d%.,]+)%s+zaubermacht")
+                                   or l:match("damage and healing done by magical spells.*by up to%s+([%d%.,]+)")
+                                   or l:match("increases spell power by%s+([%d%.,]+)")
+                                   or l:match("spell power.*by%s+([%d%.,]+)")
+                                   or l:match("%+?%s*([%d%.,]+)%s+spell power")
+                        if spStr then
+                            isUniversalLine = true
+                        else
+                            spStr = l:match("magische zauber und effekte.*schaden.*um bis zu%s+([%d%.,]+)")
+                                 or l:match("zauber und magische effekte.*schaden.*um bis zu%s+([%d%.,]+)")
+                                 or l:match("^zauberschaden um bis zu%s+([%d%.,]+)")
+                                 or l:match("[^a-zäöüß]zauberschaden um bis zu%s+([%d%.,]+)")
+                                 or l:match("damage done by magical spells.*by up to%s+([%d%.,]+)")
+                                 or l:match("damage done by up to%s+([%d%.,]+).*magical spells")
+                        end
+                        if spStr then
+                            local v = CleanNumber(spStr)
+                            if not apiFoundStats.SpellPower then
+                                stats.SpellPower = stats.SpellPower + v
+                            end
+                            if isUniversalLine then
+                                hasUniversalSP = true
                             end
                             foundAnyStat = true
+                        end
+
+                        -- Pure Healing Power (exclude universal "damage and healing" / "spell power" lines)
+                        if not isUniversalLine and not l:find("damage and healing") and not l:find("schaden und heilung")
+                           and not l:find("heilung und schaden") and not l:find("spell power") and not l:find("zaubermacht")
+                        then
+                            local healStr = l:match("heilzauber erzielte heilung um bis zu%s+([%d%.,]+)")
+                                         or l:match("erzielte heilung um bis zu%s+([%d%.,]+)")
+                                         or l:match("verursachte heilung um bis zu%s+([%d%.,]+)")
+                                         or l:match("gewirkte heilung um bis zu%s+([%d%.,]+)")
+                                         or (not l:find("schaden") and l:match("heilung[^%d]*um bis zu%s+([%d%.,]+)"))
+                                         or l:match("%+?%s*([%d%.,]+)%s+heilung")
+                                         or l:match("healing done by spells[^%d]*by up to%s+([%d%.,]+)")
+                                         or l:match("healing done by up to%s+([%d%.,]+)")
+                                         or l:match("increases healing[^%d]*by up to%s+([%d%.,]+)")
+                                         or l:match("increases healing[^%d]*by%s+([%d%.,]+)")
+                                         or l:match("%+?%s*([%d%.,]+)%s+healing spells")
+                            if healStr then
+                                local v = CleanNumber(healStr)
+                                if not apiFoundStats.HealingPower then
+                                    stats.HealingPower = stats.HealingPower + v
+                                end
+                                foundAnyStat = true
+                            end
                         end
                     end
 
@@ -765,21 +1127,29 @@ function GSI_ItemScore:GetParsedStats(itemLink)
 
                     -- Resistances
                     local fr = l:match("%+?%s*([%d%.,]+)%s+feuerwiderstand") or l:match("%+?%s*([%d%.,]+)%s+fire resistance")
-                    if fr then stats.FireResist = stats.FireResist + CleanNumber(fr); foundAnyStat = true end
+                    if fr then if not apiFoundStats.FireResist then stats.FireResist = stats.FireResist + CleanNumber(fr) end; foundAnyStat = true end
 
                     local nr = l:match("%+?%s*([%d%.,]+)%s+naturwiderstand") or l:match("%+?%s*([%d%.,]+)%s+nature resistance")
-                    if nr then stats.NatureResist = stats.NatureResist + CleanNumber(nr); foundAnyStat = true end
+                    if nr then if not apiFoundStats.NatureResist then stats.NatureResist = stats.NatureResist + CleanNumber(nr) end; foundAnyStat = true end
 
                     local frost = l:match("%+?%s*([%d%.,]+)%s+frostwiderstand") or l:match("%+?%s*([%d%.,]+)%s+frost resistance")
-                    if frost then stats.FrostResist = stats.FrostResist + CleanNumber(frost); foundAnyStat = true end
+                    if frost then if not apiFoundStats.FrostResist then stats.FrostResist = stats.FrostResist + CleanNumber(frost) end; foundAnyStat = true end
 
                     local sr = l:match("%+?%s*([%d%.,]+)%s+schattenwiderstand") or l:match("%+?%s*([%d%.,]+)%s+shadow resistance")
-                    if sr then stats.ShadowResist = stats.ShadowResist + CleanNumber(sr); foundAnyStat = true end
+                    if sr then if not apiFoundStats.ShadowResist then stats.ShadowResist = stats.ShadowResist + CleanNumber(sr) end; foundAnyStat = true end
 
                     local ar = l:match("%+?%s*([%d%.,]+)%s+arkanwiderstand") or l:match("%+?%s*([%d%.,]+)%s+arcane resistance")
-                    if ar then stats.ArcaneResist = stats.ArcaneResist + CleanNumber(ar); foundAnyStat = true end
+                    if ar then if not apiFoundStats.ArcaneResist then stats.ArcaneResist = stats.ArcaneResist + CleanNumber(ar) end; foundAnyStat = true end
                 end
             end
+        end
+    end
+
+    -- Apply converted rating API fallback only when tooltip parsing did not already find the stat
+    for statKey, convertedVal in pairs(apiRatingFallback) do
+        if (stats[statKey] or 0) == 0 and convertedVal > 0 then
+            stats[statKey] = math.floor(convertedVal * 100 + 0.5) / 100
+            foundAnyStat = true
         end
     end
 
@@ -850,7 +1220,7 @@ function GSI_ItemScore:GetEquippedGearTotals()
                     if type(s.Hit) == "number" then totals.Hit = totals.Hit + s.Hit end
                     if type(s.Defense) == "number" then totals.Defense = totals.Defense + s.Defense end
                     if type(s.AvoidanceReduction) == "number" then totals.AvoidanceReduction = totals.AvoidanceReduction + s.AvoidanceReduction end
-                    if type(s.WeaponSkill) == "number" then totals.WeaponSkill = totals.WeaponSkill + s.WeaponSkill end
+                    if type(s.WeaponSkill) == "number" and s.WeaponSkillType ~= "UNKNOWN" then totals.WeaponSkill = totals.WeaponSkill + s.WeaponSkill end
                 end
             end
         end
@@ -970,16 +1340,16 @@ local function GetEffectiveCurrentHit(self, class, specIndex, role, usesSpellHit
                 apiHit = GetSafeNumber(rawRangedHit, nil)
             end
         end
-        if apiHit ~= nil and CR_HIT_RANGED and type(GetCombatRatingBonus) == "function" then
-            local ok, crBonus = pcall(GetCombatRatingBonus, CR_HIT_RANGED)
-            if ok then
-                apiHit = apiHit + GetSafeNumber(crBonus, 0)
-            end
-        end
         if apiHit == nil and type(GetHitModifier) == "function" then
             local ok, rawHit = pcall(GetHitModifier)
             if ok then
                 apiHit = GetSafeNumber(rawHit, nil)
+            end
+        end
+        if apiHit ~= nil and CR_HIT_RANGED and type(GetCombatRatingBonus) == "function" then
+            local ok, crBonus = pcall(GetCombatRatingBonus, CR_HIT_RANGED)
+            if ok then
+                apiHit = apiHit + GetSafeNumber(crBonus, 0)
             end
         end
     else
@@ -1013,7 +1383,10 @@ local function GetEffectiveCurrentHit(self, class, specIndex, role, usesSpellHit
         if GSI_TalentIntegration.GetClassHitTalentBonus then
             local tHit = GetSafeNumber(GSI_TalentIntegration:GetClassHitTalentBonus(class, specIndex), 0)
             if tHit > 0 then
-                if class == "ROGUE" or class == "HUNTER" or class == "PALADIN" then
+                if class == "SHAMAN" then
+                    -- Tidal Focus grants universal Hit for both Melee (Enhancement) and Spell (Elemental/Resto)
+                    universalTalentHit = tHit
+                elseif class == "ROGUE" or class == "HUNTER" or class == "PALADIN" then
                     if not usesSpellHit then
                         universalTalentHit = tHit
                     end
@@ -1057,9 +1430,9 @@ local function GetEffectiveCurrentHit(self, class, specIndex, role, usesSpellHit
                     local r = GSI_TalentIntegration:GetTalentRankByPattern("heilige präzision") or GSI_TalentIntegration:GetTalentRankByPattern("holy precision") or 0
                     schoolTalentHit = math.min(r, 3) * 6.0
                 end
-            elseif class == "SHAMAN" and usesSpellHit then
+            elseif class == "SHAMAN" then
                 local r = GSI_TalentIntegration:GetTalentRankByPattern("gezeitenfokus") or GSI_TalentIntegration:GetTalentRankByPattern("tidal focus") or 0
-                schoolTalentHit = math.min(r, 5) * 1.0
+                universalTalentHit = math.min(r, 5) * 1.0
             elseif class == "DRUID" and specIndex == 1 and usesSpellHit then
                 local r = GSI_TalentIntegration:GetTalentRankByPattern("reichweite der natur") or GSI_TalentIntegration:GetTalentRankByPattern("nature's reach") or 0
                 schoolTalentHit = math.min(r, 2) * 2.0
@@ -1084,7 +1457,7 @@ local function EstimateLinearSlotScore(self, itemLink, slotID, class, specIndex,
         local wInfo = self:GetWeaponInfo(itemLink)
         local dps = wInfo and wInfo.dps or 0
         if class == "DRUID" and (specIndex == 2 or specIndex == 3) then
-            sc = sc + dps * (weights.WeaponDamage or (specIndex == 3 and 8.30 or 1.80))
+            sc = sc + dps * (weights.WeaponDamage or (specIndex == 3 and 8.30 or 1.35))
         else
             local dpsWeight = weights.WeaponDamage or GSI_Config.WeaponDPSWeight or 14.0
             if (equipLoc == "INVTYPE_WEAPONOFFHAND" or slotID == INVSLOT_OFFHAND) and weights.WeaponDamageOH then
@@ -1095,15 +1468,27 @@ local function EstimateLinearSlotScore(self, itemLink, slotID, class, specIndex,
     end
     local st = self:GetParsedStats(itemLink)
     if st then
+        local healToDmgFactor = (GSI_Config and GSI_Config.Rules_v2_2 and GSI_Config.Rules_v2_2.heal_to_damage and GSI_Config.Rules_v2_2.heal_to_damage.factor)
+            or (GSI_Config and GSI_Config.Rules and GSI_Config.Rules.HealToDamageFactor)
+            or (1 / 3)
+        local healerDmgWeight = (GSI_Config and GSI_Config.Rules_v2_2 and GSI_Config.Rules_v2_2.healer_spell_damage_weight)
+            or (GSI_Config and GSI_Config.Rules and GSI_Config.Rules.HealerSpellDamageWeight)
+            or 0
         for stat, val in pairs(st) do
             if stat ~= "WeaponSkillType" and type(val) == "number" and val > 0 then
                 local w = weights[stat] or 0
-                if stat == "SpellPower" and role == "healer" then
+                if stat == "HealingPower" and role ~= "healer" then
+                    if (st.SpellPower or 0) > 0 then
+                        w = 0
+                    elseif weights.HealingPower == nil and (weights.SpellPower or 0) > 0 then
+                        w = (weights.SpellPower or 0) * healToDmgFactor
+                    end
+                elseif stat == "SpellPower" and role == "healer" then
                     local meta = ParsedStatsMetaCache[itemLink]
                     if meta and meta.universalSP and (st.HealingPower or 0) == 0 then
                         w = weights.HealingPower or weights.HEAL or 1.0
                     else
-                        w = 0
+                        w = healerDmgWeight
                     end
                 end
                 sc = sc + (val * w)
@@ -1298,7 +1683,7 @@ function GSI_ItemScore:Calculate(itemLink, overrideSpecIndex, overrideWeights, o
         local isOffHand = (equipLoc == "INVTYPE_WEAPONOFFHAND" or targetSlotID == INVSLOT_OFFHAND)
 
         if class == "DRUID" and (specIndex == 2 or specIndex == 3) then
-            local dpsWeight = weights.WeaponDamage or (specIndex == 3 and 8.30 or 1.80)
+            local dpsWeight = weights.WeaponDamage or (specIndex == 3 and 8.30 or 1.35)
             score = score + (dps * dpsWeight)
         else
             local wSpeed = wInfo and wInfo.speed
@@ -1391,7 +1776,11 @@ function GSI_ItemScore:Calculate(itemLink, overrideSpecIndex, overrideWeights, o
 
             -- Special rule: Heal-to-Damage (1/3) for non-healers vs Healer Spell Power routing
             if stat == "HealingPower" and role ~= "healer" then
-                if weights.HealingPower == nil and (weights.SpellPower or 0) > 0 then
+                if (stats.SpellPower or 0) > 0 then
+                    -- Never double-count HealingPower on items that already carry SpellPower
+                    -- (covers both universal SP==Heal and Forever dual-heal items like +16 Heal / +6 Dmg)
+                    w = 0
+                elseif weights.HealingPower == nil and (weights.SpellPower or 0) > 0 then
                     w = (weights.SpellPower or 0) * healToDmgFactor
                 end
             elseif stat == "SpellPower" and role == "healer" then
@@ -1411,18 +1800,52 @@ function GSI_ItemScore:Calculate(itemLink, overrideSpecIndex, overrideWeights, o
                 end
             end
 
-            -- Weapon Skill matching against currently equipped Main Hand weapon subclass
+            -- Weapon Skill matching against evaluated weapon itself or currently equipped weapon subclass (Ranged for ranged skills, MH/OH for melee)
             if stat == "WeaponSkill" and stats.WeaponSkillType and stats.WeaponSkillType ~= "ALL" then
-                local mhLink = GetInventoryItemLink("player", INVSLOT_MAINHAND)
+                local subMap = WEAPON_SKILL_SUBCLASS[stats.WeaponSkillType]
                 local matchesWpn = false
-                if mhLink then
-                    local _, _, _, _, _, _, _, _, _, _, _, mhClassID, mhSubClassID = GetItemInfo(mhLink)
-                    local subMap = WEAPON_SKILL_SUBCLASS[stats.WeaponSkillType]
-                    if mhClassID == 2 and subMap and subMap[mhSubClassID] then
+                if subMap then
+                    if wClassID == 2 and wSubClassID and subMap[wSubClassID] then
                         matchesWpn = true
+                    elseif RANGED_WEAPON_SKILL_TYPES[stats.WeaponSkillType] then
+                        local rLink = GetInventoryItemLink("player", INVSLOT_RANGED)
+                        if rLink then
+                            local _, _, _, _, _, _, _, _, _, _, _, rClassID, rSubClassID = GetItemInfo(rLink)
+                            if not rClassID then
+                                _, _, _, _, _, rClassID, rSubClassID = GetItemInfoInstant(rLink)
+                            end
+                            if rClassID == 2 and subMap[rSubClassID] then
+                                matchesWpn = true
+                            end
+                        elseif class == "HUNTER" then
+                            matchesWpn = true
+                        end
+                    else
+                        local mhLink = GetInventoryItemLink("player", INVSLOT_MAINHAND)
+                        local ohLink = GetInventoryItemLink("player", INVSLOT_OFFHAND)
+                        if mhLink or ohLink then
+                            if mhLink then
+                                local _, _, _, _, _, _, _, _, _, _, _, mhClassID, mhSubClassID = GetItemInfo(mhLink)
+                                if not mhClassID then
+                                    _, _, _, _, _, mhClassID, mhSubClassID = GetItemInfoInstant(mhLink)
+                                end
+                                if mhClassID == 2 and subMap[mhSubClassID] then
+                                    matchesWpn = true
+                                end
+                            end
+                            if not matchesWpn and ohLink then
+                                local _, _, _, _, _, _, _, _, _, _, _, ohClassID, ohSubClassID = GetItemInfo(ohLink)
+                                if not ohClassID then
+                                    _, _, _, _, _, ohClassID, ohSubClassID = GetItemInfoInstant(ohLink)
+                                end
+                                if ohClassID == 2 and subMap[ohSubClassID] then
+                                    matchesWpn = true
+                                end
+                            end
+                        else
+                            matchesWpn = true
+                        end
                     end
-                else
-                    matchesWpn = true
                 end
                 if not matchesWpn then
                     w = 0
@@ -1445,8 +1868,8 @@ function GSI_ItemScore:Calculate(itemLink, overrideSpecIndex, overrideWeights, o
                 end
                 score = score + fScore
 
-            -- Marginal Weapon Skill calculation (Soft-Cap 305/308)
-            elseif stat == "WeaponSkill" and caps and caps.WEAPON_SKILL then
+            -- Marginal Weapon Skill calculation (Soft-Cap 305/308; skip when w == 0 for non-matching weapon types)
+            elseif stat == "WeaponSkill" and w > 0 and caps and caps.WEAPON_SKILL then
                 local wpnCap = caps.WEAPON_SKILL.cap_total_pct or caps.WEAPON_SKILL.cap_total or 308
                 local raceSkill = 0
                 if GSI_RaceBonus and GSI_RaceBonus.GetWeaponSkillBonus then
@@ -1635,7 +2058,7 @@ function GSI_ItemScore:Calculate(itemLink, overrideSpecIndex, overrideWeights, o
         score = score + (GSI_EnchantBonus:GetEnchantScore(itemLink, specIndex, overrideMode) or 0)
     end
     score = score + (GSI_SocketBonus:GetSocketScore(itemLink) or 0)
-    score = score + (GSI_SetBonus:GetSetBonusScore(itemLink, weights) or 0)
+    score = score + (GSI_SetBonus:GetSetBonusScore(itemLink, weights, role) or 0)
 
     -- 5. Overrides (Procs, On-Use & Situational effects; guard against flat-stat double counting)
     if GSI_Overrides and GSI_Overrides.GetOverride then

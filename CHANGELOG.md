@@ -1,4 +1,64 @@
-﻿# GearSetImprover Forever v1.4.1
+﻿# GearSetImprover Forever v1.4.4
+
+### Forever Auto-Spec, Per-Spec Equipment Sets, Live Rescoring & Russian (`ruRU`) Client Support
+
+*Thanks to **Danpiel** for the community contributions integrated into this release.*
+
+* **Automatic WoW Forever Spec Detection (`StatWeights.lua`, `UI.lua`, `UI_Tab_Macros.lua`):**
+  - Reads active WoW Forever talent trees via `C_ClassTalents` / `C_Traits` trait groups (`C_Traits.GetGroupDisplayInfoByTreeID`, `C_Traits.GetGroupCurrencyInfo`) instead of relying on single-spec `C_SpecializationInfo`, picking the tree with the most points spent.
+  - Added **Auto** mode to the header spec dropdown (`Auto: <Spec>`) and `/gsi spec auto` (default), keeping Feral Druid Cat/Bear role selection in Auto mode and guarding against transient login/talent-reload states (`traitTreesSeen`).
+* **Equipment Set per Specialization (`UI_Tab_Settings.lua`, `UI_Tab_Macros.lua`, `UI.lua`):**
+  - Added a **Specialization & Equipment Set per Spec** section in the Settings tab to bind a Blizzard Equipment Manager set to each specialization (stored per character).
+  - Automatically equips the bound set when the detected specialization changes (queued until combat ends if needed, toggleable in Settings), or manually via `/gsi set`.
+* **Live Rescoring & Chat-Spam Fix (`GearSetImprover.lua`, `TooltipHook.lua`, `UI_Tab_BiB.lua`, `UI_Tab_Overview.lua`, `UpgradeToast.lua`):**
+  - Open item tooltips (`RefreshShownTooltips`), shown/queued upgrade toasts (`ReevaluatePending`), and Best in Bag results (`MarkScanStale`) now rescore automatically on spec and talent changes.
+  - Deduplicated `"Upgrade(s) found"` chat output so it prints once per scan, and only when results change after automatic rescans.
+* **Weapon DPS/Speed, API Stat Mappings, Russian (`ruRU`) Client Support & Diagnostics (`ItemScore.lua`, `Config.lua`, `SetBonus.lua`, `UI.lua`):**
+  - Weapon DPS now reads directly from `GetItemStats` (`ITEM_MOD_DAMAGE_PER_SECOND*`) with tooltip fallback, and weapon speed scans both left and right tooltip columns (`TextRight`) across all locales.
+  - Added `RESISTANCE0_NAME` (`Armor`), `RESISTANCE2..6_NAME` (Resistances), `ITEM_MOD_FERAL_ATTACK_POWER*`, and `ITEM_MOD_EXPERTISE_RATING*` (`AvoidanceReduction`) to `GSI_Config.StatMap`, with double-count guards in EN/DE parsing.
+  - Added Cyrillic UTF-8 tooltip parsing (`ParseRussianLine` / `LowerUTF8`) and automatic tooltip-based set bonus learning (`GearSetImproverDB.learnedSets`) for clients whose set names are not in the EN/DE table (`ruRU`).
+  - Added `/gsi dump` (and `/gsi dump clear`) to save item/tooltip/spec diagnostics to `GearSetImproverDB._dump`.
+
+---
+
+# GearSetImprover Forever v1.4.3
+
+### Cross-Class Rating Fix, Tank & Caster Audit
+
+* **Critical Rating-vs-Percent API Fix (`ItemScore.lua`, `Config.lua`):**
+  - Fixed `C_Item.GetItemStats()` returning internal Level-60 combat ratings (e.g., `14` rating per `1%` Crit) for `ITEM_MOD_*_RATING*` stats instead of flat percentages, which previously inflated Crit, Hit, Haste, Dodge, Parry, Block, and Defense scores and broke hit caps across all 9 classes.
+  - Tooltip flat percentages now take priority, with Level-60 converted API fallbacks (`Crit /14`, `Hit /10`, `Haste /10`, `Dodge /12`, `Parry /15`, `Block /5`, `Defense /1.5`, `Expertise /10`; Armor Penetration remains flat).
+  - Added `ITEM_MOD_POWER_REGEN0_SHORT` MP5 mapping to `GSI_Config.StatMap`.
+* **Caster, Hybrid & Healer Scoring & Per-Threshold Set Bonuses (`ItemScore.lua`, `SetBonus.lua`, `OptimizationEngine.lua`, `EnchantBonus.lua`, `Profiles_v2_2.lua`, `Config.lua`):**
+  - Fixed +33% / +88% `SpellPower` + `HealingPower` double-counting for non-healers on universal spell power items and Forever dual-stat healing items.
+  - Fixed German pure-healing (`Heilung um bis zu X`) and school-damage (`Schattenzauberschaden`) tooltip parsing so pure healing never leaks into `SpellPower` or `hasUniversalSP` and school damage is not double-counted; added symmetric English reversed dual-stat damage/healing patterns.
+  - Switched set bonus `SpellPower`/`HealingPower` scoring to per-threshold evaluation in `SetBonus.lua` and `OptimizationEngine.lua`, fixing +100% healer and +33% non-healer set bonus double-counting without breaking multi-threshold sets (e.g., *Soulforge*, *Devout*).
+  - Zeroed out Priest healer `HOLY`/`SHADOW` damage weights (`priester_heilig`, `priester_disziplin`, ST & AoE) to match `healer_spell_damage_weight = 0`.
+  - Extended healer universal spell power routing in `EnchantBonus.lua` to ZG/Naxxramas enchants (`2587`, `2588`, `2589`, `2605`, `2721`).
+* **Cross-Class Weight, Cap & AoE Calibration (`Profiles_v2_2.lua`, `Config.lua`, `TalentIntegration.lua`, `ItemScore.lua`, `OptimizationEngine.lua`):**
+  - Closed the `TertiaryWeights.Spirit = 0.2` leak (`Spirit = 0.0` fallback + explicit `SPI` across all 56 profiles and `Config.DefaultWeights`).
+  - Calibrated Feral Bear Survival/Threat (`AGI`, `WEAPON_DPS_MH = 1.35 / 5.50`, `SPELL_DMG/NATURE = 0.00`), Protection Warrior (`WEAPON_DPS_MH = 1.15 / 4.20`, `AP/ARP`, corrected Shield Slam / Devastate notes), and Protection Paladin (`WEAPON_DPS_MH = 1.05`, `INT/MP5/AP/WEAPON_SKILL/ARP`) stats and caps (`DEFENSE`, `AVOID_RED`, `WEAPON_SKILL`).
+  - Added missing `ARP` weights and missing `WEAPON_SKILL` (`305/308` ST, `305` AoE) and `AVOID_RED` (`5.6%` ST, `4.5%` AoE) caps across all physical ST & AoE profiles, zeroed Cat `INT`/`SPI`, and fixed AoE primary-stat inversions (Rogue, Hunter, Feral Cat, Enhancement Shaman, Retribution Paladin).
+  - Updated WoW Forever Feral Druid talent rules (`Thick Hide -> Defense`, `Natural Reaction -> Dodge`, `Blood Frenzy -> Crit`).
+* **Tooltip Parser & Engine Parity (`ItemScore.lua`, `OptimizationEngine.lua`):**
+  - Excluded `Enchanted:` / `Verzaubert:` lines from base tooltip stat parsing so enchants respect `ignoreEnchants` and never double-count with `EnchantBonus.lua`.
+  - Normalized UTF-8 German uppercase umlauts (`Ä/Ö/Ü`) and expanded DE/EN Dodge, Parry, Defense (`Increased Defense +X`), and Weapon Skill parsing (including `WAND`/`Zauberstäbe`, `CROSSBOW`/`Armbrüste`, `THROWN`/`Wurfwaffen`, profession skill exclusion, and self-weapon skill matching such as *Maladath*).
+  - Aligned Shaman `Tidal Focus` hit detection in `ItemScore.lua` and `GetBaselineCapStats` (`UnitDefenseSkill`, `GetRangedHitModifier`, `CR_HIT_*`, Caster `SpellHitCap` guard) in `OptimizationEngine.lua`.
+
+---
+
+# GearSetImprover Forever v1.4.2
+
+### TooltipHook Login Error Hotfix
+
+* **Fixed `Module TooltipHook error` on Login (`TooltipHook.lua`):**
+  - Guarded legacy `OnTooltipSetItem` script hooking in `HookTip()` with `tip.HasScript and tip:HasScript("OnTooltipSetItem")`.
+  - Prevents `bad argument #2 to '?' (Usage: self:HookScript(...))` on the WoW Forever client, which uses `TooltipDataProcessor` and does not expose `OnTooltipSetItem` on `GameTooltip`.
+  - Ensures `GSI_TooltipHook:Initialize()` completes cleanly so `SetHyperlink` hooks, profile/equipment/talent cache invalidation hooks, and the tooltip cache event frame are always registered.
+
+---
+
+# GearSetImprover Forever v1.4.1
 
 ### Shield-Tank Weapon Rule Fix (Protection Warrior & Protection Paladin)
 
@@ -76,7 +136,7 @@ il silently without raising a Lua error in pcall(). Previously, if ok and not Cu
   - Added asynchronous equipment verification (ScheduleEquipVerification): Toasts are only marked dismissed and closed **after** WoW confirms the item is actually equipped (IsToastItemEquipped), never prematurely on the click frame.
 - **Instant Auto-Dismiss on Manual Equip & ItemGUID Tracking (UpgradeToast.lua)**:
   - Tracks persistent ItemGUID (C_Item.GetItemGUID / C_Container.GetContainerItemInfo) alongside GetInventoryItemID across PLAYER_EQUIPMENT_CHANGED, EQUIPMENT_SWAP_FINISHED, UNIT_INVENTORY_CHANGED, and BAG_UPDATE_DELAYED. Immune to WoW 12.1 hyperlink mutations (creator GUIDs) and duplicate ring/weapon itemIDs.
-  - Added equippedSnapshot / recentlyUnequipped swap-back guard so previously worn items moving into bags never trigger false upgrade toasts, and auto-dismisses ghost toasts if an item is sold, banked, or destroyed.
+  - Added equippedSnapshot / ecentlyUnequipped swap-back guard so previously worn items moving into bags never trigger false upgrade toasts, and auto-dismisses ghost toasts if an item is sold, banked, or destroyed.
   - /gsi toast (/gsi testtoast) now automatically displays any real upgrade currently in the player's bags before falling back to the Thunderfury demo.
 # GearSetImprover Forever v1.3.7
 

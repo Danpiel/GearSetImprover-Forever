@@ -97,6 +97,7 @@ function GSI_UI:DrawOverview(parent)
             if PlaySound and SOUNDKIT then PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON) end
             if def.id == "UPGRADE" then
                 GSI_UI:SelectTab("BIB")
+                GSI_UI._scanRequestedByUser = true
                 if GSI_UI.RunOptimization then GSI_UI:RunOptimization() end
             else
                 GSI_UI:SelectTab("GEAR")

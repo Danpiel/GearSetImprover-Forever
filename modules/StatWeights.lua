@@ -65,61 +65,357 @@ local function ResolveSafeNumber(val)
     return val
 end
 
--- Determines the active specialization index (1..3, or 1..4 for Druid)
-function GSI_StatWeights:GetActiveSpecIndex()
-    -- 1. Manual DB selection takes priority if set
-    if GearSetImproverDB and GearSetImproverDB.selectedSpec then
-        return tonumber(GearSetImproverDB.selectedSpec) or 1
-    end
+-- ------------------------------------------------------------
+-- Specialization: by default the spec the character actually plays,
+-- read from its talents. A manual pick (dropdown, /gsi spec, an equip
+-- macro for another spec) switches to manual mode until "Auto" is
+-- picked again (GearSetImproverDB.specAuto == false means manual).
+--
+-- Talents cannot tell a Cat from a Bear: for the Feral tree the druid's
+-- feral role (GearSetImproverDB.feralSpec, 2 Bear / 3 Cat, default Cat)
+-- decides, and picking Bear or Cat while auto-detected as Feral only
+-- changes that role and stays in auto mode.
+-- ------------------------------------------------------------
 
-    -- 2. Automatic detection via invested talent points
-    local bestTab = nil
-    local maxPoints = 0
-    if type(GetNumTalentTabs) == "function" and type(GetTalentTabInfo) == "function" then
-        local ok, numTabs = pcall(GetNumTalentTabs)
-        if ok and type(numTabs) == "number" and numTabs > 0 then
-            for tab = 1, numTabs do
-                local ok2, _, _, pointsSpent = pcall(GetTalentTabInfo, tab)
-                if ok2 and type(pointsSpent) == "number" and pointsSpent > maxPoints then
-                    maxPoints = pointsSpent
-                    bestTab = tab
+-- WoW Forever has one specialization per class (C_SpecializationInfo always
+-- answers 1) and no talent-tab API: the class's three vanilla trees are trait
+-- groups of the active config's single trait tree, in tree order by orderIndex,
+-- and the points spent in each come from the group currency (the same reading
+-- as EllesmereUI's Forever talent window and dual spec block).
+-- Returns points ({ [treeIndex] = points }), names, state: "ok", "notready" (no
+-- active config yet, e.g. at login) or "nogroups" (a client without these trees).
+local function ByOrderIndex(a, b) return (a.orderIndex or 0) < (b.orderIndex or 0) end
+local function TraitGroupPoints()
+    if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo
+            and C_Traits.GetGroupDisplayInfoByTreeID and C_Traits.GetGroupCurrencyInfo) then
+        return nil
+    end
+    local configID = C_ClassTalents.GetActiveConfigID()
+    local config = configID and C_Traits.GetConfigInfo(configID)
+    local treeID = config and config.treeIDs and config.treeIDs[1]
+    if not treeID then return nil, nil, "notready" end
+    local groups = C_Traits.GetGroupDisplayInfoByTreeID(treeID)
+    if type(groups) ~= "table" or #groups == 0 then return nil, nil, "nogroups" end
+    table.sort(groups, ByOrderIndex)
+    local ids, names = {}, {}
+    for i, g in ipairs(groups) do
+        ids[i] = g.groupID
+        names[i] = g.displayName
+    end
+    local spent = {}
+    for _, g in ipairs(C_Traits.GetGroupCurrencyInfo(configID, ids) or {}) do
+        local c = g.currencyInfos and g.currencyInfos[1]
+        if c and g.traitNodeGroupID then spent[g.traitNodeGroupID] = c.spent or 0 end
+    end
+    local points = {}
+    for i, id in ipairs(ids) do points[i] = spent[id] or 0 end
+    return points, names, "ok"
+end
+local traitTreesSeen = false
+GSI_StatWeights.TraitGroupPoints = function()
+    local ok, points, names, state = pcall(TraitGroupPoints)
+    if not ok then return nil, nil, "notready" end
+    -- Once the trees have been read, an empty answer means they are being
+    -- reloaded (e.g. while a talent is learned), not a client without them:
+    -- it must not fall through to the specialization API, whose spec 1 would
+    -- look like a respec to Balance and swap the gear set.
+    if state == "ok" then
+        traitTreesSeen = true
+    elseif state == "nogroups" and traitTreesSeen then
+        state = "notready"
+    end
+    return points, names, state
+end
+
+local function TalentPointsPerTab()
+    if type(GetNumTalentTabs) ~= "function" then
+        local points = GSI_StatWeights.TraitGroupPoints()
+        if not points then return nil end
+        local total = 0
+        for _, p in ipairs(points) do total = total + (tonumber(p) or 0) end
+        if total == 0 then return nil end
+        return points
+    end
+    local ok, numTabs = pcall(GetNumTalentTabs)
+    if not ok or type(numTabs) ~= "number" or numTabs < 1 then return nil end
+    local points, total = {}, 0
+    for tab = 1, numTabs do
+        local sum = 0
+        -- Sum the ranks (5th return of GetTalentInfo, as TalentIntegration reads it)
+        if type(GetNumTalents) == "function" and type(GetTalentInfo) == "function" then
+            local okN, n = pcall(GetNumTalents, tab)
+            if okN and type(n) == "number" then
+                for i = 1, n do
+                    local okT, _, _, _, _, rank = pcall(GetTalentInfo, tab, i)
+                    if okT and type(rank) == "number" and rank > 0 then sum = sum + rank end
                 end
             end
         end
-    end
-
-    local class = GetPlayerClass()
-
-    if bestTab then
-        if class == "DRUID" then
-            if bestTab == 1 then return 1     -- Balance
-            elseif bestTab == 3 then return 4 -- Restoration
-            elseif bestTab == 2 then
-                -- Feral Combat tab defaults to Feral Bear (2)
-                return 2
+        -- Fallback: pointsSpent from GetTalentTabInfo. Old clients return it
+        -- 3rd (name, icon, points), Wrath-style ones 5th (id, name, desc, icon, points).
+        if sum == 0 and type(GetTalentTabInfo) == "function" then
+            local r = { pcall(GetTalentTabInfo, tab) }
+            if r[1] then
+                local v = (type(r[6]) == "number" and r[6]) or (type(r[4]) == "number" and r[4]) or 0
+                if v > 0 then sum = v end
             end
         end
-        return bestTab
+        points[tab] = sum
+        total = total + sum
+    end
+    if total == 0 then return nil end
+    return points
+end
+
+function GSI_StatWeights:IsSpecAuto()
+    return not (GearSetImproverDB and GearSetImproverDB.specAuto == false)
+end
+
+function GSI_StatWeights:GetFeralSpec()
+    local v = GearSetImproverDB and tonumber(GearSetImproverDB.feralSpec)
+    if v == 2 or v == 3 then return v end
+    return 3
+end
+
+-- Which talent tree holds the most points (nil when none are spent).
+-- On a tie the previously detected tree wins, so spending points evenly
+-- does not flip the spec back and forth.
+function GSI_StatWeights:GetPrimaryTalentTab()
+    local points = TalentPointsPerTab()
+    if not points then return nil end
+    local best, bestPts = nil, -1
+    for tab, pts in ipairs(points) do
+        if pts > bestPts or (pts == bestPts and tab == self._lastPrimaryTab) then
+            best, bestPts = tab, pts
+        end
+    end
+    self._lastPrimaryTab = best
+    return best
+end
+
+-- A druid specialization index -> GSI druid spec (1 Balance, 2 Bear, 3 Cat,
+-- 4 Restoration). The order differs between clients (retail: Balance, Feral,
+-- Guardian, Restoration; a classic-style client may have just three), so the
+-- spec's role and primary stat decide, with the position as the fallback.
+function GSI_StatWeights:MapDruidSpecialization(specIdx)
+    local getInfo = (C_SpecializationInfo and C_SpecializationInfo.GetSpecializationInfo) or _G.GetSpecializationInfo
+    local role, primaryStat
+    if type(getInfo) == "function" then
+        local ok, _, _, _, _, r, p = pcall(getInfo, specIdx)
+        if ok then role, primaryStat = r, p end
+    end
+    local numSpecs = 4
+    local getNum = _G.GetNumSpecializations
+        or (C_SpecializationInfo and C_SpecializationInfo.GetNumSpecializations)
+    if type(getNum) == "function" then
+        local ok, n = pcall(getNum)
+        if ok and type(n) == "number" and n > 0 then numSpecs = n end
     end
 
-    -- 3. Modern WoW API fallback
-    if type(GetSpecialization) == "function" then
-        local ok, specIdx = pcall(GetSpecialization)
+    if role == "HEALER" then return 4 end
+    if primaryStat == 4 then return 1 end -- LE_UNIT_STAT_INTELLECT, not healer: Balance
+    if role == "TANK" and numSpecs >= 4 then return 2 end
+    if role == "DAMAGER" and numSpecs >= 4 and primaryStat and primaryStat ~= 4 then return 3 end
+    if role ~= nil or primaryStat ~= nil then
+        -- A combined Feral spec (three-spec client): the feral role decides
+        if role == "TANK" or role == "DAMAGER" then return self:GetFeralSpec() end
+    end
+
+    -- Position only
+    if numSpecs >= 4 then
+        if specIdx == 1 then return 1 elseif specIdx == 2 then return 3 elseif specIdx == 3 then return 2 end
+        return 4
+    end
+    if specIdx == 1 then return 1 elseif specIdx == 3 then return 4 end
+    return self:GetFeralSpec()
+end
+
+-- The spec index (1..3, or 1..4 for Druid) the character plays right now.
+-- Second return: true when it came from talents / specialization data
+-- (false: no points spent, or the data is not loaded yet).
+local function DetectUncached(self)
+    local class = GetPlayerClass()
+    local tab = self:GetPrimaryTalentTab()
+    if tab then
+        if class == "DRUID" then
+            if tab == 1 then return 1, true end  -- Balance
+            if tab == 3 then return 4, true end  -- Restoration
+            return self:GetFeralSpec(), true     -- Feral Combat: Bear or Cat
+        end
+        if tab > 3 then return 3, true end
+        return tab, true
+    end
+
+    -- On Forever the trait trees are the only real source: while they are not
+    -- loaded yet (login) or hold no points, do not ask the specialization API,
+    -- which always answers spec 1 there (Balance for a druid).
+    if type(GetNumTalentTabs) ~= "function" then
+        local _, _, traitState = GSI_StatWeights.TraitGroupPoints()
+        if traitState == "ok" or traitState == "notready" then
+            if class == "DRUID" then return self:GetFeralSpec(), false end
+            return 1, false
+        end
+    end
+
+    -- Specialization API (clients with real specializations)
+    local getSpec = (C_SpecializationInfo and C_SpecializationInfo.GetSpecialization) or _G.GetSpecialization
+    if type(getSpec) == "function" then
+        local ok, specIdx = pcall(getSpec)
         if ok and type(specIdx) == "number" and specIdx >= 1 and specIdx <= 4 then
             if class == "DRUID" then
-                return specIdx
+                return self:MapDruidSpecialization(specIdx), true
             end
-            if specIdx > 3 then return 3 end
-            return specIdx
+            if specIdx > 3 then return 3, true end
+            return specIdx, true
         end
     end
 
-    -- Default fallback when no talent points are spent yet
+    -- No talent points spent yet
     if class == "DRUID" then
-        return 2
+        return self:GetFeralSpec(), false
     end
+    return 1, false
+end
 
-    return 1
+-- Scoring asks for the spec on every item, so the answer is cached until a
+-- talent event or a feral-role / mode change clears it (InvalidateSpecCache).
+function GSI_StatWeights:DetectCurrentSpec()
+    local c = self._detectCache
+    if not c then
+        local spec, fromTalents = DetectUncached(self)
+        c = { spec = spec, fromTalents = fromTalents }
+        -- A guess (talent data not loaded yet, no points) is not kept: the next
+        -- call looks again, so the real spec shows up without waiting for an event.
+        if fromTalents then self._detectCache = c end
+    end
+    return c.spec, c.fromTalents
+end
+
+function GSI_StatWeights:InvalidateSpecCache()
+    self._detectCache = nil
+end
+
+-- Determines the active specialization index (1..3, or 1..4 for Druid)
+function GSI_StatWeights:GetActiveSpecIndex()
+    if not self:IsSpecAuto() and GearSetImproverDB and GearSetImproverDB.selectedSpec then
+        return tonumber(GearSetImproverDB.selectedSpec) or 1
+    end
+    return (self:DetectCurrentSpec())
+end
+
+-- Everything scored with the old spec's weights is rebuilt: caches, the bag
+-- scan result (rescanned), open item tooltips and upgrade toasts.
+local function RefreshAfterSpecChange()
+    if GSI_ItemScore and GSI_ItemScore.ResetCache then pcall(GSI_ItemScore.ResetCache, GSI_ItemScore) end
+    if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then pcall(GSI_OptimizationEngine.ResetCache, GSI_OptimizationEngine) end
+    if GSI_TooltipHook and GSI_TooltipHook.ResetCache then pcall(GSI_TooltipHook.ResetCache, GSI_TooltipHook) end
+    if GSI_UI and GSI_UI.MarkScanStale then pcall(GSI_UI.MarkScanStale, GSI_UI) end
+    if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook) end
+    if GSI_UpgradeToast and GSI_UpgradeToast.ReevaluatePending then
+        -- After the spec's gear set has been put on (the callbacks run right
+        -- after this), so toasts compare against the gear actually worn.
+        local function Reevaluate() pcall(GSI_UpgradeToast.ReevaluatePending, GSI_UpgradeToast) end
+        if C_Timer and C_Timer.After then C_Timer.After(1.0, Reevaluate) else Reevaluate() end
+    end
+    if GSI_UI then
+        if GSI_UI.UpdateSpecButton then pcall(GSI_UI.UpdateSpecButton, GSI_UI) end
+        if GSI_UI.UpdateModeUI then pcall(GSI_UI.UpdateModeUI, GSI_UI) end
+        if GSI_UI.UpdateTitleScore then pcall(GSI_UI.UpdateTitleScore, GSI_UI) end
+        local mf = GSI_UI.mainFrame
+        if mf and mf:IsShown() and GSI_UI.RefreshPanel then pcall(GSI_UI.RefreshPanel, GSI_UI, true) end
+    end
+end
+
+function GSI_StatWeights:SetSpecAuto(enabled)
+    if not GearSetImproverDB then GearSetImproverDB = {} end
+    self:InvalidateSpecCache()
+    GearSetImproverDB.specAuto = enabled and true or false
+    if enabled then
+        GearSetImproverDB.selectedSpec = nil
+    elseif not GearSetImproverDB.selectedSpec then
+        GearSetImproverDB.selectedSpec = self:DetectCurrentSpec()
+    end
+    RefreshAfterSpecChange()
+end
+
+-- A spec picked by the player (dropdown, /gsi spec, equip macro).
+-- Returns true when this left auto mode on.
+function GSI_StatWeights:ChooseSpec(specIndex)
+    specIndex = tonumber(specIndex)
+    if not specIndex then return false end
+    if not GearSetImproverDB then GearSetImproverDB = {} end
+    local class = GetPlayerClass()
+    if class == "DRUID" and (specIndex == 2 or specIndex == 3) then
+        GearSetImproverDB.feralSpec = specIndex
+    end
+    self:InvalidateSpecCache()
+    local detected, fromTalents = self:DetectCurrentSpec()
+    local staysAuto = self:IsSpecAuto() and specIndex == detected
+    if staysAuto then
+        GearSetImproverDB.selectedSpec = nil
+    else
+        GearSetImproverDB.specAuto = false
+        GearSetImproverDB.selectedSpec = specIndex
+    end
+    -- A new feral role is the player's own pick, not an in-game spec change:
+    -- move the watcher's baseline so it does not fire set swaps for it later.
+    if fromTalents and self._lastDetectedSpec ~= nil then
+        self._lastDetectedSpec = detected
+    end
+    RefreshAfterSpecChange()
+    return staysAuto
+end
+
+-- Spec change watcher: callbacks get (newSpec, oldSpec) when the talent-
+-- detected spec changes (not when the manual pick changes).
+GSI_StatWeights._specCallbacks = GSI_StatWeights._specCallbacks or {}
+
+function GSI_StatWeights:RegisterSpecChangeCallback(fn)
+    if type(fn) == "function" then
+        table.insert(self._specCallbacks, fn)
+    end
+end
+
+do
+    local watcher = CreateFrame and CreateFrame("Frame")
+    if watcher then
+        local pending = false
+        local function Evaluate()
+            pending = false
+            GSI_StatWeights:InvalidateSpecCache()
+            local ok, spec, fromTalents = pcall(GSI_StatWeights.DetectCurrentSpec, GSI_StatWeights)
+            -- No baseline until talent data is there: at login it can arrive after
+            -- PLAYER_ENTERING_WORLD, and a fallback guess would look like a respec.
+            if not ok or not spec or not fromTalents then return end
+            local old = GSI_StatWeights._lastDetectedSpec
+            GSI_StatWeights._lastDetectedSpec = spec
+            if old == nil or old == spec then return end
+            if GSI_StatWeights:IsSpecAuto() then
+                RefreshAfterSpecChange()
+            end
+            for _, fn in ipairs(GSI_StatWeights._specCallbacks) do
+                pcall(fn, spec, old)
+            end
+        end
+        watcher:SetScript("OnEvent", function(_, event, unit)
+            if event == "PLAYER_SPECIALIZATION_CHANGED" and unit and unit ~= "player" then return end
+            GSI_StatWeights:InvalidateSpecCache()
+            if pending then return end
+            pending = true
+            if C_Timer and C_Timer.After then
+                C_Timer.After(0.5, Evaluate)
+            else
+                Evaluate()
+            end
+        end)
+        for _, ev in ipairs({
+            "PLAYER_ENTERING_WORLD", "PLAYER_TALENT_UPDATE", "CHARACTER_POINTS_CHANGED",
+            "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_SPECIALIZATION_CHANGED", "TRAIT_CONFIG_UPDATED",
+            "ACTIVE_PLAYER_SPECIALIZATION_CHANGED", "TRAIT_TREE_CURRENCY_INFO_UPDATED", "SPELLS_CHANGED",
+        }) do
+            pcall(watcher.RegisterEvent, watcher, ev)
+        end
+    end
 end
 
 function GSI_StatWeights:GetSpecKey()

@@ -277,6 +277,204 @@ function GSI_UI:DrawSettings(parent)
         lastElem = cb
     end
 
+    -- Specialization detection & Equipment Set per spec
+    local setHeader = self:CreateText(scrollChild, "CARD_TITLE", "Specialization & Equipment Set per Spec")
+    setHeader:SetPoint("TOPLEFT", lastElem, "BOTTOMLEFT", 0, -20)
+    setHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    if setHeader.SetWordWrap then setHeader:SetWordWrap(true) end
+
+    local cbSpecAuto = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
+    cbSpecAuto:SetPoint("TOPLEFT", setHeader, "BOTTOMLEFT", 0, -8)
+    cbSpecAuto.text = self:CreateText(cbSpecAuto, "BODY", "Detect the specialization from your talents (follows respecs)")
+    cbSpecAuto.text:SetPoint("LEFT", cbSpecAuto, "RIGHT", 6, 0)
+    cbSpecAuto.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    cbSpecAuto.text:SetJustifyH("LEFT")
+    cbSpecAuto:SetScript("OnClick", function(selfBtn)
+        if GSI_StatWeights and GSI_StatWeights.SetSpecAuto then
+            GSI_StatWeights:SetSpecAuto(selfBtn:GetChecked() and true or false)
+        end
+    end)
+    cbSpecAuto:SetScript("OnEnter", function(selfBtn)
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Auto-detect specialization", 1, 0.82, 0)
+        GameTooltip:AddLine("Uses the talent tree with the most points. Picking a spec in the header dropdown (or /gsi spec <name>) pins it and turns this off; /gsi spec auto turns it back on.", 1, 1, 1, true)
+        GameTooltip:AddLine("Feral druids: talents cannot tell Cat from Bear, so your last Cat/Bear pick decides.", 0.7, 0.9, 1, true)
+        GameTooltip:Show()
+    end)
+    cbSpecAuto:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local cbSetAuto = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
+    cbSetAuto:SetPoint("TOPLEFT", cbSpecAuto, "BOTTOMLEFT", 0, -6)
+    cbSetAuto.text = self:CreateText(cbSetAuto, "BODY", "Equip the chosen set when your spec changes")
+    cbSetAuto.text:SetPoint("LEFT", cbSetAuto, "RIGHT", 6, 0)
+    cbSetAuto.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    cbSetAuto.text:SetJustifyH("LEFT")
+    cbSetAuto:SetScript("OnClick", function(selfBtn)
+        if not GearSetImproverDB then GearSetImproverDB = {} end
+        GearSetImproverDB.specSetAutoEquip = selfBtn:GetChecked() and true or false
+    end)
+    cbSetAuto:SetScript("OnEnter", function(selfBtn)
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Equip set on spec change", 1, 0.82, 0)
+        GameTooltip:AddLine("When the talent-detected spec changes, the Equipment Manager set chosen below for the new spec is put on (after combat if you are fighting). /gsi set equips it by hand.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    cbSetAuto:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local setDesc = self:CreateText(scrollChild, "BODY", "Equipment Manager set for each spec (sets belong to this character):")
+    setDesc:SetPoint("TOPLEFT", cbSetAuto, "BOTTOMLEFT", 0, -8)
+    setDesc:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    setDesc:SetJustifyH("LEFT")
+    if setDesc.SetWordWrap then setDesc:SetWordWrap(true) end
+
+    -- Set picker popup (one shared list, re-filled on open)
+    local NONE_LABEL = "|cff888888(none)|r"
+    local picker = GSI_UI.specSetPicker
+    if not picker then
+        picker = CreateFrame("Frame", "GSI_SpecSetPicker", UIParent, BACKDROP_TEMPLATE)
+        picker:SetFrameStrata("FULLSCREEN_DIALOG")
+        picker:SetFrameLevel(520)
+        picker:SetClampedToScreen(true)
+        picker:EnableMouse(true)
+        picker:Hide()
+        SkinFrame(picker, GSI_UI.THEME and GSI_UI.THEME.bgCardBottom, true)
+        picker.items = {}
+        local catcher = CreateFrame("Button", nil, UIParent)
+        catcher:SetFrameStrata("FULLSCREEN_DIALOG")
+        catcher:SetFrameLevel(515)
+        catcher:SetAllPoints(UIParent)
+        catcher:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+        catcher:SetScript("OnClick", function() picker:Hide() end)
+        catcher:Hide()
+        picker.catcher = catcher
+        picker:SetScript("OnShow", function() catcher:Show() end)
+        picker:SetScript("OnHide", function() catcher:Hide() end)
+        GSI_UI.specSetPicker = picker
+    end
+
+    local setRows = {}
+    local RefreshSetRows
+
+    local function OpenPicker(anchor, specIndex)
+        local sets = GSI_UI.GetEquipmentSetList and GSI_UI:GetEquipmentSetList() or {}
+        local entries = { { name = nil, label = NONE_LABEL } }
+        for _, s in ipairs(sets) do
+            entries[#entries + 1] = { name = s.name, label = s.name, icon = s.icon }
+        end
+        local current = GSI_UI.GetSpecSetName and GSI_UI:GetSpecSetName(specIndex)
+        for i, e in ipairs(entries) do
+            local b = picker.items[i]
+            if not b then
+                b = CreateFrame("Button", nil, picker, BACKDROP_TEMPLATE)
+                b:SetSize(212, 24)
+                b:SetPoint("TOP", 0, -4 - ((i - 1) * 26))
+                b:SetFrameLevel(530)
+                b:SetText(" ")
+                SkinButton(b, nil, false)
+                b.icon = b:CreateTexture(nil, "ARTWORK")
+                b.icon:SetSize(16, 16)
+                b.icon:SetPoint("LEFT", b, "LEFT", 6, 0)
+                b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+                picker.items[i] = b
+            end
+            local label = e.label
+            if e.name and e.name == current then label = "|cff00ff00" .. e.name .. "|r" end
+            b:SetText(label)
+            b.icon:SetTexture(e.icon or 134400)
+            b.icon:SetShown(e.name ~= nil)
+            b:SetScript("OnClick", function()
+                GSI_UI:SetSpecSetName(specIndex, e.name)
+                picker:Hide()
+                if RefreshSetRows then RefreshSetRows() end
+            end)
+            b:Show()
+        end
+        for i = #entries + 1, #picker.items do picker.items[i]:Hide() end
+        picker:SetSize(220, (#entries * 26) + 8)
+        picker:ClearAllPoints()
+        picker:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
+        picker:Show()
+        if picker.Raise then picker:Raise() end
+    end
+
+    local numSpecRows = (playerClass == "DRUID") and 4 or 3
+    local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[playerClass]
+    local prevRow = setDesc
+    for i = 1, numSpecRows do
+        local specData = classData and classData.specs and classData.specs[i]
+        local row = CreateFrame("Frame", nil, scrollChild)
+        row:SetHeight(26)
+        row:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, -6)
+        row:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+
+        row.icon = row:CreateTexture(nil, "ARTWORK")
+        row.icon:SetSize(18, 18)
+        row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
+        row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        row.icon:SetTexture((specData and specData.icon) or 134400)
+
+        row.label = self:CreateText(row, "BODY", (specData and specData.name) or ("Spec " .. i))
+        row.label:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
+        row.label:SetWidth(130)
+        row.label:SetJustifyH("LEFT")
+
+        row.pick = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
+        row.pick:SetSize(200, 24)
+        row.pick:SetPoint("LEFT", row, "LEFT", 164, 0)
+        row.pick:SetText(" ")
+        SkinButton(row.pick, nil, false)
+        local specIdx = i
+        row.pick:SetScript("OnClick", function(selfBtn)
+            if picker:IsShown() then picker:Hide() return end
+            OpenPicker(selfBtn, specIdx)
+        end)
+
+        row.equip = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
+        row.equip:SetSize(70, 24)
+        row.equip:SetPoint("LEFT", row.pick, "RIGHT", 8, 0)
+        row.equip:SetText("Equip")
+        SkinButton(row.equip, nil, false)
+        row.equip:SetScript("OnClick", function()
+            if GSI_UI.EquipSpecSet then GSI_UI:EquipSpecSet(specIdx, false, true) end
+        end)
+
+        row.specIndex = i
+        setRows[i] = row
+        prevRow = row
+    end
+    lastElem = prevRow
+
+    RefreshSetRows = function()
+        local detected = GSI_StatWeights and GSI_StatWeights.DetectCurrentSpec and GSI_StatWeights:DetectCurrentSpec()
+        for i, row in ipairs(setRows) do
+            local name = GSI_UI.GetSpecSetName and GSI_UI:GetSpecSetName(i)
+            local exists = name and C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.GetEquipmentSetID(name)
+            if not name then
+                row.pick:SetText(NONE_LABEL)
+            elseif exists then
+                row.pick:SetText(name)
+            else
+                row.pick:SetText("|cffff4444" .. name .. " (missing)|r")
+            end
+            row.equip:SetEnabled(exists and true or false)
+            local specData = classData and classData.specs and classData.specs[i]
+            local label = (specData and specData.name) or ("Spec " .. i)
+            row.label:SetText(i == detected and ("|cff00ff00" .. label .. "|r") or label)
+        end
+        cbSpecAuto:SetChecked(not GSI_StatWeights or not GSI_StatWeights.IsSpecAuto or GSI_StatWeights:IsSpecAuto())
+        cbSetAuto:SetChecked(not GSI_UI.IsSpecSetAutoEquip or GSI_UI:IsSpecSetAutoEquip())
+    end
+    GSI_UI.RefreshSpecSetRows = RefreshSetRows
+
+    if CreateFrame then
+        local setsWatcher = CreateFrame("Frame")
+        pcall(setsWatcher.RegisterEvent, setsWatcher, "EQUIPMENT_SETS_CHANGED")
+        pcall(setsWatcher.RegisterEvent, setsWatcher, "PLAYER_EQUIPMENT_CHANGED")
+        setsWatcher:SetScript("OnEvent", function()
+            if parent:IsVisible() then RefreshSetRows() end
+        end)
+    end
+
     local function UpdateSettingsLayoutAndSync()
         local hasDE = GSI_UI.HasDisenchantSpell and GSI_UI:HasDisenchantSpell()
         deMacroBtn:SetShown(hasDE and true or false)
@@ -290,6 +488,7 @@ function GSI_UI:DrawSettings(parent)
             end
             cb:SetChecked(checked)
         end
+        pcall(RefreshSetRows)
 
         local topY = scrollChild:GetTop()
         local botY = lastElem and lastElem.GetBottom and lastElem:GetBottom()

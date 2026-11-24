@@ -138,6 +138,14 @@ local function DispatchTalentRefresh()
     if GSI_UI and GSI_UI.UpdateSpecButton then
         pcall(GSI_UI.UpdateSpecButton, GSI_UI)
     end
+    -- Talents change the weights: the bag scan result and the tooltips that
+    -- are open were built with the old ones.
+    if GSI_UI and GSI_UI.MarkScanStale then
+        pcall(GSI_UI.MarkScanStale, GSI_UI)
+    end
+    if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then
+        pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook)
+    end
     if GSI_UI and GSI_UI.RefreshPanel then
         pcall(GSI_UI.RefreshPanel, GSI_UI)
     end
