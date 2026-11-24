@@ -1,4 +1,16 @@
-﻿# GearSetImprover Forever v1.4.5
+﻿# GearSetImprover Forever v1.4.6
+
+### Cleaner Tooltip Lines & Active Spec Highlight
+
+* **Tooltip Score Lines (`TooltipHook.lua`, `TooltipCache.lua`):**
+  - Score lines name only the spec, the mode and the set: `Restoration AoE vs Resto AoE: 11.19 (+4.05)` instead of `GSI Score (Restoration AoE vs GSI: Resto AoE): 11.19 (+4.05)`.
+  - Lines of the spec you play start with its specialization icon and use a slightly larger, outlined font instead of the green `*` marker.
+* **Missing Set Lines for the Active Spec (`TooltipHook.lua`):**
+  - A fully equipped set of the spec you play no longer hides its line when the set's mode is not ticked in Tooltip Orientations (e.g. Restoration with *Single* ticked and `GSI: Resto AoE` worn now keeps the AoE line), so the tooltip shows the same lines whichever spec you play.
+
+---
+
+# GearSetImprover Forever v1.4.5
 
 ### Dual Spec Macro, Equipment Sets per Spec & Set Comparison Tooltips
 

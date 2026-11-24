@@ -2,7 +2,7 @@
 ## Title: GearSetImprover Forever
 ## Notes: Automated gear scoring, stat comparisons, and Best Available Gear optimization built specifically for WoW Forever.
 ## Author: Antigravity
-## Version: 1.4.5
+## Version: 1.4.6
 ## X-Curse-Project-ID: 1711424
 ## SavedVariables: GearSetImproverDB, GearSetImproverLog
 ## IconTexture: Interface\AddOns\GearSetImprover\Textures\icon.png
