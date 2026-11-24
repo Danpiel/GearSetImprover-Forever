@@ -230,8 +230,8 @@ local function RestoreFonts(tip)
     end
 end
 
--- Adds a line to the tooltip. bold: the line's own font with an outline,
--- put back when the tooltip is cleared (OnTooltipCleared).
+-- Adds a line to the tooltip. bold: the line's own font one point larger
+-- with an outline, put back when the tooltip is cleared (OnTooltipCleared).
 local function AddOwnLine(tip, text, r, g, b, wrap, bold)
     if r then
         tip:AddLine(text, r, g, b, wrap)
@@ -255,7 +255,7 @@ local function AddOwnLine(tip, text, r, g, b, wrap, bold)
     if not list[fs] then
         list[fs] = { object = fs:GetFontObject(), font = font, size = size, flags = flags }
     end
-    fs:SetFont(font, size, "OUTLINE")
+    fs:SetFont(font, size + 1, "OUTLINE")
 end
 
 local function AppendScoreToTooltip(tooltip, itemLink)
@@ -583,9 +583,14 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                     or string.format("%.1f", newScore)
 
                 -- "Restoration AoE vs Resto AoE: 11.19 (+4.05)": spec and mode, the
-                -- set without GSI's "GSI: " prefix; the spec you play is bold
+                -- set without GSI's "GSI: " prefix. The spec you play gets its
+                -- icon in front and a larger outlined font.
                 local sData = classData and classData.specs and classData.specs[specIdx]
                 local sName = (sData and sData.name) or ("Spec " .. specIdx)
+                local isActive = (specIdx == activeSpecIndex)
+                if isActive and sData and sData.icon then
+                    sName = "|T" .. sData.icon .. ":0|t " .. sName
+                end
                 local rawMode = pInfo.modeLabel or modeVal
                 local modeName = (rawMode == "AoE / Raid") and "AoE" or rawMode
                 if vsSetName then
@@ -596,7 +601,7 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                     "%s%s %s%s: %s%s%s%s%s",
                     COLOR_LABEL, sName, modeName, COLOR_LABEL,
                     COLOR_VALUE, scoreFormatted, deltaPart, levelNotice, COLOR_END
-                ), nil, nil, nil, nil, specIdx == activeSpecIndex)
+                ), nil, nil, nil, nil, isActive)
 
                 -- Talent dependency hints (EN + DE talent pattern detection, strictly English hints)
                 if not statsFetched then
