@@ -2,7 +2,7 @@
 
 **GearSetImprover Forever** is a gear scoring and Best-in-Bag optimizer built exclusively for **WoW Forever (Client 1.60.1 / Interface 16001)**.
 
-> **Personal fork** of [GearSetImprover Forever](https://www.curseforge.com/wow/addons/gearsetimprover) by Yakilo (v1.4.1). Not the CurseForge build; the upstream addon has no license, so this repository stays private. Changes:
+> **Fork** of [GearSetImprover Forever](https://www.curseforge.com/wow/addons/gearsetimprover) by Yakilo. Yakilo's v1.4.4 took in part of these changes; this repository is merged with v1.4.4 and is the source of the CurseForge v1.4.5 release. Changes:
 >
 > - Item stats: combat ratings from `GetItemStats` are converted to percent (crit 14, hit/haste/expertise 10, dodge 12, parry 15, block 5 rating per 1%), armor/resistances/weapon DPS come from the API, weapon speed is read on every client, and Russian tooltips are parsed.
 > - Set bonuses on clients whose set names are not in the English/German table (ruRU) are learned from the item tooltips and kept in SavedVariables.

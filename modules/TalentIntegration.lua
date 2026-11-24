@@ -142,7 +142,9 @@ GSI_TalentIntegration.TalentModifierRules = {
     { patterns = { "arkaner geist", "arcane mind" },                 stat = "Intellect",    mod = 1.08 },
 
     -- Defense & Protection
-    { patterns = { "dickes fell", "thick hide" },                    stat = "Armor",        mod = 1.06 },
+    { patterns = { "dickes fell", "thick hide" },                    stat = "Defense",      mod = 1.08 },
+    { patterns = { "natürliche reaktion", "natural reaction" },      stat = "Dodge",        mod = 1.06 },
+    { patterns = { "blutraserei", "blood frenzy" },                  stat = "Crit",         mod = 1.05 },
     { patterns = { "antizipation", "anticipation" },                 stat = "Defense",      mod = 1.08 },
     { patterns = { "zähigkeit", "toughness" },                       stat = "Armor",        mod = 1.06 },
     { patterns = { "schild-spezialisierung", "schildspezialisierung", "shield specialization" }, stat = "Block", mod = 1.08 },

@@ -23,7 +23,7 @@ local function GetAddonVersion()
     elseif GetAddOnMetadata then
         ver = GetAddOnMetadata("GearSetImprover", "Version")
     end
-    return (ver and ver ~= "") and ver or "1.4.1"
+    return (ver and ver ~= "") and ver or "1.4.4"
 end
 
 -- CREDITS & ACKNOWLEDGMENTS MODAL
@@ -393,6 +393,25 @@ function GSI_UI:OpenChangelog()
     end
 
     local logText = [[
+|cffffcc00Version 1.4.4 (Forever Auto-Spec, Per-Spec Gear Sets, Live Rescoring & ruRU Support)|r
+--------------------------------------------------
+|cff00ff00New:|r Automatic WoW Forever talent-tree spec detection via |cffffffffC_ClassTalents|r / |cffffffffC_Traits|r trait groups, plus |cffffcc00Auto|r mode in the spec dropdown and |cffffffff/gsi spec auto|r (Feral Druid Cat/Bear role keeps Auto enabled; login/talent-reload states guarded). Thanks to |cffffffffDanpiel|r for the community contributions.
+|cff00ff00New:|r Added |cffffcc00Specialization & Equipment Set per Spec|r in Settings to bind and auto-equip an Equipment Manager set on spec change (queued out of combat if needed) or equip manually with |cffffffff/gsi set|r.
+|cff00ff00Fix:|r Open item tooltips (|cffffffffRefreshShownTooltips|r), upgrade toasts (|cffffffffReevaluatePending|r), and Best in Bag results (|cffffffffMarkScanStale|r) now rescore automatically on spec/talent changes; deduplicated |cffffffffUpgrade(s) found|r chat spam.
+|cff00ff00New:|r Weapon DPS now reads from |cffffffffGetItemStats|r with tooltip fallback and weapon speed scans both left and right tooltip columns (|cffffffffTextRight|r). Added |cffffffffRESISTANCE0_NAME|r, |cffffffffRESISTANCE2..6_NAME|r, |cffffffffITEM_MOD_FERAL_ATTACK_POWER|r, and |cffffffffITEM_MOD_EXPERTISE_RATING|r mappings, Cyrillic UTF-8 tooltip parsing (|cffffffffruRU|r), automatic tooltip set-bonus learning, and |cffffffff/gsi dump|r diagnostics.
+
+|cffffcc00Version 1.4.3 (Cross-Class Rating Fix, Tank & Caster Audit)|r
+--------------------------------------------------
+|cff00ff00Fix:|r Fixed |cffffffffC_Item.GetItemStats()|r returning internal Level-60 combat ratings (e.g., 14 rating per 1% Crit) instead of flat percentages, which previously inflated Crit/Hit/Haste/Dodge/Parry/Block/Defense scores across all 9 classes. Tooltip flat percentages now take priority with converted API fallbacks, plus |cffffffffITEM_MOD_POWER_REGEN0_SHORT|r MP5 mapping.
+|cff00ff00Fix:|r Fixed +33% / +88% SpellPower + HealingPower double-counting for non-healers, German pure-healing / school-damage tooltip leaks, and Priest healer Holy/Shadow damage weights (now 0.00). Switched set-bonus SP/Heal scoring to per-threshold evaluation and extended healer universal SP routing to ZG/Naxx enchants.
+|cff00ff00Tuned:|r Closed the |cffffffffTertiaryWeights.Spirit = 0.2|r leak across all 56 profiles, calibrated Shield Tank & Feral Bear weapon DPS/stats/caps, added missing |cffffffffARP|r weights and |cffffffffWEAPON_SKILL|r / |cffffffffAVOID_RED|r caps across physical specs, fixed AoE primary-stat inversions, and updated Feral Bear talent rules (|cffffffffThick Hide|r, |cffffffffNatural Reaction|r, |cffffffffBlood Frenzy|r).
+|cff00ff00Parity:|r Skipped |cffffffffEnchanted:|r / |cffffffffVerzaubert:|r lines in base parsing, normalized German uppercase umlauts, expanded DE/EN Weapon Skill / Defense parsing (incl. |cffffffffWAND|r, |cffffffffCROSSBOW|r, |cffffffffTHROWN|r, self-weapon matching, and profession skill exclusion), and aligned Shaman |cffffffffTidal Focus|r and |cffffffffGetBaselineCapStats|r parity.
+
+|cffffcc00Version 1.4.2 (TooltipHook Login Error Hotfix)|r
+--------------------------------------------------
+|cff00ff00Fix:|r Guarded |cffffffffOnTooltipSetItem|r hooking in |cffffffffTooltipHook.lua|r with |cfffffffftip:HasScript("OnTooltipSetItem")|r to prevent a login error on the WoW Forever client where tooltips do not expose that legacy script handler.
+|cff00ff00Fix:|r Ensures |cffffffffSetHyperlink|r hooks, profile/equipment/talent cache invalidation hooks, and the tooltip cache event frame initialize reliably on login.
+
 |cffffcc00Version 1.4.1 (Shield-Tank 1H+Shield Hotfix)|r
 --------------------------------------------------
 |cff00ff00Fix:|r Enforced strict |cffffcc001H + Shield|r weapon rules for Protection Warrior (Spec 3) and Protection Paladin (Spec 2) across both Survival and Threat/DMG modes (CurseForge report by Gray989).

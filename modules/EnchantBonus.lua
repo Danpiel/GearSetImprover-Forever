@@ -131,6 +131,17 @@ GSI_EnchantBonus.KnownEnchants = {
     [2488] = { FireResist = 5, NatureResist = 5, FrostResist = 5, ShadowResist = 5, ArcaneResist = 5 }, -- Chromatic Mantle of the Dawn (+5 All Res)
 }
 
+-- Universal "+Spell Power" enchants that grant both Spell Damage & Healing and route to HealingPower for healers
+GSI_EnchantBonus.UniversalSPEnchants = {
+    [2504] = true, -- Weapon - Spell Power (+30 Spell Damage & Healing)
+    [2544] = true, -- Arcanum of Focus (+8 Spell Damage & Healing)
+    [2587] = true, -- Vodouisant's Vigilant Embrace (+13 Spell Damage & Healing)
+    [2588] = true, -- Presence of Sight (+18 Spell Damage & Healing)
+    [2589] = true, -- Hoodoo Hex (+18 Spell Damage & Healing)
+    [2605] = true, -- Zandalar Signet of Mojo (+18 Spell Damage & Healing)
+    [2721] = true, -- Power of the Scourge (+15 Spell Damage & Healing)
+}
+
 -- Extracts the enchantID from an ItemLink (|Hitem:itemID:enchantID:...)
 function GSI_EnchantBonus:GetEnchantIDFromLink(itemLink)
     if not itemLink then return nil end
@@ -157,8 +168,8 @@ function GSI_EnchantBonus:GetEnchantScore(itemLink, overrideSpecIndex, overrideM
             -- Skip Intellect proxy when Mana itself has an explicit weight (e.g. Arcane Mage)
         else
             local w = weights[stat]
-            -- Universal "+Spell Power" enchants (2504: +30 SP/Heal, 2544: +8 SP/Heal) benefit healers via HealingPower
-            if stat == "SpellPower" and (enchantID == 2504 or enchantID == 2544)
+            -- Universal "+Spell Power" enchants (2504, 2544, 2587, 2588, 2589, 2605, 2721) benefit healers via HealingPower
+            if stat == "SpellPower" and self.UniversalSPEnchants[enchantID]
                and GSI_StatWeights and GSI_StatWeights.GetRole
                and GSI_StatWeights:GetRole(overrideSpecIndex, overrideMode) == "healer" then
                 w = weights.HealingPower or 1.0

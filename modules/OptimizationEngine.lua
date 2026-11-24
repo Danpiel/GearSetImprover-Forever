@@ -41,6 +41,7 @@ local TRINKET_SLOTS = { INVSLOT_TRINKET1, INVSLOT_TRINKET2 }
 local ItemBaseCache = {}
 local BaselineCapCache = {}
 local SetBonusStatsCache = {}
+local SetBonusThresholdsCache = {}
 local UniqueInfoCache = {}
 local UniqueInfoCount = 0
 local MAX_UNIQUE_CACHE = 1000
@@ -71,6 +72,7 @@ local function SyncCacheRevision()
         ItemBaseCache = {}
         BaselineCapCache = {}
         SetBonusStatsCache = {}
+        SetBonusThresholdsCache = {}
         LastTooltipRevision = rev
     end
 end
@@ -503,6 +505,7 @@ function GSI_OptimizationEngine:ResetCache()
     ItemBaseCache = {}
     BaselineCapCache = {}
     SetBonusStatsCache = {}
+    SetBonusThresholdsCache = {}
     self._cacheVersion = (self._cacheVersion or 1) + 1
     self.isStopped = false
     if GSI_CompareEngine and GSI_CompareEngine.ResetCache then
@@ -600,6 +603,40 @@ local function GetCachedSetBonusStats(setCounts)
     local bonusStats = GSI_SetBonus:GetActiveSetBonusStats(setCounts) or {}
     SetBonusStatsCache[cacheKey] = bonusStats
     return bonusStats
+end
+
+local function GetCachedSetBonusThresholds(setCounts)
+    if not GSI_SetBonus or not GSI_SetBonus.GetActiveSetBonusThresholds then
+        return nil
+    end
+
+    local keys = {}
+    local anyThreshold = false
+    for sName, count in pairs(setCounts) do
+        if count and count >= 2 then
+            anyThreshold = true
+        end
+        table.insert(keys, sName)
+    end
+    if not anyThreshold then
+        return nil
+    end
+
+    table.sort(keys)
+    local parts = {}
+    for _, sName in ipairs(keys) do
+        table.insert(parts, sName .. "=" .. tostring(setCounts[sName]))
+    end
+    local cacheKey = table.concat(parts, ";")
+
+    local cached = SetBonusThresholdsCache[cacheKey]
+    if cached then
+        return cached
+    end
+
+    local activeThresholds = GSI_SetBonus:GetActiveSetBonusThresholds(setCounts) or {}
+    SetBonusThresholdsCache[cacheKey] = activeThresholds
+    return activeThresholds
 end
 
 -- Computes total stats across an equipment setup (respecting 2H/DW consistency and active set bonuses)
@@ -723,19 +760,27 @@ function GSI_OptimizationEngine:CalculateStats(setup)
 end
 
 -- Computes effective non-cap weight for a stat, matching ItemScore rules
-local function GetEffectiveStatWeight(stat, weights, role, class, specIndex, isUniversalSP, itemHealingPower)
+local function GetEffectiveStatWeight(stat, weights, role, class, specIndex, isUniversalSP, itemHealingPower, itemSpellPower)
     local w = (weights and weights[stat]) or 0
 
     if stat == "HealingPower" and role ~= "healer" then
-        if weights.HealingPower == nil and (weights.SpellPower or 0) > 0 then
-            w = (weights.SpellPower or 0) / 3
+        if (itemSpellPower or 0) > 0 then
+            -- Never double-count HealingPower on items/thresholds that already carry SpellPower
+            w = 0
+        elseif weights.HealingPower == nil and (weights.SpellPower or 0) > 0 then
+            local healToDmgFactor = (GSI_Config and GSI_Config.Rules_v2_2 and GSI_Config.Rules_v2_2.heal_to_damage and GSI_Config.Rules_v2_2.heal_to_damage.factor)
+                or (GSI_Config and GSI_Config.Rules and GSI_Config.Rules.HealToDamageFactor)
+                or (1 / 3)
+            w = (weights.SpellPower or 0) * healToDmgFactor
         end
     end
     if stat == "SpellPower" and role == "healer" then
         if isUniversalSP and (itemHealingPower or 0) == 0 then
             w = weights.HealingPower or weights.HEAL or 1.0
         else
-            w = (GSI_Config and GSI_Config.Rules and GSI_Config.Rules.HealerSpellDamageWeight) or 0
+            w = (GSI_Config and GSI_Config.Rules_v2_2 and GSI_Config.Rules_v2_2.healer_spell_damage_weight)
+                or (GSI_Config and GSI_Config.Rules and GSI_Config.Rules.HealerSpellDamageWeight)
+                or 0
         end
     end
     if stat == "FeralAttackPower" and w == 0 then
@@ -824,7 +869,7 @@ local function GetItemSetupEntry(link, specIndex, effectiveMode, slotID, class, 
         local isOffHand = (equipLoc == "INVTYPE_WEAPONOFFHAND" or slotID == INVSLOT_OFFHAND)
 
         if class == "DRUID" and (specIndex == 2 or specIndex == 3) then
-            local dpsWeight = weights.WeaponDamage or (specIndex == 3 and 8.30 or 1.80)
+            local dpsWeight = weights.WeaponDamage or (specIndex == 3 and 8.30 or 1.35)
             score = score + (dps * dpsWeight)
         else
             local wSpeed = wInfo and wInfo.speed
@@ -887,6 +932,7 @@ local function GetItemSetupEntry(link, specIndex, effectiveMode, slotID, class, 
 
     -- 2. Non-cap stats (capped stats Hit, Defense, AvoidanceReduction, WeaponSkill are accumulated setup-wide)
     local stats = (GSI_ItemScore and GSI_ItemScore.GetParsedStats and GSI_ItemScore:GetParsedStats(link)) or {}
+    local isUniSP = GSI_ItemScore and GSI_ItemScore.IsUniversalSpellPower and GSI_ItemScore:IsUniversalSpellPower(link) or false
     local hasAnyStat = false
     local itemHit = 0
     local itemDef = 0
@@ -913,8 +959,7 @@ local function GetItemSetupEntry(link, specIndex, effectiveMode, slotID, class, 
                 end
                 score = score + fScore
             else
-                local isUniSP = GSI_ItemScore and GSI_ItemScore.IsUniversalSpellPower and GSI_ItemScore:IsUniversalSpellPower(link)
-                local w = GetEffectiveStatWeight(stat, weights, role, class, specIndex, isUniSP, stats.HealingPower)
+                local w = GetEffectiveStatWeight(stat, weights, role, class, specIndex, isUniSP, stats.HealingPower, stats.SpellPower)
                 score = score + (val * w)
             end
         end
@@ -1068,39 +1113,123 @@ local function GetBaselineCapStats(specIndex, effectiveMode, class, role)
 
     local equippedAllHit = equippedSetupHit + trinketHit
 
-    -- Racial & Talent Hit bonuses
-    local rHit = (GSI_RaceBonus and GSI_RaceBonus.GetRacialHitBonus and GetSafeNumber(GSI_RaceBonus:GetRacialHitBonus(), 0)) or 0
-    local tHit = (GSI_TalentIntegration and GSI_TalentIntegration.GetClassHitTalentBonus and GetSafeNumber(GSI_TalentIntegration:GetClassHitTalentBonus(class, specIndex), 0)) or 0
+    local v22ProfForCap = (GSI_Config and GSI_Config.GetProfileV22 and GSI_Config:GetProfileV22(class, specIndex, effectiveMode))
+                       or (GSI_Config and GSI_Config.GetProfile and GSI_Config:GetProfile(class, specIndex, effectiveMode))
+    local capMeta = v22ProfForCap and v22ProfForCap.caps
+    local specMeta = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
+        and GSI_ClassicData.Classes[class].specs and GSI_ClassicData.Classes[class].specs[specIndex]
+    local usesSpellHit = IsCasterSpec(role, class, specIndex) or (capMeta and capMeta.SPELL_HIT ~= nil and capMeta.HIT == nil)
+    local isRangedSpec = (specMeta and specMeta.ranged == true)
+        or (class == "HUNTER" and (specIndex == 1 or specIndex == 2))
 
-    local apiHit = nil
-    if type(GetHitModifier) == "function" then
-        apiHit = GetSafeNumber(GetHitModifier(), nil)
-    end
-    if IsCasterSpec(role, class, specIndex) and type(GetSpellHitModifier) == "function" then
-        local apiSpellHit = GetSafeNumber(GetSpellHitModifier(), nil)
-        if apiSpellHit then
-            apiHit = math.max(apiHit or 0, apiSpellHit)
+    -- Racial & Talent Hit bonuses (matching ItemScore.lua universal vs school-specific separation)
+    local rHit = (GSI_RaceBonus and GSI_RaceBonus.GetRacialHitBonus and GetSafeNumber(GSI_RaceBonus:GetRacialHitBonus(), 0)) or 0
+    local universalTalentHit = 0
+    local schoolTalentHit = 0
+    if GSI_TalentIntegration and GSI_TalentIntegration.GetClassHitTalentBonus then
+        local tHit = GetSafeNumber(GSI_TalentIntegration:GetClassHitTalentBonus(class, specIndex), 0)
+        if tHit > 0 then
+            if class == "SHAMAN" then
+                universalTalentHit = tHit
+            elseif class == "ROGUE" or class == "HUNTER" or class == "PALADIN" then
+                if not usesSpellHit then
+                    universalTalentHit = tHit
+                end
+            elseif usesSpellHit then
+                schoolTalentHit = tHit
+            end
+        end
+        if usesSpellHit and GSI_TalentIntegration.GetSchoolHitTalentBonus then
+            if (class == "PALADIN" and specIndex == 1) or (class == "PRIEST" and specIndex ~= 3) then
+                schoolTalentHit = schoolTalentHit + GetSafeNumber(GSI_TalentIntegration:GetSchoolHitTalentBonus(class, specIndex, "Holy"), 0)
+            end
         end
     end
 
-    -- Determine non-setup Hit without double-counting talents if GetHitModifier already includes them
-    local nonSetupHit
-    if apiHit and apiHit >= (equippedAllHit + tHit) then
-        nonSetupHit = math.max(trinketHit + rHit + tHit, apiHit - equippedSetupHit)
+    -- Query school-appropriate Hit API (parity with ItemScore.lua; never mix GetHitModifier into caster SpellHit)
+    local apiHit = nil
+    if usesSpellHit then
+        if type(GetSpellHitModifier) == "function" then
+            local ok, rawSpellHit = pcall(GetSpellHitModifier)
+            if ok then
+                apiHit = GetSafeNumber(rawSpellHit, nil)
+            end
+        end
+        if apiHit ~= nil and CR_HIT_SPELL and type(GetCombatRatingBonus) == "function" then
+            local ok, crBonus = pcall(GetCombatRatingBonus, CR_HIT_SPELL)
+            if ok then
+                apiHit = apiHit + GetSafeNumber(crBonus, 0)
+            end
+        end
+    elseif isRangedSpec then
+        if type(GetRangedHitModifier) == "function" then
+            local ok, rawRangedHit = pcall(GetRangedHitModifier)
+            if ok then
+                apiHit = GetSafeNumber(rawRangedHit, nil)
+            end
+        end
+        if apiHit == nil and type(GetHitModifier) == "function" then
+            local ok, rawHit = pcall(GetHitModifier)
+            if ok then
+                apiHit = GetSafeNumber(rawHit, nil)
+            end
+        end
+        if apiHit ~= nil and CR_HIT_RANGED and type(GetCombatRatingBonus) == "function" then
+            local ok, crBonus = pcall(GetCombatRatingBonus, CR_HIT_RANGED)
+            if ok then
+                apiHit = apiHit + GetSafeNumber(crBonus, 0)
+            end
+        end
     else
-        nonSetupHit = trinketHit + rHit + tHit
+        if type(GetHitModifier) == "function" then
+            local ok, rawHit = pcall(GetHitModifier)
+            if ok then
+                apiHit = GetSafeNumber(rawHit, nil)
+            end
+        end
+        if apiHit ~= nil and CR_HIT_MELEE and type(GetCombatRatingBonus) == "function" then
+            local ok, crBonus = pcall(GetCombatRatingBonus, CR_HIT_MELEE)
+            if ok then
+                apiHit = apiHit + GetSafeNumber(crBonus, 0)
+            end
+        end
     end
 
-    -- Defense baseline (base level defense + talents + trinkets)
+    -- Determine non-setup Hit without double-counting talents/racials already reflected in API hit
+    local usedApiHit = (apiHit ~= nil)
+    local apiPassiveBonus = usedApiHit and math.max(0, apiHit - equippedAllHit) or 0
+    local extraUniversal = usedApiHit and math.max(0, (universalTalentHit + rHit) - apiPassiveBonus) or (universalTalentHit + rHit)
+    local remainingApiPassive = usedApiHit and math.max(0, apiPassiveBonus - (universalTalentHit + rHit)) or 0
+    local extraSchool = (usedApiHit and schoolTalentHit > 0 and remainingApiPassive >= schoolTalentHit) and 0 or schoolTalentHit
+    local nonSetupHit = trinketHit + apiPassiveBonus + extraUniversal + extraSchool
+
+    -- Defense baseline (Forever 1.60.1: UnitDefenseSkill before UnitDefense; parity with ItemScore.lua)
     local playerLevel = UnitLevel("player") or 60
     local baseLevelDef = playerLevel * 5
     local nonSetupDef = baseLevelDef + trinketDef
-    if type(UnitDefense) == "function" then
-        local bDef, aDef = UnitDefense("player")
-        local bDefSafe = GetSafeNumber(bDef, baseLevelDef)
-        local aDefSafe = GetSafeNumber(aDef, 0)
-        local liveTotalDef = bDefSafe + aDefSafe
-        nonSetupDef = math.max(bDefSafe + trinketDef, liveTotalDef - equippedSetupDef)
+    local liveDefBase, liveDefTotal = nil, nil
+    if type(UnitDefenseSkill) == "function" then
+        local ok, bDef, aDef = pcall(UnitDefenseSkill, "player")
+        if ok then
+            local safeB = GetSafeNumber(bDef, nil)
+            if safeB then
+                liveDefBase = safeB
+                liveDefTotal = safeB + GetSafeNumber(aDef, 0)
+            end
+        end
+    end
+    if not liveDefTotal and type(UnitDefense) == "function" then
+        local ok, bDef, aDef = pcall(UnitDefense, "player")
+        if ok then
+            local safeB = GetSafeNumber(bDef, nil)
+            if safeB then
+                liveDefBase = safeB
+                liveDefTotal = safeB + GetSafeNumber(aDef, 0)
+            end
+        end
+    end
+    if liveDefTotal then
+        nonSetupDef = math.max((liveDefBase or baseLevelDef) + trinketDef, liveDefTotal - equippedSetupDef)
     end
 
     -- Avoidance Reduction talent reduction (Rogue Weapon Expertise)
@@ -1177,12 +1306,28 @@ local function EvaluateCapRange(startVal, endVal, capCfg, baseWeight, overrideCa
     return total
 end
 
+local RANGED_WEAPON_SKILL_TYPES = {
+    BOW = true,
+    GUN = true,
+    CROSSBOW = true,
+    THROWN = true,
+    WAND = true,
+}
+
 local function WeaponMatchesSkillType(wsType, classID, subClassID)
     if classID ~= 2 or not subClassID then return false end
     if wsType == "AXE" then return (subClassID == 0 or subClassID == 1)
-    elseif wsType == "SWORD" then return (subClassID == 7 or subClassID == 8)
+    elseif wsType == "BOW" then return (subClassID == 2)
+    elseif wsType == "GUN" then return (subClassID == 3)
     elseif wsType == "MACE" then return (subClassID == 4 or subClassID == 5)
+    elseif wsType == "POLEARM" then return (subClassID == 6)
+    elseif wsType == "SWORD" then return (subClassID == 7 or subClassID == 8)
+    elseif wsType == "STAFF" then return (subClassID == 10)
+    elseif wsType == "FIST" then return (subClassID == 13)
     elseif wsType == "DAGGER" then return (subClassID == 15)
+    elseif wsType == "THROWN" then return (subClassID == 16)
+    elseif wsType == "CROSSBOW" then return (subClassID == 18)
+    elseif wsType == "WAND" then return (subClassID == 19)
     end
     return false
 end
@@ -1235,6 +1380,12 @@ function GSI_OptimizationEngine:EvaluateSetup(setup, overrideSpecIndex, override
         end
     end
 
+    local rLink = setup[INVSLOT_RANGED] and setup[INVSLOT_RANGED].link
+    local rClassID, rSubClassID = nil, nil
+    if rLink then
+        rClassID, rSubClassID = GetItemClassSubClass(rLink)
+    end
+
     local hasAnyWeapon = (mhClassID == 2) or (ohActive and ohClassID == 2)
 
     local totalScore = 0
@@ -1256,9 +1407,22 @@ function GSI_OptimizationEngine:EvaluateSetup(setup, overrideSpecIndex, override
 
             if entry.weaponSkill > 0 then
                 local wsType = entry.weaponSkillType
-                local matches = (not wsType or wsType == "ALL" or not hasAnyWeapon)
-                    or WeaponMatchesSkillType(wsType, mhClassID, mhSubClassID)
-                    or (ohActive and WeaponMatchesSkillType(wsType, ohClassID, ohSubClassID))
+                local matches = false
+                if not wsType or wsType == "ALL" then
+                    matches = true
+                elseif wsType ~= "UNKNOWN" then
+                    if RANGED_WEAPON_SKILL_TYPES[wsType] then
+                        if rClassID == 2 then
+                            matches = WeaponMatchesSkillType(wsType, rClassID, rSubClassID)
+                        elseif not rLink and class == "HUNTER" then
+                            matches = true
+                        end
+                    else
+                        matches = (not hasAnyWeapon)
+                            or WeaponMatchesSkillType(wsType, mhClassID, mhSubClassID)
+                            or (ohActive and WeaponMatchesSkillType(wsType, ohClassID, ohSubClassID))
+                    end
+                end
                 if matches then
                     setupWpnSkill = setupWpnSkill + entry.weaponSkill
                 end
@@ -1270,23 +1434,51 @@ function GSI_OptimizationEngine:EvaluateSetup(setup, overrideSpecIndex, override
         end
     end
 
-    -- 2. Apply active set bonuses once and enforce crafted tier-set limits (maxEquipped)
+    -- 2. Apply active set bonuses per-threshold (prevents SP/Heal double-counting for both healers & non-healers
+    --    while preserving multi-tier sets like Soulforge 4pc+6pc or Devout 3pc+6pc+8pc)
     if GSI_SetBonus then
-        local bonusStats = GetCachedSetBonusStats(setCounts)
-        if bonusStats then
-            for stat, val in pairs(bonusStats) do
-                if type(val) == "number" and val > 0 then
-                    if stat == "Hit" then
-                        setupHit = setupHit + val
-                    elseif stat == "Defense" then
-                        setupDef = setupDef + val
-                    elseif stat == "AvoidanceReduction" then
-                        setupAvoid = setupAvoid + val
-                    elseif stat == "WeaponSkill" then
-                        setupWpnSkill = setupWpnSkill + val
-                    else
-                        local w = GetEffectiveStatWeight(stat, weights, role, class, specIndex, true, 0)
-                        totalScore = totalScore + (val * w)
+        local activeThresholds = GetCachedSetBonusThresholds(setCounts)
+        if activeThresholds then
+            for _, thStats in ipairs(activeThresholds) do
+                local thHeal = thStats.HealingPower or 0
+                local thSP = thStats.SpellPower or 0
+                local isUniThresholdSP = (thHeal == 0)
+                for stat, val in pairs(thStats) do
+                    if type(val) == "number" and val > 0 then
+                        if stat == "Hit" then
+                            setupHit = setupHit + val
+                        elseif stat == "Defense" then
+                            setupDef = setupDef + val
+                        elseif stat == "AvoidanceReduction" then
+                            setupAvoid = setupAvoid + val
+                        elseif stat == "WeaponSkill" then
+                            setupWpnSkill = setupWpnSkill + val
+                        else
+                            local w = GetEffectiveStatWeight(stat, weights, role, class, specIndex, isUniThresholdSP, thHeal, thSP)
+                            totalScore = totalScore + (val * w)
+                        end
+                    end
+                end
+            end
+        else
+            local bonusStats = GetCachedSetBonusStats(setCounts)
+            if bonusStats then
+                local bHeal = bonusStats.HealingPower or 0
+                local bSP = bonusStats.SpellPower or 0
+                for stat, val in pairs(bonusStats) do
+                    if type(val) == "number" and val > 0 then
+                        if stat == "Hit" then
+                            setupHit = setupHit + val
+                        elseif stat == "Defense" then
+                            setupDef = setupDef + val
+                        elseif stat == "AvoidanceReduction" then
+                            setupAvoid = setupAvoid + val
+                        elseif stat == "WeaponSkill" then
+                            setupWpnSkill = setupWpnSkill + val
+                        else
+                            local w = GetEffectiveStatWeight(stat, weights, role, class, specIndex, (bHeal == 0), bHeal, bSP)
+                            totalScore = totalScore + (val * w)
+                        end
                     end
                 end
             end
@@ -1308,8 +1500,10 @@ function GSI_OptimizationEngine:EvaluateSetup(setup, overrideSpecIndex, override
     if setupHit > 0 then
         local hitCapCfg = caps and (caps.HIT or caps.SPELL_HIT)
         if hitCapCfg then
-            local capThreshold = hitCapCfg.cap_total_pct or (IsCasterSpec(role, class, specIndex) and 16 or 9)
-            if (role == "caster" or capThreshold >= 16) and GSI_Config and GSI_Config.Caps and GSI_Config.Caps.SpellHitCap then
+            local isAoEProfile = (v22Profile and v22Profile.isAoEProfile) or (effectiveMode == "AOE")
+            local usesSpellHit = IsCasterSpec(role, class, specIndex) or (caps and caps.SPELL_HIT ~= nil and caps.HIT == nil)
+            local capThreshold = hitCapCfg.cap_total_pct or hitCapCfg.cap_total or (usesSpellHit and 16 or 9)
+            if usesSpellHit and not isAoEProfile and capThreshold >= 16 and GSI_Config and GSI_Config.Caps and GSI_Config.Caps.SpellHitCap then
                 capThreshold = GSI_Config.Caps.SpellHitCap
             end
             totalScore = totalScore + EvaluateCapRange(baseline.hit, baseline.hit + setupHit, hitCapCfg, weights.Hit or 0, capThreshold)
