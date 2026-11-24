@@ -581,6 +581,8 @@ function GSI_UI:GetClassMacroPresets(playerClass)
         id = "dualspec",
         name = "GSI Dual Spec",
         icon = (self.GetDualSpecIcon and self:GetDualSpecIcon()) or 134400,
+        -- It puts on the sets of the specs it lands in: no Equip button, no set of its own
+        noSet = true,
         command = "/gsi toggle",
         desc = "Switches to your other talent group (dual spec) and, once the switch is done, puts on that spec's Equipment Set: the sets GSI saved for it, or the ones chosen in Settings. With several sets it asks which one; without any it equips the best gear from your bags. The icon shows the spec it switches to.",
     })
@@ -958,9 +960,18 @@ function GSI_UI:UpdateMacros(parent)
 
         row:SetSize(696, 50)
 
+        -- A macro without a set of its own (dual spec) has no Equip button
+        local textEdge = row.equipBtn
+        if def.noSet then
+            row.equipBtn:Hide()
+            textEdge = row.dragBtn
+        else
+            row.equipBtn:Show()
+        end
+
         -- Position text elements cleanly without vertical distortion or button overlap
         row.statusBadge:ClearAllPoints()
-        row.statusBadge:SetPoint("RIGHT", row.equipBtn, "LEFT", -8, 9)
+        row.statusBadge:SetPoint("RIGHT", textEdge, "LEFT", -8, 9)
 
         row.nameText:ClearAllPoints()
         row.nameText:SetPoint("LEFT", row.macroBtn, "RIGHT", 10, 9)
@@ -968,7 +979,7 @@ function GSI_UI:UpdateMacros(parent)
 
         row.cmdText:ClearAllPoints()
         row.cmdText:SetPoint("LEFT", row.macroBtn, "RIGHT", 10, -9)
-        row.cmdText:SetPoint("RIGHT", row.equipBtn, "LEFT", -8, -9)
+        row.cmdText:SetPoint("RIGHT", textEdge, "LEFT", -8, -9)
 
         local macroIdx = GSI_UI:FindMacro(def.name)
         if macroIdx then
@@ -1198,7 +1209,7 @@ function GSI_UI:PrintSlashHelp()
 end
 
 function GSI_UI:GetEquipmentSetNameAndIcon(specIndex, targetMode, explicitPreset)
-    if explicitPreset and explicitPreset.name then
+    if explicitPreset and explicitPreset.name and not explicitPreset.noSet then
         local name = explicitPreset.name
         if string.len(name) > 16 then name = string.sub(name, 1, 16) end
         return name, explicitPreset.icon or 134400
@@ -1346,7 +1357,7 @@ function GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, explicitPreset
 end
 
 function GSI_UI:EquipPreset(macroDef)
-    if not macroDef then return end
+    if not macroDef or macroDef.noSet then return end
     if InCombatLockdown and InCombatLockdown() then
         print("|cffff0000[GearSetImprover]|r Cannot equip gear while in combat!")
         return
