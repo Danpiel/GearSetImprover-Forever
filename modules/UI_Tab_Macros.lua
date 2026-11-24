@@ -574,29 +574,15 @@ function GSI_UI:GetClassMacroPresets(playerClass)
         for _, def in ipairs(classList) do
             table.insert(list, def)
         end
-        -- One "go" macro per spec: switch talent group + put on the spec's set
-        -- (/gsi go). Built from the spec's first preset (its word and icon);
-        -- macro names stay within the game's 16 characters.
-        local seen = {}
-        for _, def in ipairs(classList) do
-            local token = def.command and def.command:match("^/gsi equip (%S+)")
-            if def.specIndex and token and not seen[def.specIndex] then
-                seen[def.specIndex] = true
-                local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[playerClass]
-                local sd = cd and cd.specs and cd.specs[def.specIndex]
-                local specName = (sd and sd.name) or token
-                table.insert(list, {
-                    id = "go_" .. token,
-                    name = "GSI Go " .. token:sub(1, 1):upper() .. token:sub(2),
-                    icon = def.icon,
-                    command = "/gsi go " .. token,
-                    desc = "Switch to " .. specName .. " in one press: activates its talent group (dual spec, chosen or detected in Settings), then puts on its Equipment Set, or the best gear from your bags when no set is chosen.",
-                    specIndex = def.specIndex,
-                    isGo = true,
-                })
-            end
-        end
     end
+    -- Dual spec back and forth plus the gear of the spec it lands in (/gsi toggle)
+    table.insert(list, {
+        id = "dualspec",
+        name = "GSI Dual Spec",
+        icon = 136243,
+        command = "/gsi toggle",
+        desc = "Switches to your other talent group (dual spec) and, once the switch is done, puts on that spec's Equipment Set: the sets GSI saved for it, or the ones chosen in Settings. With several sets it asks which one; without any it equips the best gear from your bags.",
+    })
     return list
 end
 
@@ -1196,7 +1182,8 @@ function GSI_UI:PrintSlashHelp()
     print("  |cff00ff00/gsi macros|r - Macro Manager for 1-click Action Bar macros")
     print("  |cff00ff00/gsi spec <1-3|name>|r - Pin a specialization (scores stop following your talents)")
     print("  |cff00ff00/gsi spec auto|r - Follow your current talent specialization (default)")
-    print("  |cff00ff00/gsi set|r - Equip the Equipment Set chosen for the current spec (Settings tab)")
+    print("  |cff00ff00/gsi set|r - Equip the current spec's Equipment Set (asks which one when there are several)")
+    print("  |cff00ff00/gsi toggle|r - Dual spec: switch to the other talent group, then put on that spec's set (the 'GSI Dual Spec' macro)")
     print("  |cff00ff00/gsi go <spec> [mode]|r - Switch to the spec's talent group (dual spec) and put on its set, e.g. |cffffff00/gsi go bear|r")
     print("  |cff00ff00/gsi dump|r - Save item/tooltip/spec diagnostics to SavedVariables (then /reload)")
     print("  |cff00ff00/gsi mode <survival|threat|st|aoe>|r - Switch active mode")
@@ -1533,20 +1520,146 @@ local function SpecDisplayName(specIndex)
     return (sd and sd.name) or ("Spec " .. tostring(specIndex))
 end
 
-function GSI_UI:GetSpecSetName(specIndex)
-    local all = GearSetImproverDB and GearSetImproverDB.specSets
-    local t = all and all[SpecSetCharKey()]
-    return t and t[tonumber(specIndex) or 0] or nil
+local function PlayerClassKey()
+    return (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass())
+        or select(2, UnitClass("player")) or "WARRIOR"
 end
 
-function GSI_UI:SetSpecSetName(specIndex, setName)
+local function SetExists(name)
+    return name ~= nil and C_EquipmentSet ~= nil and C_EquipmentSet.GetEquipmentSetID ~= nil
+        and C_EquipmentSet.GetEquipmentSetID(name) ~= nil
+end
+
+local function Trim16(name)
+    if name and #name > 16 then return name:sub(1, 16) end
+    return name
+end
+
+-- The mode a spec is scored in now (tank specs: tankMode, others: weightMode).
+local function CurrentModeFor(specIndex)
+    local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[PlayerClassKey()]
+    local sd = cd and cd.specs and cd.specs[tonumber(specIndex) or 0]
+    local role = sd and sd.role
+    if role == "tank" or role == "hybrid" then
+        return (GearSetImproverDB and GearSetImproverDB.tankMode) or "Survival"
+    end
+    return (GearSetImproverDB and GearSetImproverDB.weightMode) or "ST"
+end
+
+-- Sets chosen in Settings for a spec: GearSetImproverDB.specSets["Name-Realm"]
+-- [specIndex] is a list of set names (an older single name still reads).
+local function ManualSpecSets(specIndex)
+    local all = GearSetImproverDB and GearSetImproverDB.specSets
+    local t = all and all[SpecSetCharKey()]
+    local v = t and t[tonumber(specIndex) or 0]
+    if type(v) == "string" and v ~= "" then return { v } end
+    local list = {}
+    if type(v) == "table" then
+        for _, n in ipairs(v) do
+            if type(n) == "string" and n ~= "" then list[#list + 1] = n end
+        end
+    end
+    return list
+end
+
+-- The name GSI gives the set it saves for a spec in a mode (the class macro
+-- preset's name, as SaveEquipmentSetForProfile names it), or nil.
+-- Tank "Threat" (tooltip lines) and "DMG" (presets, tankMode) are one mode.
+local function NormMode(m)
+    m = tostring(m or ""):upper()
+    if m == "THREAT" then return "DMG" end
+    return m
+end
+
+local function ModeSetName(specIndex, modeVal)
+    local presets = GSI_MACRO_PRESETS[PlayerClassKey()]
+    if not presets or not modeVal then return nil end
+    for _, p in ipairs(presets) do
+        if p.specIndex == specIndex and p.mode and NormMode(p.mode) == NormMode(modeVal) then
+            return Trim16(p.name)
+        end
+    end
+    return nil
+end
+
+-- The sets GSI has saved for a spec ("GSI: Cat ST", "GSI: Resto AoE", ...),
+-- those that exist, the one for modeVal first.
+function GSI_UI:GetAutoSpecSets(specIndex, modeVal)
+    specIndex = tonumber(specIndex)
+    local list, seen = {}, {}
+    local function Add(name)
+        name = Trim16(name)
+        if name and not seen[name] and SetExists(name) then
+            seen[name] = true
+            list[#list + 1] = name
+        end
+    end
+    Add(ModeSetName(specIndex, modeVal))
+    local presets = GSI_MACRO_PRESETS[PlayerClassKey()]
+    if presets then
+        for _, p in ipairs(presets) do
+            if p.specIndex == specIndex then Add(p.name) end
+        end
+    end
+    Add("GSI: " .. SpecDisplayName(specIndex)) -- the name without a preset
+    return list
+end
+
+-- The sets of a spec: the ones chosen in Settings, else the ones GSI saved
+-- for it. Second return: true when chosen in Settings.
+function GSI_UI:GetSpecSets(specIndex, modeVal)
+    local manual = ManualSpecSets(specIndex)
+    if #manual > 0 then return manual, true end
+    return self:GetAutoSpecSets(specIndex, modeVal), false
+end
+
+-- The first set of a spec, or nil (older callers).
+function GSI_UI:GetSpecSetName(specIndex)
+    return (self:GetSpecSets(specIndex, CurrentModeFor(tonumber(specIndex))))[1]
+end
+
+-- nil or an empty list: back to the sets GSI saved for the spec.
+function GSI_UI:SetSpecSets(specIndex, names)
     specIndex = tonumber(specIndex)
     if not specIndex then return end
     if not GearSetImproverDB then GearSetImproverDB = {} end
     GearSetImproverDB.specSets = GearSetImproverDB.specSets or {}
     local key = SpecSetCharKey()
     GearSetImproverDB.specSets[key] = GearSetImproverDB.specSets[key] or {}
-    GearSetImproverDB.specSets[key][specIndex] = (setName and setName ~= "") and setName or nil
+    GearSetImproverDB.specSets[key][specIndex] = (type(names) == "table" and #names > 0) and names or nil
+end
+
+function GSI_UI:SetSpecSetName(specIndex, setName)
+    self:SetSpecSets(specIndex, (setName and setName ~= "") and { setName } or nil)
+end
+
+-- Adds a set to the spec's own list, or takes it out.
+function GSI_UI:ToggleSpecSet(specIndex, setName)
+    local list = ManualSpecSets(specIndex)
+    for i, n in ipairs(list) do
+        if n == setName then
+            table.remove(list, i)
+            self:SetSpecSets(specIndex, list)
+            return false
+        end
+    end
+    list[#list + 1] = setName
+    self:SetSpecSets(specIndex, list)
+    return true
+end
+
+-- The set a tooltip line (spec + mode) compares with: among the spec's sets,
+-- the one GSI saved for that mode, else the first.
+function GSI_UI:GetCompareSetForProfile(specIndex, modeVal)
+    local list = self:GetSpecSets(specIndex, modeVal)
+    local want = ModeSetName(specIndex, modeVal)
+    for _, n in ipairs(list) do
+        if n == want and SetExists(n) then return n end
+    end
+    for _, n in ipairs(list) do
+        if SetExists(n) then return n end
+    end
+    return nil
 end
 
 -- Talent group (dual spec) per spec, chosen in Settings:
@@ -1601,13 +1714,15 @@ function GSI_UI:IsCompareSpecSets()
     return not (GearSetImproverDB and GearSetImproverDB.compareSpecSets == false)
 end
 
--- For the tooltip cache key: the option and the set tied to each spec.
+-- For the tooltip cache key: the option and the sets chosen for each spec
+-- (GSI's own sets coming and going reset the cache: EQUIPMENT_SETS_CHANGED).
 function GSI_UI:GetSpecSetSignature()
     if not self:IsCompareSpecSets() then return "off" end
-    local all = GearSetImproverDB and GearSetImproverDB.specSets
-    local t = all and all[SpecSetCharKey()]
-    if not t then return "on" end
-    return "on:" .. tostring(t[1] or "") .. "/" .. tostring(t[2] or "") .. "/" .. tostring(t[3] or "") .. "/" .. tostring(t[4] or "")
+    local parts = { "on" }
+    for s = 1, 4 do
+        parts[#parts + 1] = table.concat(ManualSpecSets(s), "+")
+    end
+    return table.concat(parts, "/")
 end
 
 function GSI_UI:IsSpecSetAutoEquip()
@@ -1635,15 +1750,15 @@ end
 local pendingSpecSet = nil
 local specSetRegenFrame = nil
 
-local function WaitForCombatEnd(specIndex)
-    pendingSpecSet = specIndex
+local function WaitForCombatEnd(setName, specIndex)
+    pendingSpecSet = { name = setName, spec = specIndex }
     if not specSetRegenFrame and CreateFrame then
         specSetRegenFrame = CreateFrame("Frame")
         specSetRegenFrame:SetScript("OnEvent", function(self)
             self:UnregisterEvent("PLAYER_REGEN_ENABLED")
-            local spec = pendingSpecSet
+            local p = pendingSpecSet
             pendingSpecSet = nil
-            if spec then GSI_UI:EquipSpecSet(spec) end
+            if p then GSI_UI:EquipNamedSet(p.name, p.spec) end
         end)
     end
     if specSetRegenFrame then
@@ -1651,23 +1766,15 @@ local function WaitForCombatEnd(specIndex)
     end
 end
 
--- Puts on the set tied to specIndex. quiet: no chat line when nothing is tied.
--- Returns true when the set is on (or was just equipped).
-function GSI_UI:EquipSpecSet(specIndex, quiet, verbose)
-    specIndex = tonumber(specIndex)
-    local setName = specIndex and self:GetSpecSetName(specIndex)
-    if not setName then
-        if not quiet then
-            print(string.format("|cffffcc00[GearSetImprover]|r No Equipment Set chosen for |cff00ff00%s|r. Pick one in the Settings tab.", SpecDisplayName(specIndex)))
-        end
-        return false
-    end
-    if not (C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.UseEquipmentSet) then
+-- Puts on one Equipment Manager set (after combat when fighting).
+-- Returns true when it is on or was just equipped.
+function GSI_UI:EquipNamedSet(setName, specIndex, verbose)
+    if not (setName and C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.UseEquipmentSet) then
         return false
     end
     local setID = C_EquipmentSet.GetEquipmentSetID(setName)
     if not setID then
-        print(string.format("|cffff4444[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' (for %s) no longer exists.", setName, SpecDisplayName(specIndex)))
+        print(string.format("|cffff4444[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' no longer exists.", setName))
         return false
     end
     local okI, _, _, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
@@ -1678,7 +1785,7 @@ function GSI_UI:EquipSpecSet(specIndex, quiet, verbose)
         return true
     end
     if InCombatLockdown and InCombatLockdown() then
-        WaitForCombatEnd(specIndex)
+        WaitForCombatEnd(setName, specIndex)
         print(string.format("|cffffcc00[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' will be equipped when combat ends.", setName))
         return false
     end
@@ -1687,6 +1794,120 @@ function GSI_UI:EquipSpecSet(specIndex, quiet, verbose)
         print(string.format("|cff00ff00[GearSetImprover]|r Equipped set '|cffffcc00%s|r' for |cff00ff00%s|r.", setName, SpecDisplayName(specIndex)))
     end
     return ok
+end
+
+-- The sets to offer for a spec: { { name = , spec = }, ... }. withTreeMates:
+-- also the sets of the specs on the same talent tree (a druid's Feral group
+-- can be Cat or Bear; picking a Bear set makes the feral role Bear).
+local function SpecSetChoices(specIndex, withTreeMates)
+    local specs = { specIndex }
+    local SW = GSI_StatWeights
+    if withTreeMates and SW and SW.SpecTree then
+        local numSpecs = (PlayerClassKey() == "DRUID") and 4 or 3
+        local tree = SW:SpecTree(specIndex)
+        for s = 1, numSpecs do
+            if s ~= specIndex and SW:SpecTree(s) == tree then specs[#specs + 1] = s end
+        end
+    end
+    local choices, seen = {}, {}
+    for _, s in ipairs(specs) do
+        for _, name in ipairs((GSI_UI:GetSpecSets(s, CurrentModeFor(s)))) do
+            if not seen[name] and SetExists(name) then
+                seen[name] = true
+                choices[#choices + 1] = { name = name, spec = s }
+            end
+        end
+    end
+    return choices
+end
+
+-- "Which set?" window: one button per set; Esc or "Keep current gear" closes it.
+function GSI_UI:ShowSetChooser(specIndex, choices)
+    local f = GSI_UI.setChooser
+    if not f then
+        f = CreateFrame("Frame", "GSI_SetChooser", UIParent, BACKDROP_TEMPLATE)
+        f:SetFrameStrata("DIALOG")
+        f:SetClampedToScreen(true)
+        f:EnableMouse(true)
+        f:SetMovable(true)
+        f:RegisterForDrag("LeftButton")
+        f:SetScript("OnDragStart", f.StartMoving)
+        f:SetScript("OnDragStop", f.StopMovingOrSizing)
+        f:SetPoint("TOP", UIParent, "TOP", 0, -180)
+        SkinFrame(f, GSI_UI.THEME and GSI_UI.THEME.bgCardBottom, true)
+        f.title = GSI_UI:CreateText(f, "CARD_TITLE", "")
+        f.title:SetPoint("TOP", f, "TOP", 0, -12)
+        f.buttons = {}
+        f.cancel = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
+        f.cancel:SetSize(260, 24)
+        f.cancel:SetText("Keep current gear")
+        SkinButton(f.cancel, nil, false)
+        f.cancel:SetScript("OnClick", function() f:Hide() end)
+        if UISpecialFrames then table.insert(UISpecialFrames, "GSI_SetChooser") end
+        GSI_UI.setChooser = f
+    end
+    f.title:SetText("Equipment Set for " .. SpecDisplayName(specIndex) .. "?")
+    local y = -40
+    for i, c in ipairs(choices) do
+        local b = f.buttons[i]
+        if not b then
+            b = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
+            b:SetSize(260, 26)
+            b:SetText(" ")
+            SkinButton(b, nil, false)
+            b.icon = b:CreateTexture(nil, "ARTWORK")
+            b.icon:SetSize(18, 18)
+            b.icon:SetPoint("LEFT", b, "LEFT", 6, 0)
+            b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+            f.buttons[i] = b
+        end
+        local setID = C_EquipmentSet.GetEquipmentSetID(c.name)
+        local okI, _, icon, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
+        local label = c.name
+        if c.spec ~= specIndex then label = label .. " |cff888888(" .. SpecDisplayName(c.spec) .. ")|r" end
+        if okI and isEquipped then label = label .. " |cff00ff00(on)|r" end
+        b:SetText(label)
+        b.icon:SetTexture((okI and icon) or 134400)
+        b:ClearAllPoints()
+        b:SetPoint("TOP", f, "TOP", 0, y)
+        y = y - 30
+        b:SetScript("OnClick", function()
+            f:Hide()
+            -- A tree mate's set (Bear while Cat is detected) switches the feral role too
+            if c.spec ~= specIndex and GSI_StatWeights and GSI_StatWeights.ChooseSpec then
+                GSI_StatWeights:ChooseSpec(c.spec)
+                pcall(function() GSI_UI:UpdateSpecButton() end)
+            end
+            GSI_UI:EquipNamedSet(c.name, c.spec, true)
+        end)
+        b:Show()
+    end
+    for i = #choices + 1, #f.buttons do f.buttons[i]:Hide() end
+    f.cancel:ClearAllPoints()
+    f.cancel:SetPoint("TOP", f, "TOP", 0, y - 6)
+    f:SetSize(284, -(y - 6) + 24 + 12)
+    f:Show()
+    if f.Raise then f:Raise() end
+end
+
+-- Puts on the gear of a spec: its only set at once, a choice when there are
+-- several. quiet: no chat line when it has none. withTreeMates: see
+-- SpecSetChoices. Returns ok, and "none" when the spec has no set.
+function GSI_UI:EquipSpecSet(specIndex, quiet, verbose, withTreeMates)
+    specIndex = tonumber(specIndex)
+    if not specIndex then return false, "none" end
+    local choices = SpecSetChoices(specIndex, withTreeMates)
+    if #choices == 0 then
+        if not quiet then
+            print(string.format("|cffffcc00[GearSetImprover]|r No Equipment Set for |cff00ff00%s|r yet: GSI saves one when it equips gear for the spec (/gsi equip), or choose sets in the Settings tab.", SpecDisplayName(specIndex)))
+        end
+        return false, "none"
+    end
+    if #choices == 1 then
+        return self:EquipNamedSet(choices[1].name, choices[1].spec, verbose)
+    end
+    self:ShowSetChooser(specIndex, choices)
+    return true, "asked"
 end
 
 -- ---------------------------------------------------------------
@@ -1718,11 +1939,55 @@ local function FinishGoToSpec(specIndex)
     pcall(function() GSI_UI:UpdateSpecButton() end)
     pcall(function() GSI_UI:UpdateModeUI() end)
     pcall(function() GSI_UI:UpdateTitleScore() end)
-    if GSI_UI:GetSpecSetName(specIndex) then
-        GSI_UI:EquipSpecSet(specIndex, false, true)
-    else
+    local _, why = GSI_UI:EquipSpecSet(specIndex, true, true)
+    if why == "none" then
         GSI_UI:EquipBestInBag(specIndex)
     end
+end
+
+-- After /gsi toggle: scores follow the new group's talents, and the gear of
+-- the spec it plays goes on (a choice when there are several sets; the Feral
+-- group offers the Cat and the Bear sets).
+local function FinishToggle()
+    local SW = GSI_StatWeights
+    SW:InvalidateSpecCache()
+    if not SW:IsSpecAuto() then SW:SetSpecAuto(true) end
+    local spec = SW:GetActiveSpecIndex()
+    pcall(function() GSI_UI:UpdateSpecButton() end)
+    pcall(function() GSI_UI:UpdateModeUI() end)
+    pcall(function() GSI_UI:UpdateTitleScore() end)
+    local _, why = GSI_UI:EquipSpecSet(spec, true, true, true)
+    if why == "none" then
+        GSI_UI:EquipBestInBag(spec)
+    end
+end
+
+-- Dual spec back and forth in one press (/gsi toggle): starts the switch to
+-- the other talent group; the gear goes on once it is active.
+function GSI_UI:ToggleTalentGroup()
+    if InCombatLockdown and InCombatLockdown() then
+        print("|cffff0000[GearSetImprover]|r Cannot change specialization or gear while in combat!")
+        return
+    end
+    if PendingGoActive() then
+        print("|cffffcc00[GearSetImprover]|r A talent group switch is already under way.")
+        return
+    end
+    local SW = GSI_StatWeights
+    if SW:GetNumTalentGroups() < 2 then
+        print("|cffffcc00[GearSetImprover]|r Dual specialization is not learned.")
+        return
+    end
+    local target = (SW:GetActiveTalentGroup() == 1) and 2 or 1
+    if not SW:ActivateTalentGroup(target) then
+        print(string.format("|cffff4444[GearSetImprover]|r Could not switch to talent group %d.", target))
+        return
+    end
+    pendingGo = { spec = nil, group = target, expires = (GetTime and GetTime() or 0) + 30 }
+    local _, names = SW:GetTalentGroupPoints(target)
+    local lead = SW:GetTalentGroupLeadTree(target)
+    local label = (lead and names and names[lead]) or ("group " .. target)
+    print(string.format("|cffffcc00[GearSetImprover]|r Switching to talent group %d (|cff00ff00%s|r); the gear goes on when the switch is done.", target, label))
 end
 
 function GSI_UI:GoToSpec(specIndex, targetMode)
@@ -1785,7 +2050,7 @@ do
             if GSI_StatWeights:GetActiveTalentGroup() ~= pendingGo.group then return end
             local spec = pendingGo.spec
             pendingGo = nil
-            FinishGoToSpec(spec)
+            if spec then FinishGoToSpec(spec) else FinishToggle() end
         end
         goFrame:SetScript("OnEvent", function()
             if scheduled or not PendingGoActive() then return end
@@ -1802,9 +2067,11 @@ end
 
 if GSI_StatWeights and GSI_StatWeights.RegisterSpecChangeCallback then
     GSI_StatWeights:RegisterSpecChangeCallback(function(newSpec)
-        -- A /gsi go switch puts on its own spec's gear once the group is active
+        -- A /gsi go or /gsi toggle switch puts on its gear once the group is active
         if PendingGoActive() then return end
         if not GSI_UI:IsSpecSetAutoEquip() then return end
-        GSI_UI:EquipSpecSet(newSpec, true)
+        -- A switch made elsewhere (talent window, a dual spec button):
+        -- the new spec's set, or a choice when there are several
+        GSI_UI:EquipSpecSet(newSpec, true, false, true)
     end)
 end

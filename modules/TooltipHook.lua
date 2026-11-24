@@ -409,12 +409,13 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             local specIdx = pInfo.specIndex
             local modeVal = pInfo.mode
 
-            -- Another spec's line: compare with the Equipment Set tied to that
-            -- spec (Settings) instead of the gear worn for the active one.
+            -- Another spec's line: compare with that spec's Equipment Set (the
+            -- one GSI saved for this spec and mode, or one chosen in Settings)
+            -- instead of the gear worn for the active spec.
             local vsSetName = nil
             if specIdx ~= activeSpecIndex and GSI_UI and GSI_UI.IsCompareSpecSets and GSI_UI:IsCompareSpecSets()
-                and GSI_UI.GetSpecSetName and GSI_CompareEngine.GetSetSetup then
-                vsSetName = GSI_UI:GetSpecSetName(specIdx)
+                and GSI_UI.GetCompareSetForProfile and GSI_CompareEngine.GetSetSetup then
+                vsSetName = GSI_UI:GetCompareSetForProfile(specIdx, modeVal)
             end
 
             GSI_IsProcessing = true

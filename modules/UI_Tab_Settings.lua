@@ -335,7 +335,7 @@ function GSI_UI:DrawSettings(parent)
     cbCompareSets:SetScript("OnEnter", function(selfBtn)
         GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
         GameTooltip:AddLine("Compare other specs with their set", 1, 0.82, 0)
-        GameTooltip:AddLine("When the tooltip shows several specs (Tooltip Orientations above), the line of a spec you are not playing compares the item with the Equipment Set chosen below for that spec (\"vs <set>\"). The active spec always compares with the gear you wear. Specs without a set compare with the gear you wear.", 1, 1, 1, true)
+        GameTooltip:AddLine("When the tooltip shows several specs (Tooltip Orientations above), the line of a spec you are not playing compares the item with that spec's Equipment Set (\"vs <set>\"): the set GSI saved for that spec and mode, or the sets chosen below. The active spec always compares with the gear you wear, and so do specs without a set.", 1, 1, 1, true)
         GameTooltip:Show()
     end)
     cbCompareSets:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -374,13 +374,23 @@ function GSI_UI:DrawSettings(parent)
     local setRows = {}
     local RefreshSetRows
 
+    -- Several sets per spec: each click adds or removes one (the list stays
+    -- open); the top entry goes back to the sets GSI saved for the spec.
     local function OpenPicker(anchor, specIndex)
         local sets = GSI_UI.GetEquipmentSetList and GSI_UI:GetEquipmentSetList() or {}
-        local entries = { { name = nil, label = NONE_LABEL } }
-        for _, s in ipairs(sets) do
-            entries[#entries + 1] = { name = s.name, label = s.name, icon = s.icon }
+        local chosen, isManual = {}, false
+        if GSI_UI.GetSpecSets then chosen, isManual = GSI_UI:GetSpecSets(specIndex) end
+        local selected = {}
+        if isManual then
+            for idx, n in ipairs(chosen) do selected[n] = idx end
         end
-        local current = GSI_UI.GetSpecSetName and GSI_UI:GetSpecSetName(specIndex)
+        local autoLabel = isManual and "|cff888888Auto: sets GSI saved|r" or "|cff00ff00Auto: sets GSI saved|r"
+        local entries = { { name = nil, label = autoLabel } }
+        for _, s in ipairs(sets) do
+            local label = s.name
+            if selected[s.name] then label = "|cff00ff00" .. selected[s.name] .. ". " .. s.name .. "|r" end
+            entries[#entries + 1] = { name = s.name, label = label, icon = s.icon }
+        end
         for i, e in ipairs(entries) do
             local b = picker.items[i]
             if not b then
@@ -396,14 +406,17 @@ function GSI_UI:DrawSettings(parent)
                 b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
                 picker.items[i] = b
             end
-            local label = e.label
-            if e.name and e.name == current then label = "|cff00ff00" .. e.name .. "|r" end
-            b:SetText(label)
+            b:SetText(e.label)
             b.icon:SetTexture(e.icon or 134400)
             b.icon:SetShown(e.name ~= nil)
             b:SetScript("OnClick", function()
-                GSI_UI:SetSpecSetName(specIndex, e.name)
-                picker:Hide()
+                if e.name then
+                    GSI_UI:ToggleSpecSet(specIndex, e.name)
+                    OpenPicker(anchor, specIndex)
+                else
+                    GSI_UI:SetSpecSets(specIndex, nil)
+                    picker:Hide()
+                end
                 if RefreshSetRows then RefreshSetRows() end
             end)
             b:Show()
@@ -445,8 +458,16 @@ function GSI_UI:DrawSettings(parent)
         local specIdx = i
         row.pick:SetScript("OnClick", function(selfBtn)
             if picker:IsShown() then picker:Hide() return end
+            GameTooltip:Hide()
             OpenPicker(selfBtn, specIdx)
         end)
+        row.pick:SetScript("OnEnter", function(selfBtn)
+            GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+            GameTooltip:AddLine("Equipment Sets for this spec", 1, 0.82, 0)
+            GameTooltip:AddLine("Auto: the sets GSI saved for the spec (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...). Or tick one or more of your own sets. When a spec has several, switching to it asks which one to put on; other specs' tooltip lines compare with the set for their mode, else the first.", 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        row.pick:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
         row.equip = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
         row.equip:SetSize(70, 24)
@@ -489,7 +510,7 @@ function GSI_UI:DrawSettings(parent)
                 end
                 GameTooltip:AddLine("Click: Auto, Group 1, Group 2. Auto takes the only group whose most-used tree is this spec's; choose the group when both use the same tree (a Cat and a Bear build).", 0.7, 0.9, 1, true)
             end
-            GameTooltip:AddLine("/gsi go <spec> (and the 'GSI Go' macros) switches to this group, then puts on the set.", 0.85, 0.85, 0.85, true)
+            GameTooltip:AddLine("Used by /gsi go <spec>. The 'GSI Dual Spec' macro (/gsi toggle) just switches to the other group and puts on the gear of the spec it plays.", 0.85, 0.85, 0.85, true)
             GameTooltip:Show()
         end)
         row.group:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -503,16 +524,23 @@ function GSI_UI:DrawSettings(parent)
     RefreshSetRows = function()
         local detected = GSI_StatWeights and GSI_StatWeights.DetectCurrentSpec and GSI_StatWeights:DetectCurrentSpec()
         for i, row in ipairs(setRows) do
-            local name = GSI_UI.GetSpecSetName and GSI_UI:GetSpecSetName(i)
-            local exists = name and C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.GetEquipmentSetID(name)
-            if not name then
-                row.pick:SetText(NONE_LABEL)
-            elseif exists then
-                row.pick:SetText(name)
-            else
-                row.pick:SetText("|cffff4444" .. name .. " (missing)|r")
+            local names, isManual = {}, false
+            if GSI_UI.GetSpecSets then names, isManual = GSI_UI:GetSpecSets(i) end
+            local anyExists = false
+            local shown = {}
+            for _, n in ipairs(names) do
+                local exists = C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.GetEquipmentSetID(n)
+                if exists then anyExists = true end
+                shown[#shown + 1] = exists and n or ("|cffff4444" .. n .. " (missing)|r")
             end
-            row.equip:SetEnabled(exists and true or false)
+            local text = table.concat(shown, ", ")
+            if not isManual then
+                text = (#shown > 0) and ("|cff888888Auto:|r " .. text) or "|cff888888Auto: no GSI set yet|r"
+            elseif text == "" then
+                text = NONE_LABEL
+            end
+            row.pick:SetText(text)
+            row.equip:SetEnabled(anyExists)
             local specData = classData and classData.specs and classData.specs[i]
             local label = (specData and specData.name) or ("Spec " .. i)
             row.label:SetText(i == detected and ("|cff00ff00" .. label .. "|r") or label)

@@ -1056,6 +1056,12 @@ function GSI_UI:HandleSlashCommand(msg)
         return
     end
 
+    -- Dual spec back and forth + the new spec's set (/gsi toggle, or /gsi go alone)
+    if cmd == "toggle" or cmd == "dual" or cmd == "swap" or ((cmd == "go" or cmd == "switch") and #tokens == 0) then
+        if GSI_UI.ToggleTalentGroup then GSI_UI:ToggleTalentGroup() end
+        return
+    end
+
     if cmd == "go" or cmd == "switch" then
         local targetSpec, targetMode = ParseSpecAndModeTokens(tokens)
         -- A spec word alone ("bear") keeps the mode you have; a mode word changes it
