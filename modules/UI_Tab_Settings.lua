@@ -321,8 +321,27 @@ function GSI_UI:DrawSettings(parent)
     end)
     cbSetAuto:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    local setDesc = self:CreateText(scrollChild, "BODY", "Equipment Manager set for each spec (sets belong to this character):")
-    setDesc:SetPoint("TOPLEFT", cbSetAuto, "BOTTOMLEFT", 0, -8)
+    local cbCompareSets = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
+    cbCompareSets:SetPoint("TOPLEFT", cbSetAuto, "BOTTOMLEFT", 0, -6)
+    cbCompareSets.text = self:CreateText(cbCompareSets, "BODY", "Tooltips: compare other specs with their own set, not the gear you wear")
+    cbCompareSets.text:SetPoint("LEFT", cbCompareSets, "RIGHT", 6, 0)
+    cbCompareSets.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    cbCompareSets.text:SetJustifyH("LEFT")
+    cbCompareSets:SetScript("OnClick", function(selfBtn)
+        if not GearSetImproverDB then GearSetImproverDB = {} end
+        GearSetImproverDB.compareSpecSets = selfBtn:GetChecked() and true or false
+        if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then GSI_TooltipHook:RefreshShownTooltips() end
+    end)
+    cbCompareSets:SetScript("OnEnter", function(selfBtn)
+        GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+        GameTooltip:AddLine("Compare other specs with their set", 1, 0.82, 0)
+        GameTooltip:AddLine("When the tooltip shows several specs (Tooltip Orientations above), the line of a spec you are not playing compares the item with the Equipment Set chosen below for that spec (\"vs <set>\"). The active spec always compares with the gear you wear. Specs without a set compare with the gear you wear.", 1, 1, 1, true)
+        GameTooltip:Show()
+    end)
+    cbCompareSets:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+    local setDesc = self:CreateText(scrollChild, "BODY", "Equipment Manager set and talent group (dual spec) for each spec; the set and group belong to this character:")
+    setDesc:SetPoint("TOPLEFT", cbCompareSets, "BOTTOMLEFT", 0, -8)
     setDesc:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     setDesc:SetJustifyH("LEFT")
     if setDesc.SetWordWrap then setDesc:SetWordWrap(true) end
@@ -438,6 +457,43 @@ function GSI_UI:DrawSettings(parent)
             if GSI_UI.EquipSpecSet then GSI_UI:EquipSpecSet(specIdx, false, true) end
         end)
 
+        -- Talent group (dual spec) for /gsi go: Auto -> 1 -> 2 -> Auto
+        row.group = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
+        row.group:SetSize(130, 24)
+        row.group:SetPoint("LEFT", row.equip, "RIGHT", 8, 0)
+        row.group:SetText(" ")
+        SkinButton(row.group, nil, false)
+        row.group:SetScript("OnClick", function()
+            if not GSI_UI.GetSpecTalentGroup then return end
+            local cur = GSI_UI:GetSpecTalentGroup(specIdx)
+            local nextGroup = (cur == nil and 1) or (cur == 1 and 2) or nil
+            GSI_UI:SetSpecTalentGroup(specIdx, nextGroup)
+            if RefreshSetRows then RefreshSetRows() end
+        end)
+        row.group:SetScript("OnEnter", function(selfBtn)
+            local SW = GSI_StatWeights
+            GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+            GameTooltip:AddLine("Talent group for this spec", 1, 0.82, 0)
+            local n = (SW and SW.GetNumTalentGroups and SW:GetNumTalentGroups()) or 1
+            if n < 2 then
+                GameTooltip:AddLine("Dual specialization is not learned: /gsi go only puts on the gear.", 1, 1, 1, true)
+            else
+                local active = SW:GetActiveTalentGroup()
+                for g = 1, n do
+                    local points, names = SW:GetTalentGroupPoints(g)
+                    local lead = SW:GetTalentGroupLeadTree(g)
+                    local right = points and table.concat(points, " / ") or "?"
+                    local left = "Group " .. g .. ((lead and names and names[lead]) and (": " .. names[lead]) or "")
+                    if g == active then left = left .. " (active)" end
+                    GameTooltip:AddDoubleLine(left, right, 1, 1, 1, 0.8, 0.8, 0.8)
+                end
+                GameTooltip:AddLine("Click: Auto, Group 1, Group 2. Auto takes the only group whose most-used tree is this spec's; choose the group when both use the same tree (a Cat and a Bear build).", 0.7, 0.9, 1, true)
+            end
+            GameTooltip:AddLine("/gsi go <spec> (and the 'GSI Go' macros) switches to this group, then puts on the set.", 0.85, 0.85, 0.85, true)
+            GameTooltip:Show()
+        end)
+        row.group:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
         row.specIndex = i
         setRows[i] = row
         prevRow = row
@@ -460,9 +516,24 @@ function GSI_UI:DrawSettings(parent)
             local specData = classData and classData.specs and classData.specs[i]
             local label = (specData and specData.name) or ("Spec " .. i)
             row.label:SetText(i == detected and ("|cff00ff00" .. label .. "|r") or label)
+
+            local SW = GSI_StatWeights
+            local numGroups = (SW and SW.GetNumTalentGroups and SW:GetNumTalentGroups()) or 1
+            if numGroups < 2 or not GSI_UI.ResolveSpecTalentGroup then
+                row.group:SetText("|cff888888Talents: -|r")
+            else
+                local bound = GSI_UI:GetSpecTalentGroup(i)
+                if bound then
+                    row.group:SetText("Talents: Group " .. bound)
+                else
+                    local g = GSI_UI:ResolveSpecTalentGroup(i)
+                    row.group:SetText("Talents: Auto |cff888888(" .. (g and tostring(g) or "?") .. ")|r")
+                end
+            end
         end
         cbSpecAuto:SetChecked(not GSI_StatWeights or not GSI_StatWeights.IsSpecAuto or GSI_StatWeights:IsSpecAuto())
         cbSetAuto:SetChecked(not GSI_UI.IsSpecSetAutoEquip or GSI_UI:IsSpecSetAutoEquip())
+        cbCompareSets:SetChecked(not GSI_UI.IsCompareSpecSets or GSI_UI:IsCompareSpecSets())
     end
     GSI_UI.RefreshSpecSetRows = RefreshSetRows
 
@@ -470,6 +541,8 @@ function GSI_UI:DrawSettings(parent)
         local setsWatcher = CreateFrame("Frame")
         pcall(setsWatcher.RegisterEvent, setsWatcher, "EQUIPMENT_SETS_CHANGED")
         pcall(setsWatcher.RegisterEvent, setsWatcher, "PLAYER_EQUIPMENT_CHANGED")
+        pcall(setsWatcher.RegisterEvent, setsWatcher, "ACTIVE_TALENT_GROUP_CHANGED")
+        pcall(setsWatcher.RegisterEvent, setsWatcher, "PLAYER_TALENT_UPDATE")
         setsWatcher:SetScript("OnEvent", function()
             if parent:IsVisible() then RefreshSetRows() end
         end)

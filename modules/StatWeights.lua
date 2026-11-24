@@ -85,12 +85,12 @@ end
 -- Returns points ({ [treeIndex] = points }), names, state: "ok", "notready" (no
 -- active config yet, e.g. at login) or "nogroups" (a client without these trees).
 local function ByOrderIndex(a, b) return (a.orderIndex or 0) < (b.orderIndex or 0) end
-local function TraitGroupPoints()
+local function TraitGroupPoints(configID)
     if not (C_ClassTalents and C_ClassTalents.GetActiveConfigID and C_Traits and C_Traits.GetConfigInfo
             and C_Traits.GetGroupDisplayInfoByTreeID and C_Traits.GetGroupCurrencyInfo) then
         return nil
     end
-    local configID = C_ClassTalents.GetActiveConfigID()
+    configID = configID or C_ClassTalents.GetActiveConfigID()
     local config = configID and C_Traits.GetConfigInfo(configID)
     local treeID = config and config.treeIDs and config.treeIDs[1]
     if not treeID then return nil, nil, "notready" end
@@ -125,6 +125,65 @@ GSI_StatWeights.TraitGroupPoints = function()
         state = "notready"
     end
     return points, names, state
+end
+
+-- ------------------------------------------------------------
+-- Dual spec (WoW Forever): up to two talent groups, each with its own build.
+-- The switch is C_SpecializationInfo.SetActiveSpecGroup, a cast the game
+-- refuses in combat; a group's build is read from its combat config
+-- (GetCombatConfigIDForSpecGroup), as EllesmereUI's Dual Spec block does.
+-- ------------------------------------------------------------
+function GSI_StatWeights:GetNumTalentGroups()
+    local ok, n = pcall(function() return GetNumSpecGroups and GetNumSpecGroups() end)
+    return (ok and tonumber(n)) or 1
+end
+
+function GSI_StatWeights:GetActiveTalentGroup()
+    local SI = C_SpecializationInfo
+    local ok, g = pcall(function() return SI and SI.GetActiveSpecGroup and SI.GetActiveSpecGroup() end)
+    return (ok and tonumber(g)) or 1
+end
+
+-- Points per tree and tree names of a group's build, or nil when unreadable.
+function GSI_StatWeights:GetTalentGroupPoints(group)
+    local SI = C_SpecializationInfo
+    if not (SI and SI.GetCombatConfigIDForSpecGroup) then return nil end
+    local ok, configID = pcall(SI.GetCombatConfigIDForSpecGroup, group)
+    if not ok or not configID then return nil end
+    local okP, points, names, state = pcall(TraitGroupPoints, configID)
+    if not okP or state ~= "ok" then return nil end
+    return points, names
+end
+
+-- The tree with the most points in a group's build (leftmost on a tie),
+-- nil when none are spent or the build is unreadable.
+function GSI_StatWeights:GetTalentGroupLeadTree(group)
+    local points = self:GetTalentGroupPoints(group)
+    if not points then return nil end
+    local lead, best = nil, 0
+    for i, p in ipairs(points) do
+        if p > best then lead, best = i, p end
+    end
+    return lead
+end
+
+-- The talent tree a GSI spec plays from (druid: Bear and Cat share Feral).
+function GSI_StatWeights:SpecTree(specIndex)
+    specIndex = tonumber(specIndex) or 1
+    if GetPlayerClass() == "DRUID" then
+        if specIndex == 1 then return 1 end
+        if specIndex == 4 then return 3 end
+        return 2
+    end
+    return specIndex
+end
+
+-- Starts the switch to a talent group. Returns true when the game took it.
+function GSI_StatWeights:ActivateTalentGroup(group)
+    local SI = C_SpecializationInfo
+    if not (SI and SI.SetActiveSpecGroup) then return false end
+    if InCombatLockdown and InCombatLockdown() then return false end
+    return pcall(SI.SetActiveSpecGroup, group) and true or false
 end
 
 local function TalentPointsPerTab()

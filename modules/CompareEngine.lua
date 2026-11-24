@@ -76,6 +76,7 @@ function GSI_CompareEngine:ResetCache()
     end
     cachedOptVersion = -1
     cachedTooltipRev = -1
+    if self._ClearSetSetups then self._ClearSetSetups() end
 end
 
 local function EnsureSetupSnapshot(specIndex, effectiveMode)
@@ -136,6 +137,110 @@ local function EnsureSetupSnapshot(specIndex, effectiveMode)
     end
 
     return cachedSetup, baseScore
+end
+
+-- ------------------------------------------------------------
+-- An Equipment Manager set as a setup, so a tooltip line for another spec
+-- can compare the item with that spec's own gear instead of what is worn.
+-- Slots the set ignores keep the worn item. Each set item is looked up by its
+-- item ID: worn first, then the bags, else its plain link (in the bank).
+-- Kept until the tooltip cache revision or the optimizer cache changes
+-- (gear swaps, talents, EQUIPMENT_SETS_CHANGED reset the tooltip cache).
+-- ------------------------------------------------------------
+local setSetups = {} -- [setName] = { rev = , opt = , setup = , bases = {} }
+GSI_CompareEngine._ClearSetSetups = function()
+    for k in pairs(setSetups) do setSetups[k] = nil end
+end
+
+local function IndexBagLinksByID()
+    local byID = {}
+    local CC = C_Container
+    if not (CC and CC.GetContainerNumSlots and CC.GetContainerItemID and CC.GetContainerItemLink) then return byID end
+    local lastBag = _G.NUM_TOTAL_EQUIPPED_BAG_SLOTS or _G.NUM_BAG_SLOTS or 4
+    for bag = 0, lastBag do
+        local okN, n = pcall(CC.GetContainerNumSlots, bag)
+        for slot = 1, (okN and n) or 0 do
+            local id = CC.GetContainerItemID(bag, slot)
+            if id and not byID[id] then
+                byID[id] = CC.GetContainerItemLink(bag, slot)
+            end
+        end
+    end
+    return byID
+end
+
+local function BuildSetSetup(setID)
+    local CE = C_EquipmentSet
+    local okIds, ids = pcall(CE.GetItemIDs, setID)
+    if not okIds or type(ids) ~= "table" then return nil end
+    local ignored = {}
+    if CE.GetIgnoredSlots then
+        local okIg, ig = pcall(CE.GetIgnoredSlots, setID)
+        if okIg and type(ig) == "table" then ignored = ig end
+    end
+    local equipSlots = (GSI_OptimizationEngine and GSI_OptimizationEngine.EQUIP_SLOTS)
+                    or (GSI_ClassicData and GSI_ClassicData.EQUIP_SLOTS)
+                    or DEFAULT_EQUIP_SLOTS
+    local worn, wornByID = {}, {}
+    for _, slotID in ipairs(equipSlots) do
+        local link = GetInventoryItemLink and GetInventoryItemLink("player", slotID)
+        if link then
+            worn[slotID] = link
+            local id = GetInventoryItemID and GetInventoryItemID("player", slotID)
+            if id and not wornByID[id] then wornByID[id] = link end
+        end
+    end
+    local bagByID = nil
+    local setup = {}
+    for _, slotID in ipairs(equipSlots) do
+        local id = ids[slotID]
+        local link = nil
+        if ignored[slotID] then
+            link = worn[slotID]
+        elseif type(id) == "number" and id > 1 then
+            if GetInventoryItemID and GetInventoryItemID("player", slotID) == id then
+                link = worn[slotID]
+            end
+            link = link or wornByID[id]
+            if not link then
+                bagByID = bagByID or IndexBagLinksByID()
+                link = bagByID[id]
+            end
+            link = link or select(2, GetItemInfo(id)) or ("item:" .. id)
+        end
+        if link then
+            setup[slotID] = { link = link, source = "equipped", slot = slotID }
+        end
+    end
+    return setup
+end
+
+-- Returns the set's setup and its score for specIndex / mode (nil when the
+-- set does not exist).
+function GSI_CompareEngine:GetSetSetup(setName, specIndex, overrideMode)
+    if not setName or not (C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.GetItemIDs) then
+        return nil
+    end
+    local setID = C_EquipmentSet.GetEquipmentSetID(setName)
+    if not setID then return nil end
+    local rev = (GSI_TooltipCache and GSI_TooltipCache.revision) or 0
+    local opt = (GSI_OptimizationEngine and GSI_OptimizationEngine._cacheVersion) or 0
+    local entry = setSetups[setName]
+    if not entry or entry.rev ~= rev or entry.opt ~= opt then
+        local setup = BuildSetSetup(setID)
+        if not setup then return nil end
+        entry = { rev = rev, opt = opt, setup = setup, bases = {} }
+        setSetups[setName] = entry
+    end
+    local effectiveMode = ResolveEffectiveMode(GetPlayerClassKey(), specIndex, overrideMode)
+    local baseKey = tostring(specIndex) .. ":" .. tostring(effectiveMode)
+    local base = entry.bases[baseKey]
+    if base == nil then
+        base = (GSI_OptimizationEngine and GSI_OptimizationEngine.EvaluateSetup
+            and GSI_OptimizationEngine:EvaluateSetup(entry.setup, specIndex, effectiveMode)) or 0
+        entry.bases[baseKey] = base
+    end
+    return entry.setup, base
 end
 
 -- Compares itemLink against the best replacement slot in currentSetupObjs (or player's equipped gear).

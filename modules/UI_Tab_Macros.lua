@@ -574,6 +574,28 @@ function GSI_UI:GetClassMacroPresets(playerClass)
         for _, def in ipairs(classList) do
             table.insert(list, def)
         end
+        -- One "go" macro per spec: switch talent group + put on the spec's set
+        -- (/gsi go). Built from the spec's first preset (its word and icon);
+        -- macro names stay within the game's 16 characters.
+        local seen = {}
+        for _, def in ipairs(classList) do
+            local token = def.command and def.command:match("^/gsi equip (%S+)")
+            if def.specIndex and token and not seen[def.specIndex] then
+                seen[def.specIndex] = true
+                local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[playerClass]
+                local sd = cd and cd.specs and cd.specs[def.specIndex]
+                local specName = (sd and sd.name) or token
+                table.insert(list, {
+                    id = "go_" .. token,
+                    name = "GSI Go " .. token:sub(1, 1):upper() .. token:sub(2),
+                    icon = def.icon,
+                    command = "/gsi go " .. token,
+                    desc = "Switch to " .. specName .. " in one press: activates its talent group (dual spec, chosen or detected in Settings), then puts on its Equipment Set, or the best gear from your bags when no set is chosen.",
+                    specIndex = def.specIndex,
+                    isGo = true,
+                })
+            end
+        end
     end
     return list
 end
@@ -1175,6 +1197,7 @@ function GSI_UI:PrintSlashHelp()
     print("  |cff00ff00/gsi spec <1-3|name>|r - Pin a specialization (scores stop following your talents)")
     print("  |cff00ff00/gsi spec auto|r - Follow your current talent specialization (default)")
     print("  |cff00ff00/gsi set|r - Equip the Equipment Set chosen for the current spec (Settings tab)")
+    print("  |cff00ff00/gsi go <spec> [mode]|r - Switch to the spec's talent group (dual spec) and put on its set, e.g. |cffffff00/gsi go bear|r")
     print("  |cff00ff00/gsi dump|r - Save item/tooltip/spec diagnostics to SavedVariables (then /reload)")
     print("  |cff00ff00/gsi mode <survival|threat|st|aoe>|r - Switch active mode")
     print("  |cff00ff00/gsi toast|r (or |cff00ff00/gsi testtoast|r) - Test on-screen upgrade toast alert")
@@ -1526,6 +1549,67 @@ function GSI_UI:SetSpecSetName(specIndex, setName)
     GearSetImproverDB.specSets[key][specIndex] = (setName and setName ~= "") and setName or nil
 end
 
+-- Talent group (dual spec) per spec, chosen in Settings:
+-- GearSetImproverDB.specTalentGroups["Name-Realm"][specIndex] = 1 or 2.
+-- Not chosen = Auto: the only group whose leading tree is the spec's tree.
+function GSI_UI:GetSpecTalentGroup(specIndex)
+    local all = GearSetImproverDB and GearSetImproverDB.specTalentGroups
+    local t = all and all[SpecSetCharKey()]
+    local g = t and tonumber(t[tonumber(specIndex) or 0])
+    if g == 1 or g == 2 then return g end
+    return nil
+end
+
+function GSI_UI:SetSpecTalentGroup(specIndex, group)
+    specIndex = tonumber(specIndex)
+    if not specIndex then return end
+    if not GearSetImproverDB then GearSetImproverDB = {} end
+    GearSetImproverDB.specTalentGroups = GearSetImproverDB.specTalentGroups or {}
+    local key = SpecSetCharKey()
+    GearSetImproverDB.specTalentGroups[key] = GearSetImproverDB.specTalentGroups[key] or {}
+    group = tonumber(group)
+    GearSetImproverDB.specTalentGroups[key][specIndex] = (group == 1 or group == 2) and group or nil
+end
+
+-- The talent group that plays specIndex, and how it was found:
+-- "bound" (chosen in Settings), "auto" (the only group on the spec's tree),
+-- "single" (no dual spec: the active group), or nil with "none" (no group on
+-- that tree) / "ambiguous" (both groups on it, e.g. a Cat and a Bear build).
+function GSI_UI:ResolveSpecTalentGroup(specIndex)
+    local SW = GSI_StatWeights
+    if not (SW and SW.GetNumTalentGroups) then return 1, "single" end
+    local n = SW:GetNumTalentGroups()
+    if n < 2 then return SW:GetActiveTalentGroup(), "single" end
+    local bound = self:GetSpecTalentGroup(specIndex)
+    if bound and bound <= n then return bound, "bound" end
+    local tree = SW:SpecTree(specIndex)
+    local found, count = nil, 0
+    for g = 1, n do
+        if SW:GetTalentGroupLeadTree(g) == tree then
+            found = found or g
+            count = count + 1
+        end
+    end
+    if count == 1 then return found, "auto" end
+    if count == 0 then return nil, "none" end
+    return nil, "ambiguous"
+end
+
+-- Tooltips: a line for a spec other than the active one is compared with the
+-- Equipment Set tied to that spec instead of the gear worn now (default on).
+function GSI_UI:IsCompareSpecSets()
+    return not (GearSetImproverDB and GearSetImproverDB.compareSpecSets == false)
+end
+
+-- For the tooltip cache key: the option and the set tied to each spec.
+function GSI_UI:GetSpecSetSignature()
+    if not self:IsCompareSpecSets() then return "off" end
+    local all = GearSetImproverDB and GearSetImproverDB.specSets
+    local t = all and all[SpecSetCharKey()]
+    if not t then return "on" end
+    return "on:" .. tostring(t[1] or "") .. "/" .. tostring(t[2] or "") .. "/" .. tostring(t[3] or "") .. "/" .. tostring(t[4] or "")
+end
+
 function GSI_UI:IsSpecSetAutoEquip()
     return not (GearSetImproverDB and GearSetImproverDB.specSetAutoEquip == false)
 end
@@ -1605,8 +1689,121 @@ function GSI_UI:EquipSpecSet(specIndex, quiet, verbose)
     return ok
 end
 
+-- ---------------------------------------------------------------
+-- One button: switch to a spec and put on its gear (/gsi go <spec> [mode]).
+-- Switches to the spec's talent group when it is not the active one (dual
+-- spec), sets the feral role for Bear / Cat, then puts on the spec's
+-- Equipment Set, or the best gear in the bags when no set is tied to it.
+-- The group switch is a cast: the gear waits until the new group is active,
+-- so the swap cannot interrupt it.
+-- ---------------------------------------------------------------
+local pendingGo = nil -- { spec, group, expires }
+
+local function PendingGoActive()
+    if pendingGo and GetTime and GetTime() > pendingGo.expires then pendingGo = nil end
+    return pendingGo ~= nil
+end
+
+local function FinishGoToSpec(specIndex)
+    local SW = GSI_StatWeights
+    SW:InvalidateSpecCache()
+    local detected, fromTalents = SW:DetectCurrentSpec()
+    -- Talents now play this spec: scores follow them (Auto); otherwise the
+    -- spec is pinned, as a pick in the header dropdown does.
+    if fromTalents and detected == specIndex and not SW:IsSpecAuto() then
+        SW:SetSpecAuto(true)
+    else
+        SW:ChooseSpec(specIndex)
+    end
+    pcall(function() GSI_UI:UpdateSpecButton() end)
+    pcall(function() GSI_UI:UpdateModeUI() end)
+    pcall(function() GSI_UI:UpdateTitleScore() end)
+    if GSI_UI:GetSpecSetName(specIndex) then
+        GSI_UI:EquipSpecSet(specIndex, false, true)
+    else
+        GSI_UI:EquipBestInBag(specIndex)
+    end
+end
+
+function GSI_UI:GoToSpec(specIndex, targetMode)
+    specIndex = tonumber(specIndex)
+    if not specIndex then return end
+    if InCombatLockdown and InCombatLockdown() then
+        print("|cffff0000[GearSetImprover]|r Cannot change specialization or gear while in combat!")
+        return
+    end
+    if not GearSetImproverDB then GearSetImproverDB = {} end
+    if targetMode then
+        if targetMode.type == "tank" then
+            GearSetImproverDB.tankMode = targetMode.value
+        elseif targetMode.type == "dps" then
+            GearSetImproverDB.weightMode = targetMode.value
+        end
+    end
+    pendingGo = nil
+
+    local SW = GSI_StatWeights
+    local class = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass())
+        or select(2, UnitClass("player")) or "WARRIOR"
+    -- Bear / Cat: the feral role is set first, so the Feral group reads as this spec
+    if class == "DRUID" and (specIndex == 2 or specIndex == 3) then
+        GearSetImproverDB.feralSpec = specIndex
+        SW:InvalidateSpecCache()
+    end
+
+    local specName = SpecDisplayName(specIndex)
+    local group, why = self:ResolveSpecTalentGroup(specIndex)
+    local active = SW:GetActiveTalentGroup()
+    if group and group ~= active then
+        if SW:ActivateTalentGroup(group) then
+            pendingGo = { spec = specIndex, group = group, expires = (GetTime and GetTime() or 0) + 30 }
+            print(string.format("|cffffcc00[GearSetImprover]|r Switching to talent group %d for |cff00ff00%s|r; the gear goes on when the switch is done.", group, specName))
+            return
+        end
+        print(string.format("|cffff4444[GearSetImprover]|r Could not switch to talent group %d; equipping the gear for %s only.", group, specName))
+    elseif why == "ambiguous" then
+        print(string.format("|cffffcc00[GearSetImprover]|r Both talent groups use the tree of %s: choose its group in Settings (Specialization & Equipment Set). Staying in group %d.", specName, active))
+    elseif why == "none" then
+        print(string.format("|cffffcc00[GearSetImprover]|r No talent group plays %s; only its gear is put on.", specName))
+    elseif why == "single" then
+        local lead = SW:GetTalentGroupLeadTree(active)
+        if lead and lead ~= SW:SpecTree(specIndex) then
+            print(string.format("|cffffcc00[GearSetImprover]|r Dual specialization is not learned: only the gear for %s is put on.", specName))
+        end
+    end
+    FinishGoToSpec(specIndex)
+end
+
+do
+    local goFrame = CreateFrame and CreateFrame("Frame")
+    if goFrame then
+        local scheduled = false
+        local function Resolve()
+            scheduled = false
+            if not PendingGoActive() then return end
+            -- Not switched yet (the cast is still going): a later event retries
+            if GSI_StatWeights:GetActiveTalentGroup() ~= pendingGo.group then return end
+            local spec = pendingGo.spec
+            pendingGo = nil
+            FinishGoToSpec(spec)
+        end
+        goFrame:SetScript("OnEvent", function()
+            if scheduled or not PendingGoActive() then return end
+            scheduled = true
+            -- After the spec watcher (0.5 s) has seen the new group
+            if C_Timer and C_Timer.After then C_Timer.After(1.0, Resolve) else Resolve() end
+        end)
+        for _, ev in ipairs({ "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_TALENT_UPDATE", "TRAIT_CONFIG_UPDATED",
+                              "PLAYER_SPECIALIZATION_CHANGED", "SPELLS_CHANGED" }) do
+            pcall(goFrame.RegisterEvent, goFrame, ev)
+        end
+    end
+end
+
 if GSI_StatWeights and GSI_StatWeights.RegisterSpecChangeCallback then
     GSI_StatWeights:RegisterSpecChangeCallback(function(newSpec)
+        -- A /gsi go switch puts on its own spec's gear once the group is active
+        if PendingGoActive() then return end
         if not GSI_UI:IsSpecSetAutoEquip() then return end
         GSI_UI:EquipSpecSet(newSpec, true)
     end)

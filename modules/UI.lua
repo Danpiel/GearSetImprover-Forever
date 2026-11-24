@@ -1056,6 +1056,18 @@ function GSI_UI:HandleSlashCommand(msg)
         return
     end
 
+    if cmd == "go" or cmd == "switch" then
+        local targetSpec, targetMode = ParseSpecAndModeTokens(tokens)
+        -- A spec word alone ("bear") keeps the mode you have; a mode word changes it
+        if #tokens < 2 then targetMode = nil end
+        if targetSpec and GSI_UI.GoToSpec then
+            GSI_UI:GoToSpec(targetSpec, targetMode)
+        else
+            print("|cffffcc00[GearSetImprover]|r Usage: |cffffcc00/gsi go <spec> [mode]|r, e.g. |cffffcc00/gsi go bear|r or |cffffcc00/gsi go cat aoe|r.")
+        end
+        return
+    end
+
     if cmd == "dump" then
         self:DebugDump(tokens[1])
         return

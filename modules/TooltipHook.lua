@@ -172,10 +172,13 @@ local function BuildCacheKey(isShoppingTip, itemLink, playerClass, activeSpecInd
     local cacheRev = (GSI_TooltipCache and (GSI_TooltipCache.GetRevision and GSI_TooltipCache:GetRevision() or GSI_TooltipCache.revision)) or 0
     local hookRev = GSI_TooltipHook._revision or 1
     local playerLevel = (UnitLevel and UnitLevel("player")) or 60
+    -- Other specs' lines compare with the set tied to them (option + set names)
+    local setSig = (GSI_UI and GSI_UI.GetSpecSetSignature and GSI_UI:GetSpecSetSignature()) or ""
 
     return string.format(
-        "%d|%s|%s|%s|%s|%s|%d|%s|%d|%d|%d|%d|%d|%s",
+        "%d|%s|%s|%s|%s|%s|%d|%s|%d|%d|%d|%d|%d|%s|%s",
         flags,
+        setSig,
         tostring(specKey),
         tostring(activeWeightMode),
         tostring(activeTankMode),
@@ -406,9 +409,22 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             local specIdx = pInfo.specIndex
             local modeVal = pInfo.mode
 
+            -- Another spec's line: compare with the Equipment Set tied to that
+            -- spec (Settings) instead of the gear worn for the active one.
+            local vsSetName = nil
+            if specIdx ~= activeSpecIndex and GSI_UI and GSI_UI.IsCompareSpecSets and GSI_UI:IsCompareSpecSets()
+                and GSI_UI.GetSpecSetName and GSI_CompareEngine.GetSetSetup then
+                vsSetName = GSI_UI:GetSpecSetName(specIdx)
+            end
+
             GSI_IsProcessing = true
             local ok, _, _, newScore, delta, isBetter, targetSlotID, isLevelTooHigh, minLevel = pcall(function()
-                return GSI_CompareEngine:Compare(itemLink, nil, nil, specIdx, modeVal)
+                local setSetup, setBase = nil, nil
+                if vsSetName then
+                    setSetup, setBase = GSI_CompareEngine:GetSetSetup(vsSetName, specIdx, modeVal)
+                    if not setSetup then vsSetName = nil end
+                end
+                return GSI_CompareEngine:Compare(itemLink, setSetup, setBase, specIdx, modeVal)
             end)
             GSI_IsProcessing = false
 
@@ -459,6 +475,9 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                     local sName = (sData and sData.name) or ("Spec " .. specIdx)
                     local rawMode = pInfo.modeLabel or modeVal
                     local modeName = (rawMode == "AoE / Raid") and "AoE" or rawMode
+                    if vsSetName then
+                        modeName = modeName .. " |cff999999vs " .. vsSetName .. "|r"
+                    end
                     local activeMarker = (specIdx == activeSpecIndex) and "|cff00ff00*|r" or ""
                     AddTipLine(string.format(
                         "%sGSI Score (%s %s%s%s): %s%s%s%s%s",
@@ -743,6 +762,7 @@ function GSI_TooltipHook:Initialize()
             local events = {
                 "PLAYER_EQUIPMENT_CHANGED",
                 "EQUIPMENT_SWAP_FINISHED",
+                "EQUIPMENT_SETS_CHANGED", -- a set tied to a spec was saved again
                 "PLAYER_TALENT_UPDATE",
                 "CHARACTER_POINTS_CHANGED",
                 "PLAYER_LEVEL_UP",
