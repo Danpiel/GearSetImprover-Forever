@@ -1648,18 +1648,31 @@ function GSI_UI:ToggleSpecSet(specIndex, setName)
     return true
 end
 
--- The set a tooltip line (spec + mode) compares with: among the spec's sets,
--- the one GSI saved for that mode, else the first.
-function GSI_UI:GetCompareSetForProfile(specIndex, modeVal)
-    local list = self:GetSpecSets(specIndex, modeVal)
-    local want = ModeSetName(specIndex, modeVal)
-    for _, n in ipairs(list) do
-        if n == want and SetExists(n) then return n end
-    end
-    for _, n in ipairs(list) do
-        if SetExists(n) then return n end
+-- The mode a set GSI saved for a spec was made for, as tooltip lines name it
+-- ("ST", "AOE", "Survival", "Threat"), or nil for any other set.
+local function SetPresetMode(specIndex, setName)
+    local presets = GSI_MACRO_PRESETS[PlayerClassKey()]
+    if not presets then return nil end
+    for _, p in ipairs(presets) do
+        if p.specIndex == specIndex and p.mode and Trim16(p.name) == setName then
+            return (NormMode(p.mode) == "DMG") and "Threat" or p.mode
+        end
     end
     return nil
+end
+
+-- What a tooltip line of a spec you are not playing compares with: every
+-- set of that spec, { { name = , mode = }, ... }. A set GSI saved for a mode
+-- is scored in that mode ("GSI: Resto AoE" with the AoE weights); any other
+-- set in the line's own mode.
+function GSI_UI:GetCompareSetsForProfile(specIndex, lineMode)
+    local out = {}
+    for _, n in ipairs((self:GetSpecSets(specIndex, lineMode))) do
+        if SetExists(n) then
+            out[#out + 1] = { name = n, mode = SetPresetMode(specIndex, n) or lineMode }
+        end
+    end
+    return out
 end
 
 -- Talent group (dual spec) per spec, chosen in Settings:

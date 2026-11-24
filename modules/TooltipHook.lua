@@ -390,7 +390,44 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             end
         end
 
-        local isMultiProfile = (#profilesToShow > 1)
+        -- A spec you are not playing compares with its Equipment Sets instead
+        -- of the gear worn now: one line per set (the sets GSI saved for the
+        -- spec, or those chosen in Settings), each in the mode it was saved
+        -- for; a line two profiles would both give is shown once.
+        local linesToShow = profilesToShow
+        if GSI_UI and GSI_UI.IsCompareSpecSets and GSI_UI:IsCompareSpecSets()
+            and GSI_UI.GetCompareSetsForProfile and GSI_CompareEngine.GetSetSetup then
+            linesToShow = {}
+            local seenLine = {}
+            local function ModeLabel(specIdx, mode)
+                for _, p in ipairs(availableProfiles) do
+                    if p.specIndex == specIdx and p.mode == mode then return p.modeLabel end
+                end
+                return nil
+            end
+            for _, pInfo in ipairs(profilesToShow) do
+                local sets = (pInfo.specIndex ~= activeSpecIndex)
+                    and GSI_UI:GetCompareSetsForProfile(pInfo.specIndex, pInfo.mode) or nil
+                if sets and #sets > 0 then
+                    for _, s in ipairs(sets) do
+                        local key = tostring(pInfo.specIndex) .. "|" .. tostring(s.mode) .. "|" .. s.name
+                        if not seenLine[key] then
+                            seenLine[key] = true
+                            linesToShow[#linesToShow + 1] = {
+                                specIndex = pInfo.specIndex,
+                                mode = s.mode,
+                                modeLabel = ModeLabel(pInfo.specIndex, s.mode) or ((s.mode == pInfo.mode) and pInfo.modeLabel) or s.mode,
+                                setName = s.name,
+                            }
+                        end
+                    end
+                else
+                    linesToShow[#linesToShow + 1] = pInfo
+                end
+            end
+        end
+
+        local isMultiProfile = (#linesToShow > 1)
         local addedAnyScore = false
         local itemLoading = false
         local canDW = (GSI_ClassicData.CanDualWield and GSI_ClassicData:CanDualWield()) == true
@@ -405,18 +442,10 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             AddTipLine(text, 1, 0.67, 0, true)
         end
 
-        for _, pInfo in ipairs(profilesToShow) do
+        for _, pInfo in ipairs(linesToShow) do
             local specIdx = pInfo.specIndex
             local modeVal = pInfo.mode
-
-            -- Another spec's line: compare with that spec's Equipment Set (the
-            -- one GSI saved for this spec and mode, or one chosen in Settings)
-            -- instead of the gear worn for the active spec.
-            local vsSetName = nil
-            if specIdx ~= activeSpecIndex and GSI_UI and GSI_UI.IsCompareSpecSets and GSI_UI:IsCompareSpecSets()
-                and GSI_UI.GetCompareSetForProfile and GSI_CompareEngine.GetSetSetup then
-                vsSetName = GSI_UI:GetCompareSetForProfile(specIdx, modeVal)
-            end
+            local vsSetName = pInfo.setName
 
             GSI_IsProcessing = true
             local ok, _, _, newScore, delta, isBetter, targetSlotID, isLevelTooHigh, minLevel = pcall(function()

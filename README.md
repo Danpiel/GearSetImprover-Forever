@@ -9,7 +9,7 @@
 > - Spec: follows the talent tree with the most points by default (on Forever the three trees are trait groups of one talent tree); the header dropdown has an **Auto** entry, `/gsi spec auto` returns to it. Feral druids pick Cat or Bear once.
 > - On a spec or talent change, open item tooltips, upgrade toasts and the Best in Bag list are scored again with the new weights; the "Upgrade(s) found" chat line is printed once per scan instead of on every talent event.
 > - Equipment Sets per spec: by default the sets GSI saved for the spec ("GSI: Cat ST", "GSI: Resto AoE", ...), or one or more sets ticked in the Settings tab. Put on when the spec changes; with several sets a window asks which one. `/gsi set` does it by hand.
-> - Tooltips that show several specs compare the lines of the specs you are not playing with those specs' sets (the one for the line's mode first, "vs <set>"), not with the gear you wear (Settings, on by default).
+> - In tooltips a spec you are not playing gets one line per set of that spec ("vs <set>"), not a comparison with the gear you wear; a set GSI saved for a mode is scored with that mode's weights (Settings, on by default).
 > - Dual spec: the "GSI Dual Spec" macro (`/gsi toggle`) switches to the other talent group and, once it is active, puts on the gear of the spec it plays. `/gsi go <spec> [mode]` goes to a given spec's group (Auto from the group builds, or chosen in Settings).
 > - Login error "Module TooltipHook error: bad argument #2" fixed.
 > - `/gsi dump` writes item/tooltip/spec diagnostics to SavedVariables.
