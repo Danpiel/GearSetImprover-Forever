@@ -395,8 +395,9 @@ local function AppendScoreToTooltip(tooltip, itemLink)
         -- or those chosen in Settings), "vs <set>", each in the mode the set
         -- was saved for (own sets: the spec's ticked modes, else its current
         -- one). A spec you are not playing compares only with its sets; the
-        -- active spec keeps its lines against the gear worn and adds its sets
-        -- that are not fully on. A line two sources would give shows once.
+        -- active spec keeps its lines against the gear worn and adds its other
+        -- sets, so both give the same lines. A line two sources would give
+        -- shows once.
         local linesToShow = profilesToShow
         if GSI_UI and GSI_UI.IsCompareSpecSets and GSI_UI:IsCompareSpecSets()
             and GSI_UI.GetCompareSetsForProfile and GSI_UI.GetCurrentModeFor and GSI_CompareEngine.GetSetSetup then
@@ -420,13 +421,25 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 if not inOrder[s] then inOrder[s] = true; specOrder[#specOrder + 1] = s end
             end
 
+            -- A set of the active spec that is fully on is the gear worn: its line
+            -- is left out only when the spec already has a line against the worn
+            -- gear in the set's mode (Resto Single ticked, "GSI: Resto AoE" on:
+            -- the AoE line stays, as it does while another spec is played).
+            local function HasWornLine(s, mode)
+                for _, m in ipairs(tickedModes[s] or {}) do
+                    if m == mode then return true end
+                end
+                return false
+            end
+
             local seenLine = {}
             local setLines = {}
             for s = 1, numSpecs do
                 for _, lineMode in ipairs(tickedModes[s] or { GSI_UI:GetCurrentModeFor(s) }) do
                     for _, set in ipairs(GSI_UI:GetCompareSetsForProfile(s, lineMode)) do
                         local key = tostring(s) .. "|" .. tostring(set.mode) .. "|" .. set.name
-                        if not seenLine[key] and not (s == activeSpecIndex and set.equipped) then
+                        if not seenLine[key]
+                            and not (s == activeSpecIndex and set.equipped and HasWornLine(s, set.mode)) then
                             seenLine[key] = true
                             setLines[s] = setLines[s] or {}
                             setLines[s][#setLines[s] + 1] = {
