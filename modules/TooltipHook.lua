@@ -390,39 +390,67 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             end
         end
 
-        -- A spec you are not playing compares with its Equipment Sets instead
-        -- of the gear worn now: one line per set (the sets GSI saved for the
-        -- spec, or those chosen in Settings), each in the mode it was saved
-        -- for; a line two profiles would both give is shown once.
+        -- Equipment Sets in tooltips (Settings, on by default): every spec of
+        -- the class gets one line per set it has (the sets GSI saved for it,
+        -- or those chosen in Settings), "vs <set>", each in the mode the set
+        -- was saved for (own sets: the spec's ticked modes, else its current
+        -- one). A spec you are not playing compares only with its sets; the
+        -- active spec keeps its lines against the gear worn and adds its sets
+        -- that are not fully on. A line two sources would give shows once.
         local linesToShow = profilesToShow
         if GSI_UI and GSI_UI.IsCompareSpecSets and GSI_UI:IsCompareSpecSets()
-            and GSI_UI.GetCompareSetsForProfile and GSI_CompareEngine.GetSetSetup then
-            linesToShow = {}
-            local seenLine = {}
+            and GSI_UI.GetCompareSetsForProfile and GSI_UI.GetCurrentModeFor and GSI_CompareEngine.GetSetSetup then
             local function ModeLabel(specIdx, mode)
                 for _, p in ipairs(availableProfiles) do
                     if p.specIndex == specIdx and p.mode == mode then return p.modeLabel end
                 end
                 return nil
             end
+            local numSpecs = (playerClass == "DRUID") and 4 or 3
+            local tickedModes, tickedLines, specOrder, inOrder = {}, {}, {}, {}
             for _, pInfo in ipairs(profilesToShow) do
-                local sets = (pInfo.specIndex ~= activeSpecIndex)
-                    and GSI_UI:GetCompareSetsForProfile(pInfo.specIndex, pInfo.mode) or nil
-                if sets and #sets > 0 then
-                    for _, s in ipairs(sets) do
-                        local key = tostring(pInfo.specIndex) .. "|" .. tostring(s.mode) .. "|" .. s.name
-                        if not seenLine[key] then
+                local s = pInfo.specIndex
+                tickedModes[s] = tickedModes[s] or {}
+                tickedModes[s][#tickedModes[s] + 1] = pInfo.mode
+                tickedLines[s] = tickedLines[s] or {}
+                tickedLines[s][#tickedLines[s] + 1] = pInfo
+                if not inOrder[s] then inOrder[s] = true; specOrder[#specOrder + 1] = s end
+            end
+            for s = 1, numSpecs do
+                if not inOrder[s] then inOrder[s] = true; specOrder[#specOrder + 1] = s end
+            end
+
+            local seenLine = {}
+            local setLines = {}
+            for s = 1, numSpecs do
+                for _, lineMode in ipairs(tickedModes[s] or { GSI_UI:GetCurrentModeFor(s) }) do
+                    for _, set in ipairs(GSI_UI:GetCompareSetsForProfile(s, lineMode)) do
+                        local key = tostring(s) .. "|" .. tostring(set.mode) .. "|" .. set.name
+                        if not seenLine[key] and not (s == activeSpecIndex and set.equipped) then
                             seenLine[key] = true
-                            linesToShow[#linesToShow + 1] = {
-                                specIndex = pInfo.specIndex,
-                                mode = s.mode,
-                                modeLabel = ModeLabel(pInfo.specIndex, s.mode) or ((s.mode == pInfo.mode) and pInfo.modeLabel) or s.mode,
-                                setName = s.name,
+                            setLines[s] = setLines[s] or {}
+                            setLines[s][#setLines[s] + 1] = {
+                                specIndex = s,
+                                mode = set.mode,
+                                modeLabel = ModeLabel(s, set.mode) or set.mode,
+                                setName = set.name,
                             }
                         end
                     end
-                else
-                    linesToShow[#linesToShow + 1] = pInfo
+                end
+            end
+
+            -- Spec by spec: its lines against the gear worn (the active spec,
+            -- or a ticked spec without sets), then its set lines
+            linesToShow = {}
+            for _, s in ipairs(specOrder) do
+                if s == activeSpecIndex or not setLines[s] then
+                    for _, pInfo in ipairs(tickedLines[s] or {}) do
+                        linesToShow[#linesToShow + 1] = pInfo
+                    end
+                end
+                for _, l in ipairs(setLines[s] or {}) do
+                    linesToShow[#linesToShow + 1] = l
                 end
             end
         end

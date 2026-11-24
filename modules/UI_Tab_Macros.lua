@@ -1664,15 +1664,27 @@ end
 -- What a tooltip line of a spec you are not playing compares with: every
 -- set of that spec, { { name = , mode = }, ... }. A set GSI saved for a mode
 -- is scored in that mode ("GSI: Resto AoE" with the AoE weights); any other
--- set in the line's own mode.
+-- set in the line's own mode. equipped: the set is fully on now.
 function GSI_UI:GetCompareSetsForProfile(specIndex, lineMode)
     local out = {}
     for _, n in ipairs((self:GetSpecSets(specIndex, lineMode))) do
         if SetExists(n) then
-            out[#out + 1] = { name = n, mode = SetPresetMode(specIndex, n) or lineMode }
+            local setID = C_EquipmentSet.GetEquipmentSetID(n)
+            local okI, _, _, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
+            out[#out + 1] = {
+                name = n,
+                mode = SetPresetMode(specIndex, n) or lineMode,
+                equipped = (okI and isEquipped) and true or false,
+            }
         end
     end
     return out
+end
+
+-- The mode a spec is scored in now, as tooltip lines name it.
+function GSI_UI:GetCurrentModeFor(specIndex)
+    local m = CurrentModeFor(specIndex)
+    return (NormMode(m) == "DMG") and "Threat" or m
 end
 
 -- Talent group (dual spec) per spec, chosen in Settings:
