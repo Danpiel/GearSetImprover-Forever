@@ -213,25 +213,35 @@ end
 -- The lines GSI wrote, font string -> its text: the duplicate guard finds
 -- them without a tag in the text.
 local ownLines = setmetatable({}, { __mode = "k" })
--- Font strings drawn bold, tooltip -> { [fontString] = original font }
+-- Font strings drawn bold, tooltip -> { [fontString] = true }
 local boldLines = setmetatable({}, { __mode = "k" })
+-- Each font string's font from before GSI first drew it bold. Bold is always
+-- this plus one point, so it cannot grow when a restore was missed.
+local baseFonts = setmetatable({}, { __mode = "k" })
 local clearHooked = setmetatable({}, { __mode = "k" })
+
+local function RestoreFont(fs)
+    local base = baseFonts[fs]
+    if not base then return end
+    -- SetFontObject with the object the string already has can do nothing,
+    -- so the size and outline are put back by value when they still differ
+    if base.object then fs:SetFontObject(base.object) end
+    local _, size, flags = fs:GetFont()
+    if size ~= base.size or (flags or "") ~= (base.flags or "") then
+        fs:SetFont(base.font, base.size, base.flags or "")
+    end
+end
 
 local function RestoreFonts(tip)
     local list = boldLines[tip]
     if not list then return end
     boldLines[tip] = nil
-    for fs, orig in pairs(list) do
-        if orig.object then
-            fs:SetFontObject(orig.object)
-        else
-            fs:SetFont(orig.font, orig.size, orig.flags or "")
-        end
-    end
+    for fs in pairs(list) do RestoreFont(fs) end
 end
 
 -- Adds a line to the tooltip. bold: the line's own font one point larger
--- with an outline, put back when the tooltip is cleared (OnTooltipCleared).
+-- with an outline, put back when the tooltip is cleared (OnTooltipCleared)
+-- or when GSI writes to the tooltip again.
 local function AddOwnLine(tip, text, r, g, b, wrap, bold)
     if r then
         tip:AddLine(text, r, g, b, wrap)
@@ -242,20 +252,32 @@ local function AddOwnLine(tip, text, r, g, b, wrap, bold)
     local fs = name and tip.NumLines and _G[name .. "TextLeft" .. tip:NumLines()]
     if not fs then return end
     ownLines[fs] = fs:GetText()
-    if not bold then return end
+    local list = boldLines[tip]
+    if not bold then
+        if list and list[fs] then
+            list[fs] = nil
+            RestoreFont(fs)
+        end
+        return
+    end
     if not clearHooked[tip] then
         if not (tip.HasScript and tip:HasScript("OnTooltipCleared")) then return end
         tip:HookScript("OnTooltipCleared", RestoreFonts)
         clearHooked[tip] = true
     end
-    local font, size, flags = fs:GetFont()
-    if not font then return end
-    local list = boldLines[tip] or {}
-    boldLines[tip] = list
-    if not list[fs] then
-        list[fs] = { object = fs:GetFontObject(), font = font, size = size, flags = flags }
+    local base = baseFonts[fs]
+    if not base then
+        local font, size, flags = fs:GetFont()
+        if not font then return end
+        base = { object = fs:GetFontObject(), font = font, size = size, flags = flags }
+        baseFonts[fs] = base
     end
-    fs:SetFont(font, size + 1, "OUTLINE")
+    if not list then
+        list = {}
+        boldLines[tip] = list
+    end
+    list[fs] = true
+    fs:SetFont(base.font, base.size + 1, "OUTLINE")
 end
 
 local function AppendScoreToTooltip(tooltip, itemLink)
@@ -283,6 +305,9 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 end
             end
         end
+        -- None of GSI's lines are in the tooltip now: a bold font left on one
+        -- of its strings belongs to an earlier item
+        RestoreFonts(tooltip)
 
         local isShoppingTip = (tipName:find("ShoppingTooltip", 1, true) ~= nil)
             or (tipName:find("Comparison", 1, true) ~= nil)
