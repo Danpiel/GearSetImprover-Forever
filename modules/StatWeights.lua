@@ -380,6 +380,8 @@ local function RefreshAfterSpecChange()
         if GSI_UI.UpdateSpecButton then pcall(GSI_UI.UpdateSpecButton, GSI_UI) end
         if GSI_UI.UpdateModeUI then pcall(GSI_UI.UpdateModeUI, GSI_UI) end
         if GSI_UI.UpdateTitleScore then pcall(GSI_UI.UpdateTitleScore, GSI_UI) end
+        -- The feral role decides whether a Feral group's macro icon is Cat or Bear
+        if GSI_UI.ScheduleDualSpecIconRefresh then pcall(GSI_UI.ScheduleDualSpecIconRefresh, GSI_UI) end
         local mf = GSI_UI.mainFrame
         if mf and mf:IsShown() and GSI_UI.RefreshPanel then pcall(GSI_UI.RefreshPanel, GSI_UI, true) end
     end

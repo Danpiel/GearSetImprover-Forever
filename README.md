@@ -10,7 +10,7 @@
 > - On a spec or talent change, open item tooltips, upgrade toasts and the Best in Bag list are scored again with the new weights; the "Upgrade(s) found" chat line is printed once per scan instead of on every talent event.
 > - Equipment Sets per spec: by default the sets GSI saved for the spec ("GSI: Cat ST", "GSI: Resto AoE", ...), or one or more sets ticked in the Settings tab. Put on when the spec changes; with several sets a window asks which one. `/gsi set` does it by hand.
 > - In tooltips every spec of the class gets one line per set it has ("vs <set>"), ticked in Tooltip Orientations or not; a set GSI saved for a mode is scored with that mode's weights. The active spec keeps its lines against the gear worn and adds its sets that are not on (Settings, on by default).
-> - Dual spec: the "GSI Dual Spec" macro (`/gsi toggle`) switches to the other talent group and, once it is active, puts on the gear of the spec it plays. `/gsi go <spec> [mode]` goes to a given spec's group (Auto from the group builds, or chosen in Settings).
+> - Dual spec: the "GSI Dual Spec" macro (`/gsi toggle`) switches to the other talent group and, once it is active, puts on the gear of the spec it plays; its icon is the spec it switches to. `/gsi go <spec> [mode]` goes to a given spec's group (Auto from the group builds, or chosen in Settings).
 > - Login error "Module TooltipHook error: bad argument #2" fixed.
 > - `/gsi dump` writes item/tooltip/spec diagnostics to SavedVariables.
 

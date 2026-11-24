@@ -575,13 +575,14 @@ function GSI_UI:GetClassMacroPresets(playerClass)
             table.insert(list, def)
         end
     end
-    -- Dual spec back and forth plus the gear of the spec it lands in (/gsi toggle)
+    -- Dual spec back and forth plus the gear of the spec it lands in (/gsi toggle).
+    -- Its icon is the spec of the other talent group, the one a press switches to.
     table.insert(list, {
         id = "dualspec",
         name = "GSI Dual Spec",
-        icon = 136243,
+        icon = (self.GetDualSpecIcon and self:GetDualSpecIcon()) or 134400,
         command = "/gsi toggle",
-        desc = "Switches to your other talent group (dual spec) and, once the switch is done, puts on that spec's Equipment Set: the sets GSI saved for it, or the ones chosen in Settings. With several sets it asks which one; without any it equips the best gear from your bags.",
+        desc = "Switches to your other talent group (dual spec) and, once the switch is done, puts on that spec's Equipment Set: the sets GSI saved for it, or the ones chosen in Settings. With several sets it asks which one; without any it equips the best gear from your bags. The icon shows the spec it switches to.",
     })
     return list
 end
@@ -624,6 +625,10 @@ function GSI_UI:EnsureMacro(macroDef)
     local existingIdx = self:FindMacro(macroDef.name)
     local body = macroDef.command or "/gsi equip"
     local icon = macroDef.icon or 134400
+    -- The list may have been built before a spec switch: the icon of now
+    if macroDef.id == "dualspec" and self.GetDualSpecIcon then
+        icon = self:GetDualSpecIcon()
+    end
 
     if existingIdx then
         local ok, err = pcall(function()
@@ -1707,6 +1712,8 @@ function GSI_UI:SetSpecTalentGroup(specIndex, group)
     GearSetImproverDB.specTalentGroups[key] = GearSetImproverDB.specTalentGroups[key] or {}
     group = tonumber(group)
     GearSetImproverDB.specTalentGroups[key][specIndex] = (group == 1 or group == 2) and group or nil
+    -- A Feral group bound to Bear or Cat changes the dual spec macro's icon
+    if self.ScheduleDualSpecIconRefresh then self:ScheduleDualSpecIconRefresh(0.2) end
 end
 
 -- The talent group that plays specIndex, and how it was found:
@@ -1731,6 +1738,106 @@ function GSI_UI:ResolveSpecTalentGroup(specIndex)
     if count == 1 then return found, "auto" end
     if count == 0 then return nil, "none" end
     return nil, "ambiguous"
+end
+
+-- The GSI spec the inactive talent group plays: where the GSI Dual Spec macro
+-- goes. A Feral group is Bear or Cat by the group chosen for them in Settings,
+-- else by the feral role. nil without dual spec, or while that group's build
+-- cannot be read yet.
+function GSI_UI:GetDualSpecTarget()
+    local SW = GSI_StatWeights
+    if not (SW and SW.GetNumTalentGroups) or SW:GetNumTalentGroups() < 2 then return nil end
+    local target = (SW:GetActiveTalentGroup() == 1) and 2 or 1
+    local lead = SW:GetTalentGroupLeadTree(target)
+    if not lead then return nil end
+    if PlayerClassKey() ~= "DRUID" then return lead end
+    if lead == 1 then return 1 end
+    if lead == 3 then return 4 end
+    local bear = self:GetSpecTalentGroup(2) == target
+    local cat = self:GetSpecTalentGroup(3) == target
+    if bear ~= cat then return bear and 2 or 3 end
+    return SW:GetFeralSpec()
+end
+
+local DUAL_SPEC_MACRO = "GSI Dual Spec"
+local DUAL_SPEC_UNKNOWN_ICON = 134400 -- INV_Misc_QuestionMark
+local DUAL_SPEC_OLD_ICON = 136243     -- Trade_Engineering (gear), the macro's first icon
+
+local function ClassSpecIcon(specIndex)
+    local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[PlayerClassKey()]
+    local sd = cd and cd.specs and cd.specs[specIndex]
+    local icon = sd and tonumber(sd.icon)
+    if icon and icon > 0 then return icon end
+    return nil
+end
+
+function GSI_UI:GetDualSpecIcon()
+    local spec = self:GetDualSpecTarget()
+    return (spec and ClassSpecIcon(spec)) or DUAL_SPEC_UNKNOWN_ICON
+end
+
+-- An icon GSI put on the macro; one the player picked stays as it is.
+local function IsGsiDualSpecIcon(icon)
+    if type(icon) == "string" then
+        local l = icon:lower()
+        return l:find("questionmark", 1, true) ~= nil or l:find("trade_engineering", 1, true) ~= nil
+    end
+    icon = tonumber(icon)
+    if not icon then return false end
+    if icon == DUAL_SPEC_UNKNOWN_ICON or icon == DUAL_SPEC_OLD_ICON then return true end
+    local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[PlayerClassKey()]
+    for _, sd in pairs((cd and cd.specs) or {}) do
+        if tonumber(sd.icon) == icon then return true end
+    end
+    return false
+end
+
+-- Points the existing GSI Dual Spec macro at the spec it now switches to
+-- (macros cannot be edited in combat: that waits for the combat to end).
+local dualIconAfterCombat = false
+function GSI_UI:RefreshDualSpecMacroIcon()
+    if not (EditMacro and GetMacroInfo) then return end
+    if InCombatLockdown and InCombatLockdown() then
+        dualIconAfterCombat = true
+        return
+    end
+    dualIconAfterCombat = false
+    local idx = self:FindMacro(DUAL_SPEC_MACRO)
+    if not idx then return end
+    local name, icon, body = GetMacroInfo(idx)
+    if not name or not IsGsiDualSpecIcon(icon) then return end
+    local spec = self:GetDualSpecTarget()
+    local want = spec and ClassSpecIcon(spec)
+    if not want or tonumber(icon) == want then return end
+    pcall(EditMacro, idx, name, want, body)
+end
+
+do
+    local iconFrame = CreateFrame and CreateFrame("Frame")
+    local scheduled = false
+    local function Run()
+        scheduled = false
+        pcall(GSI_UI.RefreshDualSpecMacroIcon, GSI_UI)
+    end
+    function GSI_UI:ScheduleDualSpecIconRefresh(delay)
+        if scheduled then return end
+        scheduled = true
+        if C_Timer and C_Timer.After then C_Timer.After(delay or 1.5, Run) else Run() end
+    end
+    if iconFrame then
+        iconFrame:SetScript("OnEvent", function(_, event)
+            if event == "PLAYER_REGEN_ENABLED" then
+                if dualIconAfterCombat then GSI_UI:ScheduleDualSpecIconRefresh(0.5) end
+                return
+            end
+            -- At login the talent groups' builds are read a little later
+            GSI_UI:ScheduleDualSpecIconRefresh(event == "PLAYER_ENTERING_WORLD" and 3 or 1.5)
+        end)
+        for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "ACTIVE_TALENT_GROUP_CHANGED", "PLAYER_TALENT_UPDATE",
+                              "TRAIT_CONFIG_UPDATED", "PLAYER_REGEN_ENABLED" }) do
+            pcall(iconFrame.RegisterEvent, iconFrame, ev)
+        end
+    end
 end
 
 -- Tooltips: a line for a spec other than the active one is compared with the
@@ -2092,6 +2199,8 @@ end
 
 if GSI_StatWeights and GSI_StatWeights.RegisterSpecChangeCallback then
     GSI_StatWeights:RegisterSpecChangeCallback(function(newSpec)
+        -- The other group may read differently now (e.g. the feral role changed)
+        GSI_UI:ScheduleDualSpecIconRefresh()
         -- A /gsi go or /gsi toggle switch puts on its gear once the group is active
         if PendingGoActive() then return end
         if not GSI_UI:IsSpecSetAutoEquip() then return end
