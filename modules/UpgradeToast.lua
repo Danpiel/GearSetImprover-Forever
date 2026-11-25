@@ -612,7 +612,8 @@ end
 -- ------------------------------------------------------------
 -- COMPACT CLOSE BUTTON
 -- ------------------------------------------------------------
-local function CreatePlumberCloseButton(parent, onClick)
+-- keepToast: hovering does not pause the toast (a button on another prompt)
+local function CreatePlumberCloseButton(parent, onClick, keepToast)
     local btn = CreateFrame("Button", nil, parent)
     btn:SetSize(16, 16)
     btn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
@@ -633,12 +634,12 @@ local function CreatePlumberCloseButton(parent, onClick)
     btn:SetScript("OnEnter", function()
         bg:SetColorTexture(0.55, 0.16, 0.18, 0.90)
         icon:SetVertexColor(1, 1, 1, 1)
-        GSI_UpgradeToast:Pause()
+        if not keepToast then GSI_UpgradeToast:Pause() end
     end)
     btn:SetScript("OnLeave", function()
         bg:SetColorTexture(0.14, 0.16, 0.22, 0.70)
         icon:SetVertexColor(0.72, 0.76, 0.84, 0.95)
-        GSI_UpgradeToast:Resume()
+        if not keepToast then GSI_UpgradeToast:Resume() end
     end)
     btn:SetScript("OnClick", onClick)
 
@@ -694,6 +695,21 @@ local function CreatePlumberKeycap(parent, keyChar, labelText, labelColor)
 
     return container
 end
+
+-- The toast's look for GSI's other prompts (the Equipment Set chooser)
+GSI_UpgradeToast.Style = {
+    BuildCardBackground = BuildPlumberCardBackground,
+    ApplyFont = ApplyFont,
+    CreateCloseButton = function(parent, onClick)
+        return CreatePlumberCloseButton(parent, onClick, true)
+    end,
+    TEXTURE_FILE = TEXTURE_FILE,
+    ICON_BORDER_FILE = ICON_BORDER_FILE,
+    ICON_OVERLAY_FILE = ICON_OVERLAY_FILE,
+    WIDTH = TOAST_WIDTH,
+    HEIGHT = TOAST_HEIGHT,
+    DEFAULT_Y = TOAST_DEFAULT_Y,
+}
 
 -- ------------------------------------------------------------
 -- TOAST ANCHOR FRAME (Matches Compact 348x68 Toast Footprint)

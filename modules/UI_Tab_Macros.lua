@@ -1944,59 +1944,202 @@ local function SpecSetChoices(specIndex, withTreeMates)
     return choices
 end
 
--- "Which set?" window: one button per set; Esc or "Keep current gear" closes it.
+-- "Which set?" prompt in the upgrade toast's look (GSI_UpgradeToast.Style):
+-- the spec's icon and name, one row per set, the close button or Esc keeps
+-- the gear on. It opens under the toast so both stay readable.
+local CHOOSER_HEADER_H = 54
+local CHOOSER_ROW_H = 24
+local CHOOSER_ROW_STEP = 27
+local CHOOSER_FOOTER_H = 26
+
+local function SpecIcon(specIndex)
+    local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[PlayerClassKey()]
+    local sd = cd and cd.specs and cd.specs[specIndex]
+    return (sd and sd.icon) or 134400
+end
+
+local function CreateChooserRow(f, S)
+    local b = CreateFrame("Button", nil, f)
+    b:SetHeight(CHOOSER_ROW_H)
+    b:RegisterForClicks("LeftButtonUp")
+
+    local bg = b:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(b)
+    bg:SetColorTexture(0.10, 0.12, 0.17, 0.75)
+
+    local hl = b:CreateTexture(nil, "ARTWORK", nil, -2)
+    hl:SetTexture(S.TEXTURE_FILE)
+    hl:SetTexCoord(136/1024, 264/1024, 72/512, 104/512)
+    hl:SetAllPoints(b)
+    hl:SetAlpha(0)
+
+    b.icon = b:CreateTexture(nil, "ARTWORK")
+    b.icon:SetSize(18, 18)
+    b.icon:SetPoint("LEFT", b, "LEFT", 4, 0)
+    b.icon:SetTexCoord(0.0625, 0.9375, 0.0625, 0.9375)
+    local border = b:CreateTexture(nil, "OVERLAY")
+    border:SetAllPoints(b.icon)
+    border:SetTexture(S.ICON_BORDER_FILE)
+    border:SetVertexColor(0.55, 0.60, 0.70, 1)
+
+    b.tag = b:CreateFontString(nil, "OVERLAY")
+    S.ApplyFont(b.tag, 9.5, "OUTLINE", true)
+    b.tag:SetPoint("RIGHT", b, "RIGHT", -8, 0)
+    b.tag:SetJustifyH("RIGHT")
+
+    b.label = b:CreateFontString(nil, "OVERLAY")
+    S.ApplyFont(b.label, 11.5, "OUTLINE", false)
+    b.label:SetPoint("LEFT", b.icon, "RIGHT", 7, 0)
+    b.label:SetPoint("RIGHT", b.tag, "LEFT", -6, 0)
+    b.label:SetJustifyH("LEFT")
+    b.label:SetWordWrap(false)
+    b.label:SetTextColor(0.94, 0.95, 0.97, 1)
+
+    b:SetScript("OnEnter", function()
+        hl:SetAlpha(0.65)
+        b.label:SetTextColor(1, 1, 1, 1)
+    end)
+    b:SetScript("OnLeave", function()
+        hl:SetAlpha(0)
+        b.label:SetTextColor(0.94, 0.95, 0.97, 1)
+    end)
+    return b
+end
+
+local function CreateSetChooser(S)
+    local f = CreateFrame("Frame", "GSI_SetChooser", UIParent)
+    f:SetFrameStrata("DIALOG")
+    f:SetClampedToScreen(true)
+    f:EnableMouse(true)
+    f:SetMovable(true)
+    f:RegisterForDrag("LeftButton")
+    f:SetScript("OnDragStart", f.StartMoving)
+    f:SetScript("OnDragStop", function(self)
+        self:StopMovingOrSizing()
+        self.userMoved = true
+    end)
+    S.BuildCardBackground(f, S.WIDTH, 120)
+    local cr, cg, cb = GSI_UI:GetClassColor()
+    f:SetQualityColor(cr, cg, cb)
+
+    local iconBox = CreateFrame("Frame", nil, f)
+    iconBox:SetSize(38, 38)
+    iconBox:SetPoint("TOPLEFT", f, "TOPLEFT", 11, -9)
+    local glow = iconBox:CreateTexture(nil, "BACKGROUND", nil, -1)
+    glow:SetSize(54, 54)
+    glow:SetPoint("CENTER", iconBox, "CENTER", 0, 0)
+    glow:SetTexture(S.ICON_OVERLAY_FILE)
+    glow:SetBlendMode("ADD")
+    glow:SetAlpha(0.32)
+    f.icon = iconBox:CreateTexture(nil, "ARTWORK")
+    f.icon:SetAllPoints(iconBox)
+    f.icon:SetTexCoord(0.0625, 0.9375, 0.0625, 0.9375)
+    local iconBorder = iconBox:CreateTexture(nil, "OVERLAY")
+    iconBorder:SetAllPoints(iconBox)
+    iconBorder:SetTexture(S.ICON_BORDER_FILE)
+    iconBorder:SetVertexColor(cr, cg, cb, 1)
+
+    f.close = S.CreateCloseButton(f, function() f:Hide() end)
+    f.close:SetPoint("TOPRIGHT", f, "TOPRIGHT", -6, -6)
+
+    local headerTag = f:CreateFontString(nil, "OVERLAY")
+    S.ApplyFont(headerTag, 9, "OUTLINE", true)
+    headerTag:SetPoint("TOPLEFT", f, "TOPLEFT", 57, -11)
+    headerTag:SetPoint("RIGHT", f.close, "LEFT", -6, 0)
+    headerTag:SetJustifyH("LEFT")
+    headerTag:SetWordWrap(false)
+    headerTag:SetTextColor(0.68, 0.72, 0.80, 1)
+    headerTag:SetText("CHOOSE EQUIPMENT SET")
+
+    f.title = f:CreateFontString(nil, "OVERLAY")
+    S.ApplyFont(f.title, 12.5, "OUTLINE", false)
+    f.title:SetPoint("TOPLEFT", f, "TOPLEFT", 57, -27)
+    f.title:SetPoint("RIGHT", f, "RIGHT", -10, 0)
+    f.title:SetJustifyH("LEFT")
+    f.title:SetWordWrap(false)
+
+    -- Footer: what a click does, and the way out
+    local hint = f:CreateFontString(nil, "OVERLAY")
+    S.ApplyFont(hint, 9.5, "OUTLINE", true)
+    hint:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 9)
+    hint:SetTextColor(0.55, 0.60, 0.68, 1)
+    hint:SetText("Click a set to put it on")
+
+    local keep = CreateFrame("Button", nil, f)
+    keep:SetHeight(14)
+    keep:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -9, 8)
+    local capBg = keep:CreateTexture(nil, "BACKGROUND")
+    capBg:SetHeight(13)
+    capBg:SetPoint("LEFT", keep, "LEFT", 0, 0)
+    capBg:SetColorTexture(0.16, 0.19, 0.26, 0.92)
+    local key = keep:CreateFontString(nil, "OVERLAY")
+    S.ApplyFont(key, 8.5, "OUTLINE", false)
+    key:SetPoint("CENTER", capBg, "CENTER", 0, 0)
+    key:SetTextColor(0.95, 0.96, 0.98, 1)
+    key:SetText("Esc")
+    local keepLabel = keep:CreateFontString(nil, "OVERLAY")
+    S.ApplyFont(keepLabel, 9.5, "OUTLINE", true)
+    keepLabel:SetPoint("LEFT", capBg, "RIGHT", 4, 0)
+    keepLabel:SetTextColor(0.72, 0.76, 0.84, 1)
+    keepLabel:SetText("Keep current gear")
+    -- Widths once the font is there (it can report 0 before its first draw)
+    function f:SizeFooter()
+        local kw = key:GetStringWidth() or 0
+        local lw = keepLabel:GetStringWidth() or 0
+        if kw <= 0 then kw = 16 end
+        if lw <= 0 then lw = 90 end
+        capBg:SetWidth(kw + 6)
+        keep:SetWidth(kw + 6 + 4 + lw + 2)
+    end
+    keep:SetScript("OnEnter", function() keepLabel:SetTextColor(1, 1, 1, 1) end)
+    keep:SetScript("OnLeave", function() keepLabel:SetTextColor(0.72, 0.76, 0.84, 1) end)
+    keep:SetScript("OnClick", function() f:Hide() end)
+
+    f.rows = {}
+    if UISpecialFrames then table.insert(UISpecialFrames, "GSI_SetChooser") end
+    f:Hide()
+    return f
+end
+
 function GSI_UI:ShowSetChooser(specIndex, choices)
+    local S = GSI_UpgradeToast and GSI_UpgradeToast.Style
+    if not S then return end
     local f = GSI_UI.setChooser
     if not f then
-        f = CreateFrame("Frame", "GSI_SetChooser", UIParent, BACKDROP_TEMPLATE)
-        f:SetFrameStrata("DIALOG")
-        f:SetClampedToScreen(true)
-        f:EnableMouse(true)
-        f:SetMovable(true)
-        f:RegisterForDrag("LeftButton")
-        f:SetScript("OnDragStart", f.StartMoving)
-        f:SetScript("OnDragStop", f.StopMovingOrSizing)
-        f:SetPoint("TOP", UIParent, "TOP", 0, -180)
-        SkinFrame(f, GSI_UI.THEME and GSI_UI.THEME.bgCardBottom, true)
-        f.title = GSI_UI:CreateText(f, "CARD_TITLE", "")
-        f.title:SetPoint("TOP", f, "TOP", 0, -12)
-        f.buttons = {}
-        f.cancel = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
-        f.cancel:SetSize(260, 24)
-        f.cancel:SetText("Keep current gear")
-        SkinButton(f.cancel, nil, false)
-        f.cancel:SetScript("OnClick", function() f:Hide() end)
-        if UISpecialFrames then table.insert(UISpecialFrames, "GSI_SetChooser") end
+        f = CreateSetChooser(S)
         GSI_UI.setChooser = f
     end
-    f.title:SetText("Equipment Set for " .. SpecDisplayName(specIndex) .. "?")
-    local y = -40
+
+    f.icon:SetTexture(SpecIcon(specIndex))
+    local _, _, _, hex = GSI_UI:GetClassColor()
+    f.title:SetText("|cff" .. hex .. SpecDisplayName(specIndex) .. "|r: which set?")
+    f:SizeFooter()
+
+    local y = -CHOOSER_HEADER_H
     for i, c in ipairs(choices) do
-        local b = f.buttons[i]
-        if not b then
-            b = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
-            b:SetSize(260, 26)
-            b:SetText(" ")
-            SkinButton(b, nil, false)
-            b.icon = b:CreateTexture(nil, "ARTWORK")
-            b.icon:SetSize(18, 18)
-            b.icon:SetPoint("LEFT", b, "LEFT", 6, 0)
-            b.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-            f.buttons[i] = b
-        end
+        local b = f.rows[i] or CreateChooserRow(f, S)
+        f.rows[i] = b
         local setID = C_EquipmentSet.GetEquipmentSetID(c.name)
         local okI, _, icon, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
-        local label = c.name
-        if c.spec ~= specIndex then label = label .. " |cff888888(" .. SpecDisplayName(c.spec) .. ")|r" end
-        if okI and isEquipped then label = label .. " |cff00ff00(on)|r" end
-        b:SetText(label)
         b.icon:SetTexture((okI and icon) or 134400)
+        b.label:SetText(c.name)
+        if okI and isEquipped then
+            b.tag:SetText("ON")
+            b.tag:SetTextColor(0.25, 1.0, 0.62, 1)
+        elseif c.spec ~= specIndex then
+            -- A tree mate's set (Bear while Cat is detected)
+            b.tag:SetText(SpecDisplayName(c.spec))
+            b.tag:SetTextColor(0.62, 0.66, 0.74, 1)
+        else
+            b.tag:SetText("")
+        end
         b:ClearAllPoints()
-        b:SetPoint("TOP", f, "TOP", 0, y)
-        y = y - 30
+        b:SetPoint("TOPLEFT", f, "TOPLEFT", 12, y)
+        b:SetPoint("RIGHT", f, "RIGHT", -10, 0)
+        y = y - CHOOSER_ROW_STEP
         b:SetScript("OnClick", function()
             f:Hide()
-            -- A tree mate's set (Bear while Cat is detected) switches the feral role too
+            -- A tree mate's set switches the feral role too
             if c.spec ~= specIndex and GSI_StatWeights and GSI_StatWeights.ChooseSpec then
                 GSI_StatWeights:ChooseSpec(c.spec)
                 pcall(function() GSI_UI:UpdateSpecButton() end)
@@ -2005,10 +2148,24 @@ function GSI_UI:ShowSetChooser(specIndex, choices)
         end)
         b:Show()
     end
-    for i = #choices + 1, #f.buttons do f.buttons[i]:Hide() end
-    f.cancel:ClearAllPoints()
-    f.cancel:SetPoint("TOP", f, "TOP", 0, y - 6)
-    f:SetSize(284, -(y - 6) + 24 + 12)
+    for i = #choices + 1, #f.rows do f.rows[i]:Hide() end
+
+    local height = CHOOSER_HEADER_H + #choices * CHOOSER_ROW_STEP + CHOOSER_FOOTER_H
+    f:SetSize(S.WIDTH, height)
+    if f.slateBg then
+        f.slateBg:SetTexCoord(0.5, 0.5 + 0.5 * math.min(1, S.WIDTH / 512), 0, math.min(1, height / 512))
+    end
+
+    -- Under the upgrade toast, unless the player dragged the prompt elsewhere
+    if not f.userMoved then
+        f:ClearAllPoints()
+        local toast = _G.GSI_UpgradeToastFrame
+        if toast then
+            f:SetPoint("TOP", toast, "BOTTOM", 0, -8)
+        else
+            f:SetPoint("TOP", UIParent, "TOP", 0, S.DEFAULT_Y - S.HEIGHT - 8)
+        end
+    end
     f:Show()
     if f.Raise then f:Raise() end
 end
