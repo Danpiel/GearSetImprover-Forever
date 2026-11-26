@@ -6,6 +6,8 @@
 
 GSI_UI = GSI_UI or {}
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 local BackdropTemplateMixin = _G.BackdropTemplateMixin
@@ -21,12 +23,12 @@ local function FormatWeight(v) return GSI_UI.FormatWeight and GSI_UI:FormatWeigh
 local function FormatStatValue(k, v) return GSI_UI.FormatStatValue and GSI_UI:FormatStatValue(k, v) or tostring(v) end
 local STAT_DISPLAY_NAMES = GSI_UI.STAT_DISPLAY_NAMES or {}
 local EXTRA_STAT_DISPLAY_NAMES = {
-    ArmorPenetration = "Armor Penetration",
-    Mana = "Mana",
-    Speed = "Movement Speed (%)",
-    FlatWeaponDamage = "Weapon Damage (Flat)",
-    WeaponSpeed = "Weapon Speed (Sec)",
-    HP5 = "Health / 5s (HP5)",
+    ArmorPenetration = L["Armor Penetration"],
+    Mana = L["Mana"],
+    Speed = L["Movement Speed (%)"],
+    FlatWeaponDamage = L["Weapon Damage (Flat)"],
+    WeaponSpeed = L["Weapon Speed (Sec)"],
+    HP5 = L["Health / 5s (HP5)"],
 }
 local T = GSI_UI.THEME
 
@@ -69,9 +71,9 @@ function GSI_UI:DrawOverview(parent)
     -- 3 KPI Metric Cards
     hero.kpiCards = {}
     local kpiDefs = {
-        { id = "SCORE",   label = "EQUIPPED SCORE",   defVal = "0.0",   defPill = "OPTIMAL",     variant = "ACCENT" },
-        { id = "UPGRADE", label = "BAG UPGRADES",     defVal = "+0.0",  defPill = "UP TO DATE", variant = "SUCCESS" },
-        { id = "WEAKEST", label = "WEAKEST SLOT",     defVal = "-",      defPill = "BALANCED",   variant = "WARNING" },
+        { id = "SCORE",   label = L["EQUIPPED SCORE"],   defVal = "0.0",   defPill = L["OPTIMAL"],     variant = "ACCENT" },
+        { id = "UPGRADE", label = L["BAG UPGRADES"],     defVal = "+0.0",  defPill = L["UP TO DATE"], variant = "SUCCESS" },
+        { id = "WEAKEST", label = L["WEAKEST SLOT"],     defVal = "-",      defPill = L["BALANCED"],   variant = "WARNING" },
     }
 
     for i, def in ipairs(kpiDefs) do
@@ -111,8 +113,8 @@ function GSI_UI:DrawOverview(parent)
     local refreshBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     refreshBtn:SetSize(100, 24)
     refreshBtn:SetPoint("BOTTOMRIGHT", hero, "BOTTOMRIGHT", 0, -34)
-    refreshBtn:SetText("Refresh")
-    SkinButton(refreshBtn, "Refresh", "SECONDARY")
+    refreshBtn:SetText(L["Refresh"])
+    SkinButton(refreshBtn, L["Refresh"], "SECONDARY")
     refreshBtn:SetScript("OnClick", function()
         if GSI_ItemScore and GSI_ItemScore.ResetCache then GSI_ItemScore:ResetCache() end
         if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then GSI_OptimizationEngine:ResetCache() end
@@ -120,12 +122,12 @@ function GSI_UI:DrawOverview(parent)
     end)
     parent.refreshBtn = refreshBtn
 
-    local sectionTitle = CreateText(parent, "CARD_TITLE", "STAT WEIGHT SCALING & RELATIVE ATTRIBUTES", "LEFT")
+    local sectionTitle = CreateText(parent, "CARD_TITLE", L["STAT WEIGHT SCALING & RELATIVE ATTRIBUTES"], "LEFT")
     sectionTitle:SetPoint("TOPLEFT", hero, "BOTTOMLEFT", 2, -18)
     sectionTitle:SetPoint("TOPRIGHT", refreshBtn, "TOPLEFT", -12, -8)
     sectionTitle:SetWordWrap(false)
 
-    local sectionSub = CreateText(parent, "SMALL", "Calculated relative importance for your active spec & gear values:", "LEFT")
+    local sectionSub = CreateText(parent, "SMALL", L["Calculated relative importance for your active spec & gear values:"], "LEFT")
     sectionSub:SetPoint("TOPLEFT", sectionTitle, "BOTTOMLEFT", 0, -3)
     sectionSub:SetPoint("TOPRIGHT", sectionTitle, "BOTTOMRIGHT", 0, -3)
     sectionSub:SetWordWrap(false)
@@ -158,24 +160,24 @@ function GSI_UI:UpdateOverview(parent)
         local pLevel = UnitLevel("player") or 60
         local pRace = UnitRace("player") or ""
         local pClass = select(1, UnitClass("player")) or ""
-        hero.nameText:SetText(string.format("%s — Level %d %s %s", pName, pLevel, pRace, pClass))
+        hero.nameText:SetText(string.format(L["%s — Level %d %s %s"], pName, pLevel, pRace, pClass))
 
         local specIndex = GSI_StatWeights:GetActiveSpecIndex()
         local class = select(2, UnitClass("player")) or "WARRIOR"
         local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
         local specData = classData and classData.specs and classData.specs[specIndex]
-        local specName = specData and (specData.name or specData.nameDE) or ("Spec " .. specIndex)
+        local specName = specData and (specData.name or specData.nameDE) or string.format(L["Spec %s"], tostring(specIndex))
 
         local role = GSI_StatWeights:GetRole()
         local modeLabel = ""
         if role == "tank" then
             local tMode = (GearSetImproverDB and GearSetImproverDB.tankMode) or "Survival"
-            modeLabel = (tMode == "Survival") and "Survival Tank" or "Threat / DPS"
+            modeLabel = (tMode == "Survival") and L["Survival Tank"] or L["Threat / DPS"]
         else
             local wMode = (GearSetImproverDB and GearSetImproverDB.weightMode) or "ST"
-            modeLabel = (wMode == "ST") and "Single Target" or "AoE / Trash"
+            modeLabel = (wMode == "ST") and L["Single Target"] or L["AoE / Trash"]
         end
-        hero.specText:SetText(string.format("Active Profile: %s (%s)", specName, modeLabel))
+        hero.specText:SetText(string.format(L["Active Profile: %s (%s)"], L[specName], modeLabel))
 
         if hero.model and hero.model.SetUnit then
             pcall(function() hero.model:SetUnit("player") end)
@@ -217,11 +219,11 @@ function GSI_UI:UpdateOverview(parent)
                     local sc = GSI_ItemScore:Calculate(link, nil, nil, nil, sID) or 0
                     if not lowestIsEmpty and (lowestScore == nil or sc < lowestScore) then
                         lowestScore = sc
-                        lowestSlot = (GSI_ClassicData and GSI_ClassicData.SlotNames and GSI_ClassicData.SlotNames[sID]) or ("Slot " .. sID)
+                        lowestSlot = (GSI_ClassicData and GSI_ClassicData.SlotNames and L[GSI_ClassicData.SlotNames[sID]]) or ("Slot " .. sID)
                     end
                 else
                     lowestScore = 0
-                    lowestSlot = (GSI_ClassicData and GSI_ClassicData.SlotNames and GSI_ClassicData.SlotNames[sID]) or ("Slot " .. sID)
+                    lowestSlot = (GSI_ClassicData and GSI_ClassicData.SlotNames and L[GSI_ClassicData.SlotNames[sID]]) or ("Slot " .. sID)
                     lowestIsEmpty = true
                     break
                 end
@@ -231,7 +233,7 @@ function GSI_UI:UpdateOverview(parent)
         -- Update KPI 1: SCORE
         if hero.kpiCards and hero.kpiCards.SCORE then
             hero.kpiCards.SCORE.val:SetText(string.format("%.1f", totalScore))
-            hero.kpiCards.SCORE.pill:SetPillStyle("ACTIVE PROFILE", "ACCENT")
+            hero.kpiCards.SCORE.pill:SetPillStyle(L["ACTIVE PROFILE"], "ACCENT")
         end
 
         -- Update KPI 2: BAG UPGRADES
@@ -243,10 +245,10 @@ function GSI_UI:UpdateOverview(parent)
 
             if upCount > 0 and lastGain > 0.05 then
                 hero.kpiCards.UPGRADE.val:SetText(string.format("+%.1f", lastGain))
-                hero.kpiCards.UPGRADE.pill:SetPillStyle(string.format("%d READY", upCount), "SUCCESS")
+                hero.kpiCards.UPGRADE.pill:SetPillStyle(string.format(L["%d READY"], upCount), "SUCCESS")
             else
                 hero.kpiCards.UPGRADE.val:SetText("+0.0")
-                hero.kpiCards.UPGRADE.pill:SetPillStyle("UP TO DATE", "ACCENT")
+                hero.kpiCards.UPGRADE.pill:SetPillStyle(L["UP TO DATE"], "ACCENT")
             end
         end
 
@@ -254,9 +256,9 @@ function GSI_UI:UpdateOverview(parent)
         if hero.kpiCards and hero.kpiCards.WEAKEST then
             hero.kpiCards.WEAKEST.val:SetText(lowestSlot)
             if lowestIsEmpty then
-                hero.kpiCards.WEAKEST.pill:SetPillStyle("EMPTY SLOT", "DANGER")
+                hero.kpiCards.WEAKEST.pill:SetPillStyle(L["EMPTY SLOT"], "DANGER")
             elseif lowestScore == nil then
-                hero.kpiCards.WEAKEST.pill:SetPillStyle("NONE", "NEUTRAL")
+                hero.kpiCards.WEAKEST.pill:SetPillStyle(L["NONE"], "NEUTRAL")
             else
                 hero.kpiCards.WEAKEST.pill:SetPillStyle(string.format("%.0f", lowestScore), "WARNING")
             end
@@ -327,8 +329,8 @@ function GSI_UI:UpdateOverview(parent)
                 if selfRow.tooltipData then
                     GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
                     GameTooltip:AddLine(selfRow.tooltipData.name, T.accent[1], T.accent[2], T.accent[3])
-                    GameTooltip:AddLine(string.format("Weight: %s", selfRow.tooltipData.weight), 1, 1, 1)
-                    GameTooltip:AddLine(string.format("Current equipped stat: %s", selfRow.tooltipData.val), T.success[1], T.success[2], T.success[3])
+                    GameTooltip:AddLine(string.format(L["Weight: %s"], selfRow.tooltipData.weight), 1, 1, 1)
+                    GameTooltip:AddLine(string.format(L["Current equipped stat: %s"], selfRow.tooltipData.val), T.success[1], T.success[2], T.success[3])
                     GameTooltip:Show()
                 end
             end)

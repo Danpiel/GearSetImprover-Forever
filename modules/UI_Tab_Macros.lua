@@ -4,6 +4,8 @@
 
 GSI_UI = GSI_UI or {}
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 local BackdropTemplateMixin = _G.BackdropTemplateMixin
@@ -620,7 +622,7 @@ end
 function GSI_UI:EnsureMacro(macroDef)
     if not macroDef or not macroDef.name then return nil end
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Cannot create or edit macros while in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Cannot create or edit macros while in combat!"])
         return nil
     end
 
@@ -637,7 +639,7 @@ function GSI_UI:EnsureMacro(macroDef)
             EditMacro(existingIdx, macroDef.name, icon, body)
         end)
         if not ok then
-            print("|cffff0000[GearSetImprover]|r Error updating macro: " .. tostring(err))
+            print(string.format(L["|cffff0000[GearSetImprover]|r Error updating macro: %s"], tostring(err)))
         end
         return existingIdx
     else
@@ -653,7 +655,7 @@ function GSI_UI:EnsureMacro(macroDef)
             if numAccount < maxAccount then
                 isChar = nil
             else
-                print("|cffff0000[GearSetImprover]|r Cannot create macro: Character and Account macro slots are both full! Please delete an unused macro via /macro.")
+                print(L["|cffff0000[GearSetImprover]|r Cannot create macro: Character and Account macro slots are both full! Please delete an unused macro via /macro."])
                 return nil
             end
         end
@@ -663,17 +665,17 @@ function GSI_UI:EnsureMacro(macroDef)
             newIdx = CreateMacro(macroDef.name, icon, body, isChar)
         end)
         if not ok or not newIdx then
-            print("|cffff0000[GearSetImprover]|r Failed to create macro: " .. tostring(err or "unknown error"))
+            print(string.format(L["|cffff0000[GearSetImprover]|r Failed to create macro: %s"], tostring(err or L["unknown error"])))
             return nil
         end
-        print(string.format("|cff00ff00[GearSetImprover]|r Created macro '|cffffcc00%s|r' (%s)!", macroDef.name, isChar and "Character" or "Account"))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Created macro '|cffffcc00%s|r' (%s)!"], macroDef.name, isChar and L["Character"] or L["Account"]))
         return newIdx
     end
 end
 
 function GSI_UI:PickupMacroDef(macroDef)
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Cannot pick up macros while in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Cannot pick up macros while in combat!"])
         return
     end
 
@@ -687,9 +689,9 @@ function GSI_UI:PickupMacroDef(macroDef)
         PickupMacro(idx)
     end)
     if ok then
-        print(string.format("|cff00ff00[GearSetImprover]|r Macro '|cffffcc00%s|r' attached to cursor! Click an Action Bar slot to place it.", macroDef.name))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Macro '|cffffcc00%s|r' attached to cursor! Click an Action Bar slot to place it."], macroDef.name))
     else
-        print("|cffff0000[GearSetImprover]|r PickupMacro error: " .. tostring(err))
+        print(string.format(L["|cffff0000[GearSetImprover]|r PickupMacro error: %s"], tostring(err)))
     end
 
     local mainFrame = self.mainFrame or GSI_UI.mainFrame
@@ -701,7 +703,7 @@ end
 
 function GSI_UI:CreateAllMacros()
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Cannot create macros while in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Cannot create macros while in combat!"])
         return
     end
 
@@ -722,7 +724,7 @@ function GSI_UI:CreateAllMacros()
         end
     end
 
-    print(string.format("|cff00ff00[GearSetImprover]|r Macro setup complete: %d created, %d updated.", createdCount, updatedCount))
+    print(string.format(L["|cff00ff00[GearSetImprover]|r Macro setup complete: %d created, %d updated."], createdCount, updatedCount))
     local mainFrame = self.mainFrame or GSI_UI.mainFrame
         if self.activeTab == "MACROS" and mainFrame and mainFrame:IsShown() then
         local frame = mainFrame.tabFrames and mainFrame.tabFrames["MACROS"]
@@ -734,15 +736,15 @@ function GSI_UI:DrawMacros(parent)
     local createAllBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     createAllBtn:SetSize(145, 24)
     createAllBtn:SetPoint("TOPRIGHT", -25, -16)
-    createAllBtn:SetText("Create All Macros")
+    createAllBtn:SetText(L["Create All Macros"])
     SkinButton(createAllBtn, nil, true)
     createAllBtn:SetScript("OnClick", function()
         GSI_UI:CreateAllMacros()
     end)
     createAllBtn:SetScript("OnEnter", function(self)
         GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Create All Macros", 1, 0.82, 0)
-        GameTooltip:AddLine("Automatically creates all recommended Best Available macros for your class.", 1, 1, 1, true)
+        GameTooltip:AddLine(L["Create All Macros"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["Automatically creates all recommended Best Available macros for your class."], 1, 1, 1, true)
         GameTooltip:Show()
     end)
     createAllBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -750,25 +752,25 @@ function GSI_UI:DrawMacros(parent)
     local refreshBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     refreshBtn:SetSize(145, 22)
     refreshBtn:SetPoint("TOPRIGHT", -25, -44)
-    refreshBtn:SetText("Refresh Status")
+    refreshBtn:SetText(L["Refresh Status"])
     SkinButton(refreshBtn)
     refreshBtn:SetScript("OnClick", function()
         GSI_UI:UpdateMacros(parent)
     end)
 
-    local title = self:CreateText(parent, "TITLE", "Best Available - Macro Manager")
+    local title = self:CreateText(parent, "TITLE", L["Best Available - Macro Manager"])
     title:SetPoint("TOPLEFT", 15, -15)
     title:SetPoint("TOPRIGHT", createAllBtn, "TOPLEFT", -12, 1)
     title:SetJustifyH("LEFT")
     title:SetWordWrap(false)
 
-    local desc = self:CreateText(parent, "BODY", "Click or drag any macro card directly into an Action Bar slot!")
+    local desc = self:CreateText(parent, "BODY", L["Click or drag any macro card directly into an Action Bar slot!"])
     desc:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -4)
     desc:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -4)
     desc:SetJustifyH("LEFT")
     desc:SetWordWrap(false)
 
-    local slotInfo = self:CreateText(parent, "SMALL", "Macro Capacity: Loading...")
+    local slotInfo = self:CreateText(parent, "SMALL", L["Macro Capacity: Loading..."])
     slotInfo:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -4)
     slotInfo:SetPoint("TOPRIGHT", desc, "BOTTOMRIGHT", 0, -4)
     slotInfo:SetJustifyH("LEFT")
@@ -799,7 +801,7 @@ function GSI_UI:UpdateMacros(parent)
     local maxCharacter = MAX_CHARACTER_MACROS or 18
 
     if parent.slotInfoText then
-        parent.slotInfoText:SetText(string.format("Macro Capacity: |cffffffffCharacter:|r |cff00ff00%d/%d|r  |  |cffffffffAccount:|r |cff00ff00%d/%d|r", numCharacter, maxCharacter, numAccount, maxAccount))
+        parent.slotInfoText:SetText(string.format(L["Macro Capacity: |cffffffffCharacter:|r |cff00ff00%d/%d|r  |  |cffffffffAccount:|r |cff00ff00%d/%d|r"], numCharacter, maxCharacter, numAccount, maxAccount))
     end
 
     local playerClass = select(2, UnitClass("player")) or "WARRIOR"
@@ -823,7 +825,7 @@ function GSI_UI:UpdateMacros(parent)
                     GameTooltip:AddLine(self.def.name, 1, 0.82, 0)
                     GameTooltip:AddLine(self.def.command, 0.4, 0.8, 1)
                     if self.def.desc then
-                        GameTooltip:AddLine(self.def.desc, 0.85, 0.85, 0.85, true)
+                        GameTooltip:AddLine(L[self.def.desc], 0.85, 0.85, 0.85, true)
                     end
                     GameTooltip:Show()
                 end
@@ -858,9 +860,9 @@ function GSI_UI:UpdateMacros(parent)
                 if self.def then
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
                     GameTooltip:AddLine(self.def.name, 1, 0.82, 0)
-                    GameTooltip:AddLine("Left-Click or Drag to place on Action Bar", 0, 1, 0)
+                    GameTooltip:AddLine(L["Left-Click or Drag to place on Action Bar"], 0, 1, 0)
                     GameTooltip:AddLine(self.def.command, 0.4, 0.8, 1)
-                    GameTooltip:AddLine(self.def.desc, 0.8, 0.8, 0.8, true)
+                    GameTooltip:AddLine(L[self.def.desc], 0.8, 0.8, 0.8, true)
                     GameTooltip:Show()
                 end
             end)
@@ -881,7 +883,7 @@ function GSI_UI:UpdateMacros(parent)
             local createBtn = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
             createBtn:SetSize(64, 24)
             createBtn:SetPoint("RIGHT", -8, 0)
-            createBtn:SetText("Create")
+            createBtn:SetText(L["Create"])
             SkinButton(createBtn)
             createBtn:SetScript("OnClick", function(self)
                 if self.def then
@@ -894,7 +896,7 @@ function GSI_UI:UpdateMacros(parent)
             local dragBtn = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
             dragBtn:SetSize(80, 24)
             dragBtn:SetPoint("RIGHT", createBtn, "LEFT", -6, 0)
-            dragBtn:SetText("Drag to Bar")
+            dragBtn:SetText(L["Drag to Bar"])
             SkinButton(dragBtn)
             dragBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
             dragBtn:RegisterForDrag("LeftButton")
@@ -911,8 +913,8 @@ function GSI_UI:UpdateMacros(parent)
             end)
             dragBtn:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:AddLine("Drag to Action Bar", 1, 0.82, 0)
-                GameTooltip:AddLine("Picks up this macro onto your mouse cursor so you can drop it into any Action Bar slot.", 1, 1, 1, true)
+                GameTooltip:AddLine(L["Drag to Action Bar"], 1, 0.82, 0)
+                GameTooltip:AddLine(L["Picks up this macro onto your mouse cursor so you can drop it into any Action Bar slot."], 1, 1, 1, true)
                 GameTooltip:Show()
             end)
             dragBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -921,7 +923,7 @@ function GSI_UI:UpdateMacros(parent)
             local equipBtn = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
             equipBtn:SetSize(64, 24)
             equipBtn:SetPoint("RIGHT", dragBtn, "LEFT", -6, 0)
-            equipBtn:SetText("Equip")
+            equipBtn:SetText(L["Equip"])
             SkinButton(equipBtn)
             equipBtn:SetScript("OnClick", function(self)
                 if self.def then
@@ -930,8 +932,8 @@ function GSI_UI:UpdateMacros(parent)
             end)
             equipBtn:SetScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:AddLine("Equip Preset", 1, 0.82, 0)
-                GameTooltip:AddLine("Equips Best Available for this preset and saves it as an Equipment Set in your Character Profile.", 1, 1, 1, true)
+                GameTooltip:AddLine(L["Equip Preset"], 1, 0.82, 0)
+                GameTooltip:AddLine(L["Equips Best Available for this preset and saves it as an Equipment Set in your Character Profile."], 1, 1, 1, true)
                 GameTooltip:Show()
             end)
             equipBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -984,19 +986,19 @@ function GSI_UI:UpdateMacros(parent)
         local macroIdx = GSI_UI:FindMacro(def.name)
         if macroIdx then
             local _, _, _, isLocal = GetMacroInfo(macroIdx)
-            local locStr = isLocal and "Char" or "Account"
-            row.statusBadge:SetText(string.format("|cff00ff00[Ready]|r |cff888888(%s)|r", locStr))
-            row.createBtn:SetText("Update")
+            local locStr = isLocal and L["Char"] or L["Account"]
+            row.statusBadge:SetText(string.format(L["|cff00ff00[Ready]|r |cff888888(%s)|r"], locStr))
+            row.createBtn:SetText(L["Update"])
             row.macroBtn:SetBackdropBorderColor(0, 0.8, 0, 1)
         else
-            row.statusBadge:SetText("|cff888888[Not Created]|r")
-            row.createBtn:SetText("|cff00ff00Create|r")
+            row.statusBadge:SetText(L["|cff888888[Not Created]|r"])
+            row.createBtn:SetText(L["|cff00ff00Create|r"])
             row.macroBtn:SetBackdropBorderColor(0.3, 0.3, 0.3, 1)
         end
 
         row.macroBtn.icon:SetTexture(def.icon or 134400)
         row.nameText:SetText(def.name)
-        row.cmdText:SetText(string.format("|cffffcc00%s|r  |cffaaaaaa- %s|r", def.command, def.desc))
+        row.cmdText:SetText(string.format("|cffffcc00%s|r  |cffaaaaaa- %s|r", def.command, L[def.desc]))
 
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", parent.scrollChild, "TOPLEFT", 0, -yOff)
@@ -1179,33 +1181,33 @@ GSI_UI.ParseSpecAndModeTokens = ParseSpecAndModeTokens
 _G.GSI_ParseSpecAndModeTokens = ParseSpecAndModeTokens
 
 function GSI_UI:PrintSlashHelp()
-    print("|cffffcc00[GearSetImprover]|r Commands & Help:")
-    print("  |cff00ff00/gsi|r - Open / close main window")
-    print("  |cff00ff00/gsi gear|r (or |cff00ff00/gsi bib|r) - Open 'Best Available Gear'")
-    print("  |cff00ff00/gsi cleanup|r (or |cff00ff00/gsi junk|r) - Open 'Clean-up'")
-    print("  |cff00ff00/gsi weights|r - Open 'Stat Weights'")
-    print("  |cff00ff00/gsi options|r (or |cff00ff00/gsi settings|r) - Open Addon Settings")
-    print("  |cff00ff00/gsi tutorial|r - Open interactive tutorial")
-    print("  |cff00ff00/gsi changelog|r - Show release notes (Changelog)")
-    print("  |cff00ff00/gsi credits|r - View credits & acknowledgments")
-    print("  |cff00ff00/gsi log|r - Open Log Export window")
-    print("  |cff00ff00/gsi equip|r (or |cff00ff00/gsiequip|r) - Equip Best Available Gear")
-    print("  |cff00ff00/gsi equip <spec> [mode]|r - Equip Best Available Gear for a specific profile")
-    print("    |cffffffaaExamples:|r")
-    print("      |cffffff00/gsi equip arms|r or |cffffff00/gsi equip fury aoe|r")
-    print("      |cffffff00/gsi equip prot survival|r or |cffffff00/gsi equip prot threat|r")
-    print("      |cffffff00/gsiequip bear survival|r or |cffffff00/gsiequip cat st|r (Druid)")
-    print("  |cff00ff00/gsi macros|r - Macro Manager for 1-click Action Bar macros")
-    print("  |cff00ff00/gsi spec <1-3|name>|r - Pin a specialization (scores stop following your talents)")
-    print("  |cff00ff00/gsi spec auto|r - Follow your current talent specialization (default)")
-    print("  |cff00ff00/gsi set|r - Equip the current spec's Equipment Set (asks which one when there are several)")
-    print("  |cff00ff00/gsi toggle|r - Dual spec: switch to the other talent group, then put on that spec's set (the 'GSI Dual Spec' macro)")
-    print("  |cff00ff00/gsi go <spec> [mode]|r - Switch to the spec's talent group (dual spec) and put on its set, e.g. |cffffff00/gsi go bear|r")
-    print("  |cff00ff00/gsi dump|r - Save item/tooltip/spec diagnostics to SavedVariables (then /reload)")
-    print("  |cff00ff00/gsi mode <survival|threat|st|aoe>|r - Switch active mode")
-    print("  |cff00ff00/gsi toast|r (or |cff00ff00/gsi testtoast|r) - Test on-screen upgrade toast alert")
-    print("  |cff00ff00/gsi anchor|r - Toggle movable screen anchor for upgrade toasts")
-    print("  |cff00ff00/gsi help|r - Show this command list")
+    print(L["|cffffcc00[GearSetImprover]|r Commands & Help:"])
+    print(L["  |cff00ff00/gsi|r - Open / close main window"])
+    print(L["  |cff00ff00/gsi gear|r (or |cff00ff00/gsi bib|r) - Open 'Best Available Gear'"])
+    print(L["  |cff00ff00/gsi cleanup|r (or |cff00ff00/gsi junk|r) - Open 'Clean-up'"])
+    print(L["  |cff00ff00/gsi weights|r - Open 'Stat Weights'"])
+    print(L["  |cff00ff00/gsi options|r (or |cff00ff00/gsi settings|r) - Open Addon Settings"])
+    print(L["  |cff00ff00/gsi tutorial|r - Open interactive tutorial"])
+    print(L["  |cff00ff00/gsi changelog|r - Show release notes (Changelog)"])
+    print(L["  |cff00ff00/gsi credits|r - View credits & acknowledgments"])
+    print(L["  |cff00ff00/gsi log|r - Open Log Export window"])
+    print(L["  |cff00ff00/gsi equip|r (or |cff00ff00/gsiequip|r) - Equip Best Available Gear"])
+    print(L["  |cff00ff00/gsi equip <spec> [mode]|r - Equip Best Available Gear for a specific profile"])
+    print(L["    |cffffffaaExamples:|r"])
+    print(L["      |cffffff00/gsi equip arms|r or |cffffff00/gsi equip fury aoe|r"])
+    print(L["      |cffffff00/gsi equip prot survival|r or |cffffff00/gsi equip prot threat|r"])
+    print(L["      |cffffff00/gsiequip bear survival|r or |cffffff00/gsiequip cat st|r (Druid)"])
+    print(L["  |cff00ff00/gsi macros|r - Macro Manager for 1-click Action Bar macros"])
+    print(L["  |cff00ff00/gsi spec <1-3|name>|r - Pin a specialization (scores stop following your talents)"])
+    print(L["  |cff00ff00/gsi spec auto|r - Follow your current talent specialization (default)"])
+    print(L["  |cff00ff00/gsi set|r - Equip the current spec's Equipment Set (asks which one when there are several)"])
+    print(L["  |cff00ff00/gsi toggle|r - Dual spec: switch to the other talent group, then put on that spec's set (the 'GSI Dual Spec' macro)"])
+    print(L["  |cff00ff00/gsi go <spec> [mode]|r - Switch to the spec's talent group (dual spec) and put on its set, e.g. |cffffff00/gsi go bear|r"])
+    print(L["  |cff00ff00/gsi dump|r - Save item/tooltip/spec diagnostics to SavedVariables (then /reload)"])
+    print(L["  |cff00ff00/gsi mode <survival|threat|st|aoe>|r - Switch active mode"])
+    print(L["  |cff00ff00/gsi toast|r (or |cff00ff00/gsi testtoast|r) - Test on-screen upgrade toast alert"])
+    print(L["  |cff00ff00/gsi anchor|r - Toggle movable screen anchor for upgrade toasts"])
+    print(L["  |cff00ff00/gsi help|r - Show this command list"])
 end
 
 function GSI_UI:GetEquipmentSetNameAndIcon(specIndex, targetMode, explicitPreset)
@@ -1315,7 +1317,7 @@ function GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, explicitPreset
             local maxSets = MAX_EQUIPMENT_SETS_PER_PLAYER or 10
             local numSets = (C_EquipmentSet.GetNumEquipmentSets and C_EquipmentSet.GetNumEquipmentSets()) or 0
             if numSets >= maxSets then
-                print(string.format("|cffff0000[GearSetImprover]|r Cannot save Equipment Set: maximum limit of %d sets reached! Please delete an unused set in your Character Profile.", maxSets))
+                print(string.format(L["|cffff0000[GearSetImprover]|r Cannot save Equipment Set: maximum limit of %d sets reached! Please delete an unused set in your Character Profile."], maxSets))
                 return false, "full"
             end
 
@@ -1340,7 +1342,7 @@ function GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, explicitPreset
     end)
 
     if ok and res then
-        print(string.format("|cff00ff00[GearSetImprover]|r Saved Equipment Set '|cffffcc00%s|r' in Character Profile.", setName))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Saved Equipment Set '|cffffcc00%s|r' in Character Profile."], setName))
         if PaperDollEquipmentManagerPane_Update then
             pcall(PaperDollEquipmentManagerPane_Update)
         end
@@ -1349,7 +1351,7 @@ function GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, explicitPreset
         end
         return true, setName
     elseif not ok then
-        print(string.format("|cffff0000[GearSetImprover]|r Error saving equipment set: %s", tostring(res)))
+        print(string.format(L["|cffff0000[GearSetImprover]|r Error saving equipment set: %s"], tostring(res)))
         return false, tostring(res)
     end
 
@@ -1359,7 +1361,7 @@ end
 function GSI_UI:EquipPreset(macroDef)
     if not macroDef or macroDef.noSet then return end
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Cannot equip gear while in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Cannot equip gear while in combat!"])
         return
     end
 
@@ -1386,7 +1388,7 @@ end
 
 function GSI_UI:EquipBestInBag(targetSpec, targetMode, onDone, targetPreset)
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Cannot equip gear while in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Cannot equip gear while in combat!"])
         if onDone then onDone(false, "in_combat") end
         return
     end
@@ -1417,18 +1419,18 @@ function GSI_UI:EquipBestInBag(targetSpec, targetMode, onDone, targetPreset)
     local specIndex = GSI_StatWeights:GetActiveSpecIndex()
     local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
     local specData = classData and classData.specs and classData.specs[specIndex]
-    local specName = specData and (specData.name or specData.nameDE) or ("Spec " .. tostring(specIndex))
+    local specName = L[specData and (specData.name or specData.nameDE) or ("Spec " .. tostring(specIndex))]
     local role = GSI_StatWeights:GetRole()
     local modeLabel = ""
     if role == "tank" then
         local tMode = (GearSetImproverDB and GearSetImproverDB.tankMode) or "Survival"
-        modeLabel = (tMode == "Survival") and "Survival" or "Threat / DPS"
+        modeLabel = (tMode == "Survival") and L["Survival"] or L["Threat / DPS"]
     else
         local wMode = (GearSetImproverDB and GearSetImproverDB.weightMode) or "ST"
-        modeLabel = (wMode == "ST") and "Single Target" or "AoE / Trash"
+        modeLabel = (wMode == "ST") and L["Single Target"] or L["AoE / Trash"]
     end
 
-    print(string.format("|cffffcc00[GearSetImprover]|r Optimizing Best Available Gear for |cff00ff00%s (%s)|r...", specName, modeLabel))
+    print(string.format(L["|cffffcc00[GearSetImprover]|r Optimizing Best Available Gear for |cff00ff00%s (%s)|r..."], specName, modeLabel))
 
     GSI_OptimizationEngine:OptimizeBagGearAsync(nil, function(bestSetup, bestScore, upgrades, totalGain, scanStats)
         local list = {}
@@ -1444,9 +1446,9 @@ function GSI_UI:EquipBestInBag(targetSpec, targetMode, onDone, targetPreset)
 
         if #list == 0 then
             if lockedCount > 0 then
-                print(string.format("|cffffcc00[GearSetImprover]|r [|cff00ff00%s (%s)|r]: All available upgrades are on locked slots. Unlock them first to equip.", specName, modeLabel))
+                print(string.format(L["|cffffcc00[GearSetImprover]|r [|cff00ff00%s (%s)|r]: All available upgrades are on locked slots. Unlock them first to equip."], specName, modeLabel))
             else
-                print(string.format("|cffffcc00[GearSetImprover]|r [|cff00ff00%s (%s)|r]: Current gear is already optimal! (No upgrades found in bags)", specName, modeLabel))
+                print(string.format(L["|cffffcc00[GearSetImprover]|r [|cff00ff00%s (%s)|r]: Current gear is already optimal! (No upgrades found in bags)"], specName, modeLabel))
             end
             GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, targetPreset)
             if onDone then onDone(true, 0) end
@@ -1464,21 +1466,21 @@ function GSI_UI:EquipBestInBag(targetSpec, targetMode, onDone, targetPreset)
             return
         end
 
-        print(string.format("|cffffcc00[GearSetImprover]|r Found |cff00ff00%d upgrade(s)|r (+%.1f GSI Score) for |cff00ff00%s (%s)|r. Equipping...", #list, totalGain or 0, specName, modeLabel))
+        print(string.format(L["|cffffcc00[GearSetImprover]|r Found |cff00ff00%d upgrade(s)|r (+%.1f GSI Score) for |cff00ff00%s (%s)|r. Equipping..."], #list, totalGain or 0, specName, modeLabel))
 
         local idx = 1
         GSI_UI.isEquippingAll = true
         local function StepEquip()
             if InCombatLockdown and InCombatLockdown() then
                 GSI_UI.isEquippingAll = false
-                print("|cffff0000[GearSetImprover]|r Equipping interrupted: entered combat!")
+                print(L["|cffff0000[GearSetImprover]|r Equipping interrupted: entered combat!"])
                 if onDone then onDone(false, "in_combat") end
                 return
             end
 
             if idx > #list then
                 GSI_UI.isEquippingAll = false
-                print(string.format("|cff00ff00[GearSetImprover]|r All %d upgrade(s) equipped! Total GSI Score gain: +%.1f for %s (%s).", #list, totalGain or 0, specName, modeLabel))
+                print(string.format(L["|cff00ff00[GearSetImprover]|r All %d upgrade(s) equipped! Total GSI Score gain: +%.1f for %s (%s)."], #list, totalGain or 0, specName, modeLabel))
                 local function DoFinish()
                     GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, targetPreset)
                     if onDone then onDone(true, #list) end
@@ -1725,7 +1727,7 @@ end
 
 local MODE_LABELS = { ST = "Single Target", AOE = "AoE / Trash", Survival = "Survival", DMG = "Threat / DPS" }
 function GSI_UI:GetModeLabel(mode)
-    return mode and (MODE_LABELS[mode] or mode) or nil
+    return mode and L[MODE_LABELS[mode] or mode] or nil
 end
 
 -- The set's mode ("ST", "AOE", "Survival", "DMG"), or nil: it leaves the
@@ -2022,8 +2024,8 @@ local function ApplySetWeightMode(specIndex, setName)
     if NormMode(current) == NormMode(value) then return end
     db[key] = value
     if GSI_StatWeights and GSI_StatWeights.RefreshScores then GSI_StatWeights:RefreshScores() end
-    print(string.format("|cffffcc00[GearSetImprover]|r Weights: |cff00ff00%s|r (set '|cffffcc00%s|r').",
-        MODE_LABELS[value] or value, setName))
+    print(string.format(L["|cffffcc00[GearSetImprover]|r Weights: |cff00ff00%s|r (set '|cffffcc00%s|r')."],
+        L[MODE_LABELS[value] or value], setName))
 end
 
 -- Puts on one Equipment Manager set (after combat when fighting) and turns
@@ -2035,25 +2037,25 @@ function GSI_UI:EquipNamedSet(setName, specIndex, verbose)
     end
     local setID = C_EquipmentSet.GetEquipmentSetID(setName)
     if not setID then
-        print(string.format("|cffff4444[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' no longer exists.", setName))
+        print(string.format(L["|cffff4444[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' no longer exists."], setName))
         return false
     end
     ApplySetWeightMode(specIndex, setName)
     local okI, _, _, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
     if okI and isEquipped then
         if verbose then
-            print(string.format("|cffffcc00[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' is already on.", setName))
+            print(string.format(L["|cffffcc00[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' is already on."], setName))
         end
         return true
     end
     if InCombatLockdown and InCombatLockdown() then
         WaitForCombatEnd(setName, specIndex)
-        print(string.format("|cffffcc00[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' will be equipped when combat ends.", setName))
+        print(string.format(L["|cffffcc00[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' will be equipped when combat ends."], setName))
         return false
     end
     local ok = pcall(C_EquipmentSet.UseEquipmentSet, setID)
     if ok then
-        print(string.format("|cff00ff00[GearSetImprover]|r Equipped set '|cffffcc00%s|r' for |cff00ff00%s|r.", setName, SpecDisplayName(specIndex)))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Equipped set '|cffffcc00%s|r' for |cff00ff00%s|r."], setName, L[SpecDisplayName(specIndex)]))
     end
     return ok
 end
@@ -2188,7 +2190,7 @@ local function CreateSetChooser(S)
     headerTag:SetJustifyH("LEFT")
     headerTag:SetWordWrap(false)
     headerTag:SetTextColor(0.68, 0.72, 0.80, 1)
-    headerTag:SetText("CHOOSE EQUIPMENT SET")
+    headerTag:SetText(L["CHOOSE EQUIPMENT SET"])
 
     f.title = f:CreateFontString(nil, "OVERLAY")
     S.ApplyFont(f.title, 12.5, "OUTLINE", false)
@@ -2202,7 +2204,7 @@ local function CreateSetChooser(S)
     S.ApplyFont(hint, 9.5, "OUTLINE", true)
     hint:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 12, 9)
     hint:SetTextColor(0.55, 0.60, 0.68, 1)
-    hint:SetText("Click a set to put it on")
+    hint:SetText(L["Click a set to put it on"])
 
     local keep = CreateFrame("Button", nil, f)
     keep:SetHeight(14)
@@ -2220,7 +2222,7 @@ local function CreateSetChooser(S)
     S.ApplyFont(keepLabel, 9.5, "OUTLINE", true)
     keepLabel:SetPoint("LEFT", capBg, "RIGHT", 4, 0)
     keepLabel:SetTextColor(0.72, 0.76, 0.84, 1)
-    keepLabel:SetText("Keep current gear")
+    keepLabel:SetText(L["Keep current gear"])
     -- Widths once the font is there (it can report 0 before its first draw)
     function f:SizeFooter()
         local kw = key:GetStringWidth() or 0
@@ -2251,7 +2253,7 @@ function GSI_UI:ShowSetChooser(specIndex, choices)
 
     f.icon:SetTexture(SpecIcon(specIndex))
     local _, _, _, hex = GSI_UI:GetClassColor()
-    f.title:SetText("|cff" .. hex .. SpecDisplayName(specIndex) .. "|r: which set?")
+    f.title:SetText(string.format(L["|cff%s%s|r: which set?"], hex, L[SpecDisplayName(specIndex)]))
     f:SizeFooter()
 
     local y = -CHOOSER_HEADER_H
@@ -2263,16 +2265,18 @@ function GSI_UI:ShowSetChooser(specIndex, choices)
         b.icon:SetTexture((okI and icon) or 134400)
         b.label:SetText(c.name)
         if okI and isEquipped then
-            b.tag:SetText("ON")
+            b.tag:SetText(L["ON"])
             b.tag:SetTextColor(0.25, 1.0, 0.62, 1)
         elseif c.spec ~= specIndex then
             -- A tree mate's set (Bear while Cat is detected)
-            b.tag:SetText(SpecDisplayName(c.spec))
+            b.tag:SetText(L[SpecDisplayName(c.spec)])
             b.tag:SetTextColor(0.62, 0.66, 0.74, 1)
         else
             -- The weights the set turns on
             local m = GSI_UI:GetSetMode(c.spec, c.name)
-            b.tag:SetText(m and string.upper(GSI_UI:GetModeLabel(m)) or "")
+            local ml = m and GSI_UI:GetModeLabel(m)
+            -- string.upper does not upper-case Cyrillic: the Russian label stays as it is
+            b.tag:SetText(ml and ((GSI_LOCALE == "ruRU") and ml or string.upper(ml)) or "")
             b.tag:SetTextColor(0.62, 0.66, 0.74, 1)
         end
         b:ClearAllPoints()
@@ -2321,7 +2325,7 @@ function GSI_UI:EquipSpecSet(specIndex, quiet, verbose, withTreeMates)
     local choices = SpecSetChoices(specIndex, withTreeMates)
     if #choices == 0 then
         if not quiet then
-            print(string.format("|cffffcc00[GearSetImprover]|r No Equipment Set for |cff00ff00%s|r yet: GSI saves one when it equips gear for the spec (/gsi equip), or choose sets in the Settings tab.", SpecDisplayName(specIndex)))
+            print(string.format(L["|cffffcc00[GearSetImprover]|r No Equipment Set for |cff00ff00%s|r yet: GSI saves one when it equips gear for the spec (/gsi equip), or choose sets in the Settings tab."], L[SpecDisplayName(specIndex)]))
         end
         return false, "none"
     end
@@ -2436,35 +2440,35 @@ end
 -- the other talent group; the gear goes on once it is active.
 function GSI_UI:ToggleTalentGroup()
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Cannot change specialization or gear while in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Cannot change specialization or gear while in combat!"])
         return
     end
     if SwitchUnderWay() then
-        print("|cffffcc00[GearSetImprover]|r A talent group switch is already under way.")
+        print(L["|cffffcc00[GearSetImprover]|r A talent group switch is already under way."])
         return
     end
     local SW = GSI_StatWeights
     if SW:GetNumTalentGroups() < 2 then
-        print("|cffffcc00[GearSetImprover]|r Dual specialization is not learned.")
+        print(L["|cffffcc00[GearSetImprover]|r Dual specialization is not learned."])
         return
     end
     local target = (SW:GetActiveTalentGroup() == 1) and 2 or 1
     if not SW:ActivateTalentGroup(target) then
-        print(string.format("|cffff4444[GearSetImprover]|r Could not switch to talent group %d.", target))
+        print(string.format(L["|cffff4444[GearSetImprover]|r Could not switch to talent group %d."], target))
         return
     end
     StartPendingGo(nil, target)
     local _, names = SW:GetTalentGroupPoints(target)
     local lead = SW:GetTalentGroupLeadTree(target)
-    local label = (lead and names and names[lead]) or ("group " .. target)
-    print(string.format("|cffffcc00[GearSetImprover]|r Switching to talent group %d (|cff00ff00%s|r); the gear goes on when the switch is done.", target, label))
+    local label = (lead and names and names[lead]) or string.format(L["group %d"], target)
+    print(string.format(L["|cffffcc00[GearSetImprover]|r Switching to talent group %d (|cff00ff00%s|r); the gear goes on when the switch is done."], target, label))
 end
 
 function GSI_UI:GoToSpec(specIndex, targetMode)
     specIndex = tonumber(specIndex)
     if not specIndex then return end
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Cannot change specialization or gear while in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Cannot change specialization or gear while in combat!"])
         return
     end
     if not GearSetImproverDB then GearSetImproverDB = {} end
@@ -2486,24 +2490,24 @@ function GSI_UI:GoToSpec(specIndex, targetMode)
         SW:InvalidateSpecCache()
     end
 
-    local specName = SpecDisplayName(specIndex)
+    local specName = L[SpecDisplayName(specIndex)]
     local group, why = self:ResolveSpecTalentGroup(specIndex)
     local active = SW:GetActiveTalentGroup()
     if group and group ~= active then
         if SW:ActivateTalentGroup(group) then
             StartPendingGo(specIndex, group)
-            print(string.format("|cffffcc00[GearSetImprover]|r Switching to talent group %d for |cff00ff00%s|r; the gear goes on when the switch is done.", group, specName))
+            print(string.format(L["|cffffcc00[GearSetImprover]|r Switching to talent group %d for |cff00ff00%s|r; the gear goes on when the switch is done."], group, specName))
             return
         end
-        print(string.format("|cffff4444[GearSetImprover]|r Could not switch to talent group %d; equipping the gear for %s only.", group, specName))
+        print(string.format(L["|cffff4444[GearSetImprover]|r Could not switch to talent group %d; equipping the gear for %s only."], group, specName))
     elseif why == "ambiguous" then
-        print(string.format("|cffffcc00[GearSetImprover]|r Both talent groups use the tree of %s: choose its group in Settings (Specialization & Equipment Set). Staying in group %d.", specName, active))
+        print(string.format(L["|cffffcc00[GearSetImprover]|r Both talent groups use the tree of %s: choose its group in Settings (Specialization & Equipment Set). Staying in group %d."], specName, active))
     elseif why == "none" then
-        print(string.format("|cffffcc00[GearSetImprover]|r No talent group plays %s; only its gear is put on.", specName))
+        print(string.format(L["|cffffcc00[GearSetImprover]|r No talent group plays %s; only its gear is put on."], specName))
     elseif why == "single" then
         local lead = SW:GetTalentGroupLeadTree(active)
         if lead and lead ~= SW:SpecTree(specIndex) then
-            print(string.format("|cffffcc00[GearSetImprover]|r Dual specialization is not learned: only the gear for %s is put on.", specName))
+            print(string.format(L["|cffffcc00[GearSetImprover]|r Dual specialization is not learned: only the gear for %s is put on."], specName))
         end
     end
     FinishGoToSpec(specIndex)
@@ -2556,7 +2560,7 @@ do
             end
             if GSI_StatWeights:GetActiveTalentGroup() == pendingGo.group then return end
             pendingGo = nil
-            print("|cffffcc00[GearSetImprover]|r Talent group switch interrupted; press the macro again to retry.")
+            print(L["|cffffcc00[GearSetImprover]|r Talent group switch interrupted; press the macro again to retry."])
         end)
         for _, ev in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_CHANNEL_START",
                               "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED" }) do

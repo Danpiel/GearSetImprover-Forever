@@ -8,6 +8,8 @@
 -- Also supports ChonkyCharacterSheet (CCS) tab skinning.
 -- ============================================================================
 
+local L = GSI_L
+
 GSI_SideTab = GSI_SideTab or {}
 
 local GSI_ICON_TEXTURE = "Interface\\AddOns\\GearSetImprover\\Textures\\icon.png"
@@ -548,7 +550,7 @@ function GSI_SideTab:Initialize()
             GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
             GameTooltip:ClearLines()
             GameTooltip:AddLine("|cffffcc00GearSetImprover Forever|r", 1, 1, 1)
-            GameTooltip:AddLine("Gear optimization & Best Available Gear.", 0.9, 0.9, 0.9, true)
+            GameTooltip:AddLine(L["Gear optimization & Best Available Gear."], 0.9, 0.9, 0.9, true)
 
             if GSI_OptimizationEngine and GSI_OptimizationEngine.EvaluateSetup then
                 local okScore, score = pcall(function()
@@ -556,11 +558,11 @@ function GSI_SideTab:Initialize()
                     return GSI_OptimizationEngine:EvaluateSetup(setup)
                 end)
                 if okScore and type(score) == "number" and score > 0 then
-                    GameTooltip:AddLine(string.format("Gear Score: |cffffffff%.1f|r", score), 0.2, 1, 0.2)
+                    GameTooltip:AddLine(string.format(L["Gear Score: |cffffffff%.1f|r"], score), 0.2, 1, 0.2)
                 end
             end
 
-            GameTooltip:AddLine("|cff00ff00Left-Click:|r Toggle Addon window", 0.6, 0.6, 0.6)
+            GameTooltip:AddLine(L["|cff00ff00Left-Click:|r Toggle Addon window"], 0.6, 0.6, 0.6)
             GameTooltip:Show()
         end
     end

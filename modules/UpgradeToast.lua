@@ -8,8 +8,19 @@
 --  - WoW 12.1 (TOC 16001) InsecureActionButtonTemplate hardware-click equipping
 -- ============================================================
 
+local L = GSI_L
+
 GSI_UpgradeToast = {}
 local GSI_UpgradeToast = GSI_UpgradeToast
+
+-- string.upper leaves Cyrillic alone: map the UTF-8 pairs by hand
+local function UpperText(s)
+    s = string.upper(s)
+    s = s:gsub("\208([\176-\191])", function(c) return "\208" .. string.char(c:byte() - 32) end)
+    s = s:gsub("\209([\128-\143])", function(c) return "\208" .. string.char(c:byte() + 32) end)
+    s = s:gsub("\209\145", "\208\129")
+    return s
+end
 
 local TEXTURE_FILE = "Interface\\AddOns\\GearSetImprover\\Textures\\LootUI.png"
 local ICON_BORDER_FILE = "Interface\\AddOns\\GearSetImprover\\Textures\\IconBorder-Square.png"
@@ -763,9 +774,9 @@ local function CreateAnchorFrame()
     local lockBtn = CreateFrame("Button", nil, f, (GSI_UI and GSI_UI.BACKDROP_TEMPLATE) or "UIPanelButtonTemplate")
     lockBtn:SetSize(84, 20)
     lockBtn:SetPoint("RIGHT", f, "RIGHT", -10, 0)
-    lockBtn:SetText("Lock Anchor")
+    lockBtn:SetText(L["Lock Anchor"])
     if GSI_UI and GSI_UI.SkinButton then
-        GSI_UI:SkinButton(lockBtn, "Lock Anchor", "PRIMARY")
+        GSI_UI:SkinButton(lockBtn, L["Lock Anchor"], "PRIMARY")
     else
         ApplyFont(lockBtn:GetFontString(), 10, "")
     end
@@ -779,7 +790,7 @@ local function CreateAnchorFrame()
     title:SetPoint("RIGHT", lockBtn, "LEFT", -8, 0)
     title:SetJustifyH("LEFT")
     title:SetWordWrap(false)
-    title:SetText("|cff33ccffUpgrade Toast Anchor|r")
+    title:SetText(L["|cff33ccffUpgrade Toast Anchor|r"])
 
     local desc = f:CreateFontString(nil, "OVERLAY")
     ApplyFont(desc, 10, "OUTLINE")
@@ -787,7 +798,7 @@ local function CreateAnchorFrame()
     desc:SetPoint("RIGHT", lockBtn, "LEFT", -8, 0)
     desc:SetJustifyH("LEFT")
     desc:SetWordWrap(false)
-    desc:SetText("|cff9ca3afDrag to move · Compact 348x68|r")
+    desc:SetText(L["|cff9ca3afDrag to move · Compact 348x68|r"])
 
     f:SetScript("OnDragStart", function(self)
         self:StartMoving()
@@ -799,7 +810,7 @@ local function CreateAnchorFrame()
         if toastFrame then
             ApplySavedPosition(toastFrame)
         end
-        print("|cffffcc00[GearSetImprover]|r Toast anchor position saved.")
+        print(L["|cffffcc00[GearSetImprover]|r Toast anchor position saved."])
     end)
 
     f:Hide()
@@ -819,14 +830,14 @@ function GSI_UpgradeToast:ToggleAnchor(show)
     if show then
         ApplySavedPosition(f)
         f:Show()
-        print("|cffffcc00[GearSetImprover]|r Toast Anchor visible. Drag to move, then click 'Lock Anchor'.")
+        print(L["|cffffcc00[GearSetImprover]|r Toast Anchor visible. Drag to move, then click 'Lock Anchor'."])
     else
         SavePosition(f)
         f:Hide()
         if toastFrame then
             ApplySavedPosition(toastFrame)
         end
-        print("|cffffcc00[GearSetImprover]|r Toast Anchor locked & saved.")
+        print(L["|cffffcc00[GearSetImprover]|r Toast Anchor locked & saved."])
     end
     if GSI_UpgradeToast.OnAnchorToggled then
         pcall(GSI_UpgradeToast.OnAnchorToggled, f:IsShown())
@@ -838,7 +849,7 @@ function GSI_UpgradeToast:ResetAnchor()
     GearSetImproverDB.toastAnchor = { point = "TOP", relPoint = "TOP", x = 0, y = TOAST_DEFAULT_Y }
     if anchorFrame then ApplySavedPosition(anchorFrame) end
     if toastFrame then ApplySavedPosition(toastFrame) end
-    print("|cffffcc00[GearSetImprover]|r Toast position reset to default.")
+    print(L["|cffffcc00[GearSetImprover]|r Toast position reset to default."])
     if GSI_UpgradeToast.OnAnchorPositionReset then
         pcall(GSI_UpgradeToast.OnAnchorPositionReset)
     end
@@ -1081,19 +1092,19 @@ end
 
 local function HandleCombatEquipDefer(toastData)
     if not toastData then return end
-    local label = toastData.itemLink or toastData.itemName or "Item"
-    print("|cffffcc00[GearSetImprover]|r In combat! " .. label .. " will be equipped automatically when combat ends.")
+    local label = toastData.itemLink or toastData.itemName or L["Item"]
+    print(string.format(L["|cffffcc00[GearSetImprover]|r In combat! %s will be equipped automatically when combat ends."], label))
     if UIErrorsFrame and UIErrorsFrame.AddMessage then
-        UIErrorsFrame:AddMessage("In combat - will equip after combat ends", 1.0, 0.82, 0.0, 1.0)
+        UIErrorsFrame:AddMessage(L["In combat - will equip after combat ends"], 1.0, 0.82, 0.0, 1.0)
     end
     pendingCombatToast = toastData
 end
 
 local function HandleTestToastEquipSuccess(toastData)
-    local label = (toastData and (toastData.itemLink or toastData.itemName)) or "Item"
-    print("|cff00ff88[GearSetImprover]|r Test toast right-click succeeded! (Demo item: " .. label .. ")")
+    local label = (toastData and (toastData.itemLink or toastData.itemName)) or L["Item"]
+    print(string.format(L["|cff00ff88[GearSetImprover]|r Test toast right-click succeeded! (Demo item: %s)"], label))
     if UIErrorsFrame and UIErrorsFrame.AddMessage then
-        UIErrorsFrame:AddMessage("GSI Test Toast: Right-click equip succeeded!", 0.0, 1.0, 0.53, 1.0)
+        UIErrorsFrame:AddMessage(L["GSI Test Toast: Right-click equip succeeded!"], 0.0, 1.0, 0.53, 1.0)
     end
     PlayEquipSuccessSound()
     GSI_UpgradeToast:Dismiss(true)
@@ -1209,14 +1220,14 @@ local function ScheduleEquipVerification(watchedToast)
                 end
                 if minLevel and minLevel > playerLevel then
                     if UIErrorsFrame and UIErrorsFrame.AddMessage then
-                        UIErrorsFrame:AddMessage(string.format("GSI: Requires level %d to equip", minLevel), 1.0, 0.82, 0.0, 1.0)
+                        UIErrorsFrame:AddMessage(string.format(L["GSI: Requires level %d to equip"], minLevel), 1.0, 0.82, 0.0, 1.0)
                     end
                 elseif (bag ~= nil and slot ~= nil and IsBagSlotLocked(bag, slot)) or slotLocked then
                     if UIErrorsFrame and UIErrorsFrame.AddMessage then
-                        UIErrorsFrame:AddMessage("GSI: Item temporarily locked - please confirm any prompt or right-click again", 1.0, 0.5, 0.0, 1.0)
+                        UIErrorsFrame:AddMessage(L["GSI: Item temporarily locked - please confirm any prompt or right-click again"], 1.0, 0.5, 0.0, 1.0)
                     end
                 elseif UIErrorsFrame and UIErrorsFrame.AddMessage then
-                    UIErrorsFrame:AddMessage("GSI: Could not equip item", 1.0, 0.4, 0.1, 1.0)
+                    UIErrorsFrame:AddMessage(L["GSI: Could not equip item"], 1.0, 0.4, 0.1, 1.0)
                 end
                 RefreshOverlaySecureAttributes()
             end
@@ -1338,7 +1349,7 @@ local function CreateToastFrame()
     headerTag:SetJustifyV("MIDDLE")
     headerTag:SetWordWrap(false)
     headerTag:SetTextColor(0.68, 0.72, 0.80, 1)
-    headerTag:SetText("GEAR UPGRADE")
+    headerTag:SetText(L["GEAR UPGRADE"])
     f.headerTag = headerTag
 
     -- ROW 2: Crisp Item Name (clears closeBtn below y=-23)
@@ -1351,7 +1362,7 @@ local function CreateToastFrame()
     f.itemName = itemName
 
     -- ROW 3 RIGHT: Compact Keycap Action Hints ([L] Skip · [R] Equip)
-    local keyEquip = CreatePlumberKeycap(card, "R", "Equip", {0.20, 1.0, 0.58})
+    local keyEquip = CreatePlumberKeycap(card, "R", L["Equip"], {0.20, 1.0, 0.58})
     keyEquip:SetPoint("BOTTOMRIGHT", card, "BOTTOMRIGHT", -9, 7)
     f.keyEquip = keyEquip
 
@@ -1362,7 +1373,7 @@ local function CreateToastFrame()
     dotSep:SetText("·")
     f.dotSep = dotSep
 
-    local keyDismiss = CreatePlumberKeycap(card, "L", "Skip", {0.72, 0.76, 0.84})
+    local keyDismiss = CreatePlumberKeycap(card, "L", L["Skip"], {0.72, 0.76, 0.84})
     keyDismiss:SetPoint("RIGHT", dotSep, "LEFT", -5, 0)
     f.keyDismiss = keyDismiss
 
@@ -1437,7 +1448,7 @@ local function CreateToastFrame()
         if anchorFrame then
             ApplySavedPosition(anchorFrame)
         end
-        print("|cffffcc00[GearSetImprover]|r Toast position saved.")
+        print(L["|cffffcc00[GearSetImprover]|r Toast position saved."])
     end)
 
     -- Hover Tooltip & Pause on overlay
@@ -1589,7 +1600,7 @@ local function CreateToastFrame()
 
         if wasBlockedByPopup then
             if UIErrorsFrame and UIErrorsFrame.AddMessage then
-                UIErrorsFrame:AddMessage("GSI: Confirm or cancel the open bind/trade dialog first", 1.0, 0.82, 0.0, 1.0)
+                UIErrorsFrame:AddMessage(L["GSI: Confirm or cancel the open bind/trade dialog first"], 1.0, 0.82, 0.0, 1.0)
             end
             return
         end
@@ -1777,11 +1788,11 @@ function GSI_UpgradeToast:DisplayToast(data)
     local f = CreateToastFrame()
     ApplySavedPosition(f)
 
-    local itemName = data.itemName or "Upgraded Gear"
+    local itemName = data.itemName or L["Upgraded Gear"]
     local quality = data.quality or 2
     local itemTexture = data.texture or data.itemTexture or "Interface\\Icons\\inv_misc_questionmark"
     local scoreGain = data.scoreGain or data.scoreDelta or 0
-    local slotName = data.slotName or data.slot or "Gear"
+    local slotName = L[data.slotName or data.slot or "Gear"]
     local oldItemName = data.oldItemName
 
     local qr, qg, qb = 1.0, 1.0, 1.0
@@ -1798,7 +1809,7 @@ function GSI_UpgradeToast:DisplayToast(data)
 
     -- Header tag & score pill (re-anchor keyDismiss dynamically when level is too high)
     if data.isLevelTooHigh and data.minLevel then
-        f.headerTag:SetText(string.upper(slotName) .. " UPGRADE (REQ " .. data.minLevel .. ")")
+        f.headerTag:SetText(string.format(L["%s UPGRADE (REQ %d)"], UpperText(slotName), tonumber(data.minLevel) or 0))
         if f.keyEquip then f.keyEquip:Hide() end
         if f.dotSep then f.dotSep:Hide() end
         if f.keyDismiss then
@@ -1806,7 +1817,7 @@ function GSI_UpgradeToast:DisplayToast(data)
             f.keyDismiss:SetPoint("BOTTOMRIGHT", f.card, "BOTTOMRIGHT", -9, 7)
         end
     else
-        f.headerTag:SetText(string.upper(slotName) .. " UPGRADE")
+        f.headerTag:SetText(string.format(L["%s UPGRADE"], UpperText(slotName)))
         if f.keyEquip then f.keyEquip:Show() end
         if f.dotSep then f.dotSep:Show() end
         if f.keyDismiss and f.dotSep then
@@ -1825,9 +1836,9 @@ function GSI_UpgradeToast:DisplayToast(data)
     f.itemName:SetTextColor(qr, qg, qb, 1)
 
     if oldItemName and oldItemName ~= "" then
-        f.itemSub:SetText(string.format("Replaces %s", oldItemName))
+        f.itemSub:SetText(string.format(L["Replaces %s"], oldItemName))
     else
-        f.itemSub:SetText("Score upgrade over equipped gear")
+        f.itemSub:SetText(L["Score upgrade over equipped gear"])
     end
 
     -- Timer & smooth toaster entrance animation setup
@@ -1889,14 +1900,14 @@ function GSI_UpgradeToast:CheckIfCurrentEquipped(checkMissingFromBags)
     -- 2. If the currently displayed toast item is now equipped, close toast immediately!
     if currentToast and IsToastItemEquipped(currentToast) then
         local wasClickEquip = currentToast._equipClicked
-        local label = currentToast.itemLink or currentToast.itemName or "Item"
+        local label = currentToast.itemLink or currentToast.itemName or L["Item"]
         currentToast._equipClicked = nil
         currentToast._awaitingBindConfirm = nil
         currentToast._equipPendingUntil = nil
         verifyGeneration = verifyGeneration + 1
 
         if wasClickEquip then
-            print("|cff00ff88[GearSetImprover]|r Equipped: " .. label)
+            print(string.format(L["|cff00ff88[GearSetImprover]|r Equipped: %s"], label))
             PlayEquipSuccessSound()
         end
 
@@ -1933,7 +1944,7 @@ function GSI_UpgradeToast:EquipPendingItem()
         currentToast._awaitingBindConfirm = true
         currentToast._equipPendingUntil = now + 60.0
         if UIErrorsFrame and UIErrorsFrame.AddMessage then
-            UIErrorsFrame:AddMessage("GSI: Confirm or cancel the open bind/trade dialog first", 1.0, 0.82, 0.0, 1.0)
+            UIErrorsFrame:AddMessage(L["GSI: Confirm or cancel the open bind/trade dialog first"], 1.0, 0.82, 0.0, 1.0)
         end
         return
     end
@@ -2238,7 +2249,7 @@ function GSI_UpgradeToast:TestToast()
                             end
                             local replacedName = bestEquippedLink and GetItemInfo(bestEquippedLink) or nil
                             bestRealToast = {
-                                itemName = name or "Upgraded Item",
+                                itemName = name or L["Upgraded Item"],
                                 itemLink = link,
                                 idNum = tonumber(link:match("item:(%d+)")),
                                 itemGUID = GetBagSlotGUID(bag, slot),
@@ -2269,7 +2280,7 @@ function GSI_UpgradeToast:TestToast()
             if bestRealToast.itemLink then GearSetImproverDB.toastDismissedItems[bestRealToast.itemLink] = nil end
             if bestRealToast.idNum then GearSetImproverDB.toastDismissedItems[bestRealToast.idNum] = nil end
         end
-        print("|cffffcc00[GearSetImprover]|r Showing real bag upgrade in toast: " .. (bestRealToast.itemLink or bestRealToast.itemName))
+        print(string.format(L["|cffffcc00[GearSetImprover]|r Showing real bag upgrade in toast: %s"], bestRealToast.itemLink or bestRealToast.itemName))
         self:DisplayToast(bestRealToast)
         return
     end
@@ -2307,7 +2318,7 @@ function GSI_UpgradeToast:TestToast()
         isTestToast = true,
     }
 
-    print("|cffffcc00[GearSetImprover]|r Triggering Plumber HUD Test Toast...")
+    print(L["|cffffcc00[GearSetImprover]|r Triggering Plumber HUD Test Toast..."])
     self:DisplayToast(demoData)
 end
 
@@ -2523,7 +2534,7 @@ function GSI_UpgradeToast:EvaluateNewItem(itemLink, bag, slot, itemGUID)
     end
 
     self:ShowToast({
-        itemName = name or "Upgraded Item",
+        itemName = name or L["Upgraded Item"],
         itemLink = itemLink,
         idNum = idNum,
         itemGUID = itemGUID,

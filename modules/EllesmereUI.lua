@@ -11,8 +11,14 @@
 -- ============================================================
 
 GSI_EllesmereUI = GSI_EllesmereUI or {}
+local L = GSI_L
 
 local PLUGIN_ID = "GearSetImprover"
+-- Page names (plain text, unique): shown in the panel, compared in buildPage
+local PAGE_GENERAL = L["General"]
+local PAGE_TOASTS = L["Upgrade Toasts"]
+local PAGE_CLEANUP = L["Clean-up"]
+local PAGE_OPTIONS = L["Options"]
 local registered = false
 
 local function DB()
@@ -39,7 +45,7 @@ local function ClassSpecs()
     local num = (class == "DRUID") and 4 or 3
     for i = 1, num do
         local sd = cd and cd.specs and cd.specs[i]
-        list[i] = (sd and sd.name) or ("Spec " .. i)
+        list[i] = (sd and sd.name) and L[sd.name] or string.format(L["Spec %d"], i)
     end
     return list
 end
@@ -104,79 +110,79 @@ local function BuildGeneral(pageName, parent, yOffset)
     local y = yOffset
     local _, h
 
-    if pageName == "General" then
+    if pageName == PAGE_GENERAL then
         _, h = W:SectionHeader(parent, "GEARSETIMPROVER", y); y = y - h
-        _, h = W:Toggle(parent, "Enable GearSetImprover", y,
+        _, h = W:Toggle(parent, L["Enable GearSetImprover"], y,
             function() return Flag("enabled", true) end,
             function(v) DB().enabled = v and true or false; RefreshTooltips() end,
-            "Scores in tooltips, upgrade toasts and the GSI window."); y = y - h
-        _, h = W:Button(parent, "Open GearSetImprover", y, function()
+            L["Scores in tooltips, upgrade toasts and the GSI window."]); y = y - h
+        _, h = W:Button(parent, L["Open GearSetImprover"], y, function()
             if GSI_UI and GSI_UI.mainFrame and not GSI_UI.mainFrame:IsShown() and GSI_UI.Toggle then GSI_UI:Toggle() end
         end); y = y - h
-        _, h = W:Toggle(parent, "Show the minimap button", y,
+        _, h = W:Toggle(parent, L["Show the minimap button"], y,
             function() return Flag("showMinimap", true) end,
             function(v)
                 DB().showMinimap = v and true or false
                 if GSI_MinimapButton and GSI_MinimapButton.Toggle then GSI_MinimapButton:Toggle(v) end
             end); y = y - h
-        _, h = W:Toggle(parent, "Silent mode (no chat output)", y,
+        _, h = W:Toggle(parent, L["Silent mode (no chat output)"], y,
             function() return Flag("disableChatOutput", false) end,
             function(v) DB().disableChatOutput = v and true or false end); y = y - h
 
-        _, h = W:SectionHeader(parent, "SCORING", y); y = y - h
-        _, h = W:Toggle(parent, "Ignore item enchants", y,
+        _, h = W:SectionHeader(parent, L["SCORING"], y); y = y - h
+        _, h = W:Toggle(parent, L["Ignore item enchants"], y,
             function() return Flag("ignoreEnchants", true) end,
             function(v)
                 DB().ignoreEnchants = v and true or false
                 if GSI_Config then GSI_Config.IgnoreEnchants = v and true or false end
                 ResetScores()
             end,
-            "Scores and comparisons leave enchants out, so an item is judged by itself."); y = y - h
-        _, h = W:Toggle(parent, "Include situational effects", y,
+            L["Scores and comparisons leave enchants out, so an item is judged by itself."]); y = y - h
+        _, h = W:Toggle(parent, L["Include situational effects"], y,
             function() return Flag("includeSituational", true) end,
             function(v) DB().includeSituational = v and true or false; ResetScores() end,
-            "Effects such as bonuses against Undead or Dragonkin count in the score."); y = y - h
-        _, h = W:Toggle(parent, "Save Equipment Sets when GSI equips gear", y,
+            L["Effects such as bonuses against Undead or Dragonkin count in the score."]); y = y - h
+        _, h = W:Toggle(parent, L["Save Equipment Sets when GSI equips gear"], y,
             function() return Flag("autoSaveEquipmentSet", true) end,
             function(v) DB().autoSaveEquipmentSet = v and true or false end,
-            "/gsi equip saves what it put on as the spec's set (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...)."); y = y - h
-        _, h = W:Toggle(parent, "Debug: stat weights in tooltips", y,
+            L["/gsi equip saves what it put on as the spec's set (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...)."]); y = y - h
+        _, h = W:Toggle(parent, L["Debug: stat weights in tooltips"], y,
             function() return Flag("debug", false) end,
             function(v) DB().debug = v and true or false; RefreshTooltips() end); y = y - h
 
-    elseif pageName == "Upgrade Toasts" then
-        _, h = W:SectionHeader(parent, "UPGRADE TOASTS", y); y = y - h
-        _, h = W:Toggle(parent, "Show upgrade toasts", y,
+    elseif pageName == PAGE_TOASTS then
+        _, h = W:SectionHeader(parent, L["UPGRADE TOASTS"], y); y = y - h
+        _, h = W:Toggle(parent, L["Show upgrade toasts"], y,
             function() return Flag("enableUpgradeToast", true) end,
             function(v) DB().enableUpgradeToast = v and true or false end,
-            "A toast when an item you pick up is an upgrade, with a button that puts it on. After a spec change toasts wait until the spec's set is on."); y = y - h
-        _, h = W:Toggle(parent, "Pulsing glow", y,
+            L["A toast when an item you pick up is an upgrade, with a button that puts it on. After a spec change toasts wait until the spec's set is on."]); y = y - h
+        _, h = W:Toggle(parent, L["Pulsing glow"], y,
             function() return Flag("toastBlink", true) end,
             function(v) DB().toastBlink = v and true or false end); y = y - h
-        _, h = W:Toggle(parent, "Alert sound", y,
+        _, h = W:Toggle(parent, L["Alert sound"], y,
             function() return Flag("toastPlaySound", true) end,
             function(v) DB().toastPlaySound = v and true or false end); y = y - h
-        _, h = W:Slider(parent, "Display duration (seconds)", y, 10, 120, 5,
+        _, h = W:Slider(parent, L["Display duration (seconds)"], y, 10, 120, 5,
             function() return (GearSetImproverDB and GearSetImproverDB.toastDuration) or 60 end,
             function(v) DB().toastDuration = math.floor(v + 0.5) end); y = y - h
-        _, h = W:Button(parent, "Test toast", y, function()
+        _, h = W:Button(parent, L["Test toast"], y, function()
             if GSI_UpgradeToast and GSI_UpgradeToast.TestToast then GSI_UpgradeToast:TestToast() end
         end); y = y - h
 
-        _, h = W:SectionHeader(parent, "POSITION", y); y = y - h
-        _, h = W:Button(parent, "Move the toast", y, function()
+        _, h = W:SectionHeader(parent, L["POSITION"], y); y = y - h
+        _, h = W:Button(parent, L["Move the toast"], y, function()
             if GSI_UpgradeToast and GSI_UpgradeToast.ToggleAnchor then
                 GSI_UpgradeToast:ToggleAnchor(not GSI_UpgradeToast:IsAnchorShown())
             end
         end); y = y - h
-        _, h = W:Button(parent, "Reset position", y, function()
+        _, h = W:Button(parent, L["Reset position"], y, function()
             if GSI_UpgradeToast and GSI_UpgradeToast.ResetAnchor then GSI_UpgradeToast:ResetAnchor() end
         end); y = y - h
 
-    elseif pageName == "Clean-up" then
-        _, h = W:SectionHeader(parent, "OUTDATED GEAR", y,
-            "The Clean-up tab lists gear in your bags that is worse than what you wear. Gray trash is never sold; Equipment Sets are protected."); y = y - h
-        _, h = W:Slider(parent, "Worse by at least (GSI Score)", y, 1, 50, 1,
+    elseif pageName == PAGE_CLEANUP then
+        _, h = W:SectionHeader(parent, L["OUTDATED GEAR"], y,
+            L["The Clean-up tab lists gear in your bags that is worse than what you wear. Gray trash is never sold; Equipment Sets are protected."]); y = y - h
+        _, h = W:Slider(parent, L["Worse by at least (GSI Score)"], y, 1, 50, 1,
             function() return (GearSetImproverDB and GearSetImproverDB.junkThreshold) or 5 end,
             function(v)
                 v = math.floor(v + 0.5)
@@ -184,28 +190,28 @@ local function BuildGeneral(pageName, parent, yOffset)
                 if GSI_Config then GSI_Config.JunkThreshold = v end
                 SyncJunkTab()
             end); y = y - h
-        _, h = W:Toggle(parent, "Include other armor classes", y,
+        _, h = W:Toggle(parent, L["Include other armor classes"], y,
             function() return Flag("junkIncludeOtherArmor", false) end,
             function(v)
                 DB().junkIncludeOtherArmor = v and true or false
                 if GSI_Config then GSI_Config.JunkIncludeOtherArmor = v and true or false end
                 SyncJunkTab()
-            end, "For example Leather or Mail on a Mage."); y = y - h
-        _, h = W:Toggle(parent, "Include common (white) gear", y,
+            end, L["For example Leather or Mail on a Mage."]); y = y - h
+        _, h = W:Toggle(parent, L["Include common (white) gear"], y,
             function() return Flag("junkIncludeWhiteGear", true) end,
             function(v)
                 DB().junkIncludeWhiteGear = v and true or false
                 if GSI_Config then GSI_Config.JunkIncludeWhiteGear = v and true or false end
                 SyncJunkTab()
             end); y = y - h
-        _, h = W:Toggle(parent, "Include gear you cannot use", y,
+        _, h = W:Toggle(parent, L["Include gear you cannot use"], y,
             function() return Flag("junkIncludeUnusableGear", true) end,
             function(v)
                 DB().junkIncludeUnusableGear = v and true or false
                 if GSI_Config then GSI_Config.JunkIncludeUnusableGear = v and true or false end
                 SyncJunkTab()
             end); y = y - h
-        _, h = W:Toggle(parent, "Sell window at the merchant", y,
+        _, h = W:Toggle(parent, L["Sell window at the merchant"], y,
             function() return Flag("merchantOverlayEnabled", true) end,
             function(v)
                 if GSI_UI and GSI_UI.SetMerchantOverlayEnabled then
@@ -214,7 +220,7 @@ local function BuildGeneral(pageName, parent, yOffset)
                     DB().merchantOverlayEnabled = v and true or false
                 end
                 SyncJunkTab()
-            end, "A window docked to the merchant with the Clean-up list and 'Sell All'."); y = y - h
+            end, L["A window docked to the merchant with the Clean-up list and 'Sell All'."]); y = y - h
     end
     return math.abs(y)
 end
@@ -232,22 +238,22 @@ end
 local function BuildSpecOptions(parent, y)
     local W = EllesmereUI.Widgets
     local _, h
-    _, h = W:SectionHeader(parent, "SPEC AND GEAR", y); y = y - h
-    _, h = W:Toggle(parent, "Detect the spec from your talents", y,
+    _, h = W:SectionHeader(parent, L["SPEC AND GEAR"], y); y = y - h
+    _, h = W:Toggle(parent, L["Detect the spec from your talents"], y,
         function() return not GSI_StatWeights or not GSI_StatWeights.IsSpecAuto or GSI_StatWeights:IsSpecAuto() end,
         function(v)
             if GSI_StatWeights and GSI_StatWeights.SetSpecAuto then GSI_StatWeights:SetSpecAuto(v and true or false) end
             Rebuild("Specs")
         end,
-        "Follows respecs and dual spec. Picking a spec in the GSI window's header pins it and turns this off. Feral druids: your last Cat or Bear pick decides."); y = y - h
-    _, h = W:Toggle(parent, "Equip the spec's set when your spec changes", y,
+        L["Follows respecs and dual spec. Picking a spec in the GSI window's header pins it and turns this off. Feral druids: your last Cat or Bear pick decides."]); y = y - h
+    _, h = W:Toggle(parent, L["Equip the spec's set when your spec changes"], y,
         function() return not GSI_UI.IsSpecSetAutoEquip or GSI_UI:IsSpecSetAutoEquip() end,
         function(v) DB().specSetAutoEquip = v and true or false end,
-        "After a spec change the spec's set goes on (after combat if you are fighting); with several sets you pick one. Its weights go on with it."); y = y - h
-    _, h = W:Toggle(parent, "Tooltips: a line for every set of every spec", y,
+        L["After a spec change the spec's set goes on (after combat if you are fighting); with several sets you pick one. Its weights go on with it."]); y = y - h
+    _, h = W:Toggle(parent, L["Tooltips: a line for every set of every spec"], y,
         function() return not GSI_UI.IsCompareSpecSets or GSI_UI:IsCompareSpecSets() end,
         function(v) DB().compareSpecSets = v and true or false; RefreshTooltips() end,
-        "Every spec gets a tooltip line per set on its page, scored with the set's weights. Off: only the ticked lines, against the gear you wear."); y = y - h
+        L["Every spec gets a tooltip line per set on its page, scored with the set's weights. Off: only the ticked lines, against the gear you wear."]); y = y - h
     return y
 end
 
@@ -263,7 +269,7 @@ local function BuildSpecPage(specIndex, parent, y)
             local key = p.key
             ticks[#ticks + 1] = {
                 type = "toggle",
-                text = "Line: " .. (p.modeLabel or p.mode),
+                text = string.format(L["Line: %s"], p.modeLabel or p.mode),
                 getValue = function()
                     local t = GearSetImproverDB and GearSetImproverDB.tooltipProfiles
                     return (t and t[class] and t[class][key]) == true
@@ -280,8 +286,8 @@ local function BuildSpecPage(specIndex, parent, y)
             }
         end
     end
-    _, h = W:SectionHeader(parent, "TOOLTIP VS WORN GEAR", y,
-        "Tooltip lines scored with these weights against the gear you wear. A spec you are not playing that has sets compares with its sets instead."); y = y - h
+    _, h = W:SectionHeader(parent, L["TOOLTIP VS WORN GEAR"], y,
+        L["Tooltip lines scored with these weights against the gear you wear. A spec you are not playing that has sets compares with its sets instead."]); y = y - h
     if #ticks > 0 then
         _, h = W:DualRow(parent, y, ticks[1], ticks[2]); y = y - h
     end
@@ -289,25 +295,25 @@ local function BuildSpecPage(specIndex, parent, y)
     -- The spec's sets, each with the weights it turns on
     local modeNow = GSI_UI.GetCurrentModeFor and GSI_UI:GetCurrentModeFor(specIndex)
     local names, isManual = GSI_UI:GetSpecSets(specIndex, modeNow)
-    _, h = W:SectionHeader(parent, isManual and "EQUIPMENT SETS" or "EQUIPMENT SETS (AUTO)", y,
-        isManual and "Your own list of sets for this spec."
-        or "Auto: the sets GSI saved for the spec (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...), also those it saves later. Adding or removing one makes the list your own."); y = y - h
+    _, h = W:SectionHeader(parent, isManual and L["EQUIPMENT SETS"] or L["EQUIPMENT SETS (AUTO)"], y,
+        isManual and L["Your own list of sets for this spec."]
+        or L["Auto: the sets GSI saved for the spec (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...), also those it saves later. Adding or removing one makes the list your own."]); y = y - h
 
     local modes = GSI_UI:GetSpecModes(specIndex)
     for _, setName in ipairs(names) do
         local exists = C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.GetEquipmentSetID(setName)
         local label = setName
         if not exists then
-            label = setName .. " (missing)"
+            label = string.format(L["%s (missing)"], setName)
         else
             local okI, _, _, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, exists)
-            if okI and isEquipped then label = setName .. " (on)" end
+            if okI and isEquipped then label = string.format(L["%s (on)"], setName) end
         end
         local values = {
             [modes[1]] = GSI_UI:GetModeLabel(modes[1]),
             [modes[2]] = GSI_UI:GetModeLabel(modes[2]),
-            keep = "Keep the weights",
-            remove = "Remove from this spec",
+            keep = L["Keep the weights"],
+            remove = L["Remove from this spec"],
             _noLoc = true,
         }
         _, h = W:Dropdown(parent, label, y, values,
@@ -322,13 +328,13 @@ local function BuildSpecPage(specIndex, parent, y)
                 if GSI_UI.RefreshSpecSetRows then pcall(GSI_UI.RefreshSpecSetRows) end
             end,
             { modes[1], modes[2], "keep", "remove" },
-            "The weights this set turns on when it goes on while you play this spec (the \"which set?\" prompt, /gsi go, the dual spec macro or the Equipment Manager). Its tooltip line is scored with them."); y = y - h
+            L["The weights this set turns on when it goes on while you play this spec (the \"which set?\" prompt, /gsi go, the dual spec macro or the Equipment Manager). Its tooltip line is scored with them."]); y = y - h
     end
 
     -- Add one of the character's other sets
     local have = {}
     for _, n in ipairs(names) do have[n] = true end
-    local addValues, addOrder = { none = "Choose a set", _noLoc = true }, { "none" }
+    local addValues, addOrder = { none = L["Choose a set"], _noLoc = true }, { "none" }
     for _, s in ipairs(GSI_UI:GetEquipmentSetList()) do
         if not have[s.name] then
             addValues[s.name] = s.name
@@ -336,38 +342,38 @@ local function BuildSpecPage(specIndex, parent, y)
         end
     end
     if #addOrder > 1 then
-        _, h = W:Dropdown(parent, "Add a set", y, addValues,
+        _, h = W:Dropdown(parent, L["Add a set"], y, addValues,
             function() return "none" end,
             function(v)
                 if v == "none" then return end
                 GSI_UI:ToggleSpecSet(specIndex, v)
                 SetsChanged()
             end,
-            addOrder, "With several sets, switching to the spec asks which one to put on."); y = y - h
+            addOrder, L["With several sets, switching to the spec asks which one to put on."]); y = y - h
     end
     if isManual then
-        _, h = W:Button(parent, "Back to Auto", y, function()
+        _, h = W:Button(parent, L["Back to Auto"], y, function()
             GSI_UI:SetSpecSets(specIndex, nil)
             SetsChanged()
         end); y = y - h
     end
     if #names > 0 then
-        _, h = W:Button(parent, "Equip a set of this spec", y, function()
+        _, h = W:Button(parent, L["Equip a set of this spec"], y, function()
             if GSI_UI.EquipSpecSet then GSI_UI:EquipSpecSet(specIndex, false, true) end
         end); y = y - h
     end
 
     -- Talent group (dual spec) for /gsi go
-    _, h = W:SectionHeader(parent, "DUAL SPEC", y,
-        "The talent group /gsi go switches to for this spec. Auto takes the only group whose most-used tree is the spec's; choose one when both groups use the same tree (a Cat and a Bear build)."); y = y - h
+    _, h = W:SectionHeader(parent, L["DUAL SPEC"], y,
+        L["The talent group /gsi go switches to for this spec. Auto takes the only group whose most-used tree is the spec's; choose one when both groups use the same tree (a Cat and a Bear build)."]); y = y - h
     local autoGroup = GSI_UI.ResolveSpecTalentGroup and select(1, GSI_UI:ResolveSpecTalentGroup(specIndex))
     local groupValues = {
-        auto = "Auto" .. (autoGroup and (" (group " .. autoGroup .. ")") or ""),
-        g1 = "Group 1",
-        g2 = "Group 2",
+        auto = autoGroup and string.format(L["Auto (group %s)"], tostring(autoGroup)) or L["Auto"],
+        g1 = L["Group 1"],
+        g2 = L["Group 2"],
         _noLoc = true,
     }
-    _, h = W:Dropdown(parent, "Talent group", y, groupValues,
+    _, h = W:Dropdown(parent, L["Talent group"], y, groupValues,
         function()
             local g = GSI_UI:GetSpecTalentGroup(specIndex)
             return g and ("g" .. g) or "auto"
@@ -384,7 +390,7 @@ local specPageIndex = {}
 
 local function BuildSpecs(pageName, parent, yOffset)
     local y = yOffset
-    if pageName == "Options" then
+    if pageName == PAGE_OPTIONS then
         y = BuildSpecOptions(parent, y)
     elseif specPageIndex[pageName] then
         y = BuildSpecPage(specPageIndex[pageName], parent, y)
@@ -398,9 +404,9 @@ end
 
 local function Register()
     if registered or not (EllesmereUI and EllesmereUI.RegisterPlugin) then return end
-    local specPages = { "Options" }
+    local specPages = { PAGE_OPTIONS }
     for i, name in ipairs(ClassSpecs()) do
-        if not specPageIndex[name] and name ~= "Options" then
+        if not specPageIndex[name] and name ~= PAGE_OPTIONS then
             specPageIndex[name] = i
             specPages[#specPages + 1] = name
         end
@@ -410,15 +416,15 @@ local function Register()
         modules = {
             {
                 key = "General",
-                title = "General",
-                description = "Gear scores in tooltips, upgrade toasts and the Clean-up list.",
-                pages = { "General", "Upgrade Toasts", "Clean-up" },
+                title = L["General"],
+                description = L["Gear scores in tooltips, upgrade toasts and the Clean-up list."],
+                pages = { PAGE_GENERAL, PAGE_TOASTS, PAGE_CLEANUP },
                 buildPage = BuildGeneral,
             },
             {
                 key = "Specs",
-                title = "Specs & Sets",
-                description = "Each spec's Equipment Sets, the weights each set turns on, its tooltip lines and its talent group.",
+                title = L["Specs & Sets"],
+                description = L["Each spec's Equipment Sets, the weights each set turns on, its tooltip lines and its talent group."],
                 pages = specPages,
                 buildPage = BuildSpecs,
                 -- Sets and specs change outside the panel: always built fresh
@@ -454,7 +460,7 @@ function GSI_EllesmereUI:OpenSpecs()
     local SW = GSI_StatWeights
     local spec = SW and SW.GetActiveSpecIndex and SW:GetActiveSpecIndex()
     local name = spec and ClassSpecs()[spec]
-    return self:Open("Specs", (name and specPageIndex[name]) and name or "Options")
+    return self:Open("Specs", (name and specPageIndex[name]) and name or PAGE_OPTIONS)
 end
 
 local loader = CreateFrame("Frame")

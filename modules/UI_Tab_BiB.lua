@@ -4,6 +4,8 @@
 
 GSI_UI = GSI_UI or {}
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 local GetItemIcon = _G.GSI_GetItemIcon or _G.GetItemIcon or function() return "Interface\\Icons\\INV_Misc_QuestionMark" end
@@ -242,7 +244,7 @@ end)
 -- (with lock/slot verification) and PickupContainerItem + EquipCursorItem are used!
 function GSI_UI:EquipUpgradeItem(up, targetSlotID)
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff0000[GearSetImprover]|r Items cannot be swapped in combat!")
+        print(L["|cffff0000[GearSetImprover]|r Items cannot be swapped in combat!"])
         return false
     end
 
@@ -267,7 +269,7 @@ function GSI_UI:EquipUpgradeItem(up, targetSlotID)
 
     -- Pre-check: Can the player actually equip this item?
     if GSI_OptimizationEngine and GSI_OptimizationEngine.IsItemUsableForPlayer and not GSI_OptimizationEngine:IsItemUsableForPlayer(link, bag, slot) then
-        print(string.format("|cffff0000[GearSetImprover]|r Skipped %s: requirements not met for your character!", link or "item"))
+        print(string.format(L["|cffff0000[GearSetImprover]|r Skipped %s: requirements not met for your character!"], link or L["item"]))
         return false
     end
 
@@ -360,7 +362,7 @@ function GSI_UI:EquipUpgradeItem(up, targetSlotID)
                 PlaySound(SOUNDKIT and SOUNDKIT.IG_CHARACTER_INFO_TAB or 841)
             end
         end)
-        print(string.format("|cffffcc00[GearSetImprover]|r Equipped: %s (Slot %d)", link, targetSlotID or 0))
+        print(string.format(L["|cffffcc00[GearSetImprover]|r Equipped: %s (Slot %d)"], link, targetSlotID or 0))
         return true
     end
 
@@ -447,10 +449,10 @@ function GSI_UI:RunOptimization(onComplete)
 
     if optBtn then
         optBtn:Disable()
-        optBtn:SetText("Optimizing...")
+        optBtn:SetText(L["Optimizing..."])
     end
     if statusText and bibFrame and bibFrame:IsShown() then
-        statusText:SetText("|cffffff00Scanning bags...|r")
+        statusText:SetText(L["|cffffff00Scanning bags...|r"])
     end
 
     GSI_UI.isOptimizing = true
@@ -494,7 +496,7 @@ function GSI_UI:RunOptimization(onComplete)
 
             if optBtn then
                 optBtn:Enable()
-                optBtn:SetText("Optimize Gear")
+                optBtn:SetText(L["Optimize Gear"])
             end
 
             pcall(function() GSI_UI:UpdateTitleScore() end)
@@ -519,12 +521,12 @@ function GSI_UI:RunOptimization(onComplete)
         GSI_UI.isOptimizing = false
         if optBtn then
             optBtn:Enable()
-            optBtn:SetText("Optimize Gear")
+            optBtn:SetText(L["Optimize Gear"])
         end
         if statusText then
-            statusText:SetText("|cffff4444Optimization error:|r " .. tostring(err))
+            statusText:SetText(L["|cffff4444Optimization error:|r "] .. tostring(err))
         end
-        print("|cffff4444[GearSetImprover] Optimization error:|r " .. tostring(err))
+        print(L["|cffff4444[GearSetImprover] Optimization error:|r "] .. tostring(err))
     end
 end
 
@@ -534,7 +536,7 @@ function GSI_UI:DrawBiB(parent)
     local optBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     optBtn:SetSize(130, 26)
     optBtn:SetPoint("TOPRIGHT", -20, -14)
-    optBtn:SetText("Optimize Gear")
+    optBtn:SetText(L["Optimize Gear"])
     self:SkinButton(optBtn, nil, "PRIMARY")
     if optBtn.RegisterForClicks then
         optBtn:RegisterForClicks("AnyUp")
@@ -544,7 +546,7 @@ function GSI_UI:DrawBiB(parent)
     local saveSetBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     saveSetBtn:SetSize(90, 26)
     saveSetBtn:SetPoint("RIGHT", optBtn, "LEFT", -8, 0)
-    saveSetBtn:SetText("Save Set")
+    saveSetBtn:SetText(L["Save Set"])
     self:SkinButton(saveSetBtn, nil, "SECONDARY")
     if saveSetBtn.RegisterForClicks then
         saveSetBtn:RegisterForClicks("AnyUp")
@@ -561,8 +563,8 @@ function GSI_UI:DrawBiB(parent)
     end)
     saveSetBtn:SetScript("OnEnter", function(selfBtn)
         GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Save Equipment Set to Character Profile", 1, 0.82, 0)
-        GameTooltip:AddLine("Saves current equipped gear as an Equipment Set in Blizzard Equipment Manager.", 1, 1, 1, true)
+        GameTooltip:AddLine(L["Save Equipment Set to Character Profile"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["Saves current equipped gear as an Equipment Set in Blizzard Equipment Manager."], 1, 1, 1, true)
         GameTooltip:Show()
     end)
     saveSetBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -570,7 +572,7 @@ function GSI_UI:DrawBiB(parent)
     local equipAllBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     equipAllBtn:SetSize(100, 26)
     equipAllBtn:SetPoint("RIGHT", saveSetBtn, "LEFT", -8, 0)
-    equipAllBtn:SetText("Equip All")
+    equipAllBtn:SetText(L["Equip All"])
     self:SkinButton(equipAllBtn, nil, "PRIMARY")
     if equipAllBtn.RegisterForClicks then
         equipAllBtn:RegisterForClicks("AnyUp")
@@ -578,12 +580,12 @@ function GSI_UI:DrawBiB(parent)
     equipAllBtn:Hide()
     parent.equipAllBtn = equipAllBtn
 
-    local header = self:CreateText(parent, "TITLE", "BEST AVAILABLE OPTIMIZATION", "LEFT")
+    local header = self:CreateText(parent, "TITLE", L["BEST AVAILABLE OPTIMIZATION"], "LEFT")
     header:SetPoint("TOPLEFT", 16, -16)
     header:SetPoint("TOPRIGHT", equipAllBtn, "TOPLEFT", -10, -2)
     header:SetWordWrap(false)
 
-    local sub = self:CreateText(parent, "SMALL", "Scan your bags for automatic score upgrades & 1-click equip:", "LEFT")
+    local sub = self:CreateText(parent, "SMALL", L["Scan your bags for automatic score upgrades & 1-click equip:"], "LEFT")
     sub:SetPoint("TOPLEFT", header, "BOTTOMLEFT", 0, -3)
     sub:SetPoint("TOPRIGHT", header, "BOTTOMRIGHT", 0, -3)
     sub:SetWordWrap(false)
@@ -596,7 +598,7 @@ function GSI_UI:DrawBiB(parent)
     self:SkinCard(statusCard, false)
     parent.statusCard = statusCard
 
-    local status = self:CreateText(statusCard, "BODY", "Click 'Optimize Gear' to scan bags for the best available gear.", "LEFT")
+    local status = self:CreateText(statusCard, "BODY", L["Click 'Optimize Gear' to scan bags for the best available gear."], "LEFT")
     status:SetPoint("LEFT", 12, 0)
     status:SetPoint("RIGHT", statusCard, "RIGHT", -12, 0)
     status:SetWordWrap(false)
@@ -652,13 +654,13 @@ function GSI_UI:DrawBiB(parent)
 
         if #list == 0 then
             if lockedCount > 0 then
-                print("|cffffcc00[GearSetImprover]|r All available upgrades are on locked slots. Unlock them first to equip.")
+                print(L["|cffffcc00[GearSetImprover]|r All available upgrades are on locked slots. Unlock them first to equip."])
             end
             return
         end
 
         equipAllBtn:Disable()
-        equipAllBtn:SetText("Equipping...")
+        equipAllBtn:SetText(L["Equipping..."])
         GSI_UI.isEquippingAll = true
 
         local idx = 1
@@ -679,8 +681,8 @@ function GSI_UI:DrawBiB(parent)
             if idx > #list then
                 GSI_UI.isEquippingAll = false
                 equipAllBtn:Enable()
-                equipAllBtn:SetText("|cff00ff00Equip All|r")
-                print("|cffffcc00[GearSetImprover]|r All available upgrades equipped! Optimizing...")
+                equipAllBtn:SetText(L["|cff00ff00Equip All|r"])
+                print(L["|cffffcc00[GearSetImprover]|r All available upgrades equipped! Optimizing..."])
 
                 local specIndex = GSI_StatWeights:GetActiveSpecIndex()
                 local function FinishEquipAll()
@@ -738,14 +740,14 @@ function GSI_UI:UpdateBiBList(parent)
 
     if not parent.scanned then
         if parent.equipAllBtn then parent.equipAllBtn:Hide() end
-        parent.statusText:SetText("|cffffffffClick |r|cffffcc00'Optimize Gear'|r|cffffffff to scan bags for the best available gear.|r")
+        parent.statusText:SetText(L["|cffffffffClick |r|cffffcc00'Optimize Gear'|r|cffffffff to scan bags for the best available gear.|r"])
         for _, r in ipairs(parent.rows or {}) do r:Hide() end
         return
     end
 
     if GSI_UI.scanStale then
         if parent.equipAllBtn then parent.equipAllBtn:Hide() end
-        parent.statusText:SetText("|cffffff00Spec / talents changed: rescanning bags with the new weights...|r")
+        parent.statusText:SetText(L["|cffffff00Spec / talents changed: rescanning bags with the new weights...|r"])
         for _, r in ipairs(parent.rows or {}) do r:Hide() end
         return
     end
@@ -770,20 +772,20 @@ function GSI_UI:UpdateBiBList(parent)
     local scanStats = parent.scanStats
     local statsDetail = ""
     if scanStats and scanStats.equippableFound then
-        statsDetail = string.format(" (%d bag items checked)", scanStats.equippableFound)
+        statsDetail = string.format(L[" (%d bag items checked)"], scanStats.equippableFound)
     end
 
     if count == 0 then
         if parent.equipAllBtn then parent.equipAllBtn:Hide() end
-        parent.statusText:SetText(string.format("|cff00ff00Your current gear is already optimal!|r |cff888888[%s%s]|r", timeStr, statsDetail))
+        parent.statusText:SetText(string.format(L["|cff00ff00Your current gear is already optimal!|r |cff888888[%s%s]|r"], timeStr, statsDetail))
         if announce then
-            print(string.format("|cffffcc00[GearSetImprover]|r Gear optimization complete: No upgrades found (gear is optimal)%s.", statsDetail))
+            print(string.format(L["|cffffcc00[GearSetImprover]|r Gear optimization complete: No upgrades found (gear is optimal)%s."], statsDetail))
         end
     else
         if parent.equipAllBtn then parent.equipAllBtn:Show() end
-        parent.statusText:SetText(string.format("|cff00ff00%d Upgrade(s) found!|r Total Gain: |cff00ff00+%.1f GSI Score|r |cff888888[%s%s]|r", count, parent.totalGain or 0, timeStr, statsDetail))
+        parent.statusText:SetText(string.format(L["|cff00ff00%d Upgrade(s) found!|r Total Gain: |cff00ff00+%.1f GSI Score|r |cff888888[%s%s]|r"], count, parent.totalGain or 0, timeStr, statsDetail))
         if announce then
-            print(string.format("|cffffcc00[GearSetImprover]|r |cff00ff00%d Upgrade(s)|r found! Total gain: |cff00ff00+%.1f GSI Score|r.", count, parent.totalGain or 0))
+            print(string.format(L["|cffffcc00[GearSetImprover]|r |cff00ff00%d Upgrade(s)|r found! Total gain: |cff00ff00+%.1f GSI Score|r."], count, parent.totalGain or 0))
         end
     end
 
@@ -822,7 +824,7 @@ function GSI_UI:UpdateBiBList(parent)
 
             -- Lock Button
             row.lockBtn = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
-            row.lockBtn:SetSize(52, 24)
+            row.lockBtn:SetSize(64, 24)
             row.lockBtn:SetPoint("RIGHT", -8, 0)
             self:SkinButton(row.lockBtn, nil, "SECONDARY")
             if row.lockBtn.RegisterForClicks then
@@ -839,7 +841,7 @@ function GSI_UI:UpdateBiBList(parent)
             row.equipBtn = eqBtn
             row.equipBtn:SetSize(72, 24)
             row.equipBtn:SetPoint("RIGHT", row.lockBtn, "LEFT", -6, 0)
-            row.equipBtn:SetText("Equip")
+            row.equipBtn:SetText(L["Equip"])
             self:SkinButton(row.equipBtn, nil, "PRIMARY")
             if row.equipBtn.SetAttribute then
                 row.equipBtn:SetAttribute("useOnKeyDown", false)
@@ -863,7 +865,7 @@ function GSI_UI:UpdateBiBList(parent)
 
         local isLocked = up.isLocked or (GearSetImproverDB and GearSetImproverDB.lockedGearSlots and GearSetImproverDB.lockedGearSlots[slotID])
 
-        row.slotLbl:SetText(string.upper(GSI_ClassicData.SlotNames[slotID] or ("Slot " .. slotID)))
+        row.slotLbl:SetText(L[string.upper(GSI_ClassicData.SlotNames[slotID] or ("Slot " .. slotID))])
         pcall(function() row.icon:SetTexture(GetItemIcon(up.itemLink)) end)
         local qual = select(3, GetItemInfo(up.itemLink))
         local qCol = T.quality[qual or 1] or T.borderSpecular
@@ -872,19 +874,19 @@ function GSI_UI:UpdateBiBList(parent)
         end
 
         if isLocked then
-            row.lockBtn:SetText("Locked")
+            row.lockBtn:SetText(L["Locked"])
             if row.lockBtn.SetBorderColor then row.lockBtn:SetBorderColor(T.danger[1], T.danger[2], T.danger[3], 0.8) end
-            row.deltaPill:SetPillStyle(string.format("+%.1f (LOCKED)", up.delta), "WARNING")
+            row.deltaPill:SetPillStyle(string.format(L["+%.1f (LOCKED)"], up.delta), "WARNING")
             row.statusBar:SetColorTexture(unpack(T.warning))
             row.equipBtn:Disable()
-            row.equipBtn:SetText("Locked")
+            row.equipBtn:SetText(L["Locked"])
         else
-            row.lockBtn:SetText("Lock")
+            row.lockBtn:SetText(L["Lock"])
             if row.lockBtn.SetBorderColor then row.lockBtn:SetBorderColor(T.borderSubtle[1], T.borderSubtle[2], T.borderSubtle[3], T.borderSubtle[4]) end
-            row.deltaPill:SetPillStyle(string.format("+%.1f UPGRADE", up.delta), "SUCCESS")
+            row.deltaPill:SetPillStyle(string.format(L["+%.1f UPGRADE"], up.delta), "SUCCESS")
             row.statusBar:SetColorTexture(unpack(T.success))
             row.equipBtn:Enable()
-            row.equipBtn:SetText("Equip")
+            row.equipBtn:SetText(L["Equip"])
         end
         row.linkText:SetText(up.itemLink)
 
@@ -896,11 +898,11 @@ function GSI_UI:UpdateBiBList(parent)
             end
             GearSetImproverDB.lockedGearSlots[currentSlotID] = not GearSetImproverDB.lockedGearSlots[currentSlotID]
             local nowLocked = GearSetImproverDB.lockedGearSlots[currentSlotID]
-            local slotName = GSI_ClassicData.SlotNames[currentSlotID] or ("Slot " .. currentSlotID)
+            local slotName = L[GSI_ClassicData.SlotNames[currentSlotID] or ("Slot " .. currentSlotID)]
             if nowLocked then
-                print(string.format("|cffffcc00[GearSetImprover]|r Slot |cff00ff00%s|r locked (will not be replaced during optimization).", slotName))
+                print(string.format(L["|cffffcc00[GearSetImprover]|r Slot |cff00ff00%s|r locked (will not be replaced during optimization)."], slotName))
             else
-                print(string.format("|cffffcc00[GearSetImprover]|r Slot |cff00ff00%s|r unlocked.", slotName))
+                print(string.format(L["|cffffcc00[GearSetImprover]|r Slot |cff00ff00%s|r unlocked."], slotName))
             end
             if parent.RunOptimization then
                 parent.RunOptimization()
@@ -911,11 +913,11 @@ function GSI_UI:UpdateBiBList(parent)
         row.lockBtn:SetScript("OnEnter", function(self)
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             if isLocked then
-                GameTooltip:AddLine("Slot is Locked", 1, 0.3, 0.3)
-                GameTooltip:AddLine("This slot is skipped during 'Equip All'.\nClick to UNLOCK this slot.", 1, 1, 1, true)
+                GameTooltip:AddLine(L["Slot is Locked"], 1, 0.3, 0.3)
+                GameTooltip:AddLine(L["This slot is skipped during 'Equip All'.\nClick to UNLOCK this slot."], 1, 1, 1, true)
             else
-                GameTooltip:AddLine("Lock Slot", 1, 0.82, 0)
-                GameTooltip:AddLine("Click to LOCK this slot.\nLocked slots will not be automatically replaced, but upgrades will still be shown.", 1, 1, 1, true)
+                GameTooltip:AddLine(L["Lock Slot"], 1, 0.82, 0)
+                GameTooltip:AddLine(L["Click to LOCK this slot.\nLocked slots will not be automatically replaced, but upgrades will still be shown."], 1, 1, 1, true)
             end
             GameTooltip:Show()
         end)
@@ -942,7 +944,7 @@ function GSI_UI:UpdateBiBList(parent)
             row.equipBtn:SetScript("OnClick", function()
                 if IsBindConfirmPopupOpen() then
                     if UIErrorsFrame and UIErrorsFrame.AddMessage then
-                        UIErrorsFrame:AddMessage("GSI: Confirm or cancel the open bind/trade dialog first", 1.0, 0.82, 0.0, 1.0)
+                        UIErrorsFrame:AddMessage(L["GSI: Confirm or cancel the open bind/trade dialog first"], 1.0, 0.82, 0.0, 1.0)
                     end
                     return
                 end
@@ -987,7 +989,7 @@ function GSI_UI:UpdateBiBList(parent)
                 end
                 if wasBlocked then
                     if UIErrorsFrame and UIErrorsFrame.AddMessage then
-                        UIErrorsFrame:AddMessage("GSI: Confirm or cancel the open bind/trade dialog first", 1.0, 0.82, 0.0, 1.0)
+                        UIErrorsFrame:AddMessage(L["GSI: Confirm or cancel the open bind/trade dialog first"], 1.0, 0.82, 0.0, 1.0)
                     end
                     return
                 end

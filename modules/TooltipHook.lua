@@ -10,6 +10,8 @@ GSI_TooltipHook = {
     _hooksInstalled = false,
 }
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 
@@ -635,19 +637,19 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                         or string.format("%.1f", delta)
                     local slotSuffix = ""
                     if equipLoc == "INVTYPE_WEAPON" and targetSlotID == 17 then
-                        slotSuffix = " vs OH"
+                        slotSuffix = L[" vs OH"]
                     elseif equipLoc == "INVTYPE_WEAPON" and targetSlotID == 16 and canDW then
-                        slotSuffix = " vs MH"
+                        slotSuffix = L[" vs MH"]
                     elseif equipLoc == "INVTYPE_FINGER" and targetSlotID then
                         local sNum = (targetSlotID == 12) and "2" or "1"
-                        slotSuffix = " vs Finger " .. sNum
+                        slotSuffix = string.format(L[" vs Finger %s"], sNum)
                     end
                     deltaPart = string.format(" %s(%s%s%s)%s", color, sign, deltaFormatted, slotSuffix, COLOR_END)
                 end
 
                 local levelNotice = ""
                 if isLevelTooHigh and minLevel then
-                    levelNotice = string.format(" %s[Req. Lvl %d]%s", COLOR_WORSE, minLevel, COLOR_END)
+                    levelNotice = string.format(L[" %s[Req. Lvl %d]%s"], COLOR_WORSE, minLevel, COLOR_END)
                 end
 
                 local scoreFormatted = (newScore < 100)
@@ -675,37 +677,37 @@ local function AppendScoreToTooltip(tooltip, itemLink)
 
                     if playerClass == "SHAMAN" and specIdx == 2 and hasInt then
                         if not HasTalentRank("mental dexterity", "geistige gewandtheit") then
-                            AddHintOnce("SHAMAN_MD", "  |cffffaa00Note: INT assumes 'Mental Dexterity' talent|r")
+                            AddHintOnce("SHAMAN_MD", L["  |cffffaa00Note: INT assumes 'Mental Dexterity' talent|r"])
                         end
                     elseif playerClass == "HUNTER" and (specIdx == 2 or specIdx == 3) and hasInt then
                         if not HasTalentRank("careful aim", "sorgfältiges zielen") then
-                            AddHintOnce("HUNTER_CA", "  |cffffaa00Note: INT assumes 'Careful Aim' talent|r")
+                            AddHintOnce("HUNTER_CA", L["  |cffffaa00Note: INT assumes 'Careful Aim' talent|r"])
                         end
                     elseif playerClass == "PALADIN" and specIdx == 1 and hasSpi then
                         if not HasTalentRank("reverence", "ehrfurcht") then
-                            AddHintOnce("PALADIN_REV", "  |cffffaa00Note: SPI assumes 'Reverence' talent|r")
+                            AddHintOnce("PALADIN_REV", L["  |cffffaa00Note: SPI assumes 'Reverence' talent|r"])
                         end
                     elseif playerClass == "PALADIN" and specIdx == 3 and hasInt then
                         if not HasTalentRank("champion of the light", "champion des lichts") then
-                            AddHintOnce("PALADIN_COTL", "  |cffffaa00Note: INT assumes 'Champion of the Light' talent|r")
+                            AddHintOnce("PALADIN_COTL", L["  |cffffaa00Note: INT assumes 'Champion of the Light' talent|r"])
                         end
                     elseif playerClass == "MAGE" and specIdx == 1 and (hasInt or hasMana) then
                         local hasAB = HasTalentRank("arcane blast", "arkanschlag")
                         local hasAW = HasTalentRank("arcane wrath", "arkaner zorn")
                         if hasInt then
                             if not hasAB and not hasAW then
-                                AddHintOnce("MAGE_ARC_BOTH", "  |cffffaa00Note: INT assumes 'Arcane Blast' & 'Arcane Wrath'|r")
+                                AddHintOnce("MAGE_ARC_BOTH", L["  |cffffaa00Note: INT assumes 'Arcane Blast' & 'Arcane Wrath'|r"])
                             elseif not hasAB then
-                                AddHintOnce("MAGE_AB", "  |cffffaa00Note: INT assumes 'Arcane Blast' talent|r")
+                                AddHintOnce("MAGE_AB", L["  |cffffaa00Note: INT assumes 'Arcane Blast' talent|r"])
                             elseif not hasAW then
-                                AddHintOnce("MAGE_AW_INT", "  |cffffaa00Note: INT assumes 'Arcane Wrath' talent|r")
+                                AddHintOnce("MAGE_AW_INT", L["  |cffffaa00Note: INT assumes 'Arcane Wrath' talent|r"])
                             end
                         elseif hasMana and not hasAW then
-                            AddHintOnce("MAGE_AW_MANA", "  |cffffaa00Note: Mana assumes 'Arcane Wrath' talent|r")
+                            AddHintOnce("MAGE_AW_MANA", L["  |cffffaa00Note: Mana assumes 'Arcane Wrath' talent|r"])
                         end
                     elseif playerClass == "DRUID" and specIdx == 4 and hasInt then
                         if not HasTalentRank("natural instinct", "natürlicher instinkt") then
-                            AddHintOnce("DRUID_NI", "  |cffffaa00Note: INT assumes 'Natural Instinct' talent|r")
+                            AddHintOnce("DRUID_NI", L["  |cffffaa00Note: INT assumes 'Natural Instinct' talent|r"])
                         end
                     end
                 end
@@ -737,8 +739,8 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 local sData = classData and classData.specs and classData.specs[r.spec]
                 local left = (sData and sData.icon) and ("|T" .. sData.icon .. ":0|t ") or ""
                 left = left .. (isActive and ("|cff" .. classHex) or "|cffb4b4b4")
-                    .. ((sData and sData.name) or ("Spec " .. r.spec)) .. COLOR_END
-                    .. (isActive and " |cffe6e6e6" or " |cff8c8c8c") .. ModeShort(r.mode) .. COLOR_END
+                    .. ((sData and sData.name and L[sData.name]) or string.format(L["Spec %s"], tostring(r.spec))) .. COLOR_END
+                    .. (isActive and " |cffe6e6e6" or " |cff8c8c8c") .. L[ModeShort(r.mode)] .. COLOR_END
                 if r.setName then
                     local isOwnSet = not r.setName:find("^GSI: ")
                     if isOwnSet or (perMode[tostring(r.spec) .. "|" .. ModeShort(r.mode)] or 0) > 1 then
@@ -775,19 +777,19 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                         local active = GSI_Overrides:IsSituationalActive(context)
                         if active and overrideScore and overrideScore > 0 then
                             AddTipLine(string.format(
-                                "|cffffaa00[Situational: +%.1f]|r |cffaaaaaa(%s: %s)|r",
-                                overrideScore, context or "Context", reason
+                                L["|cffffaa00[Situational: +%.1f]|r |cffaaaaaa(%s: %s)|r"],
+                                overrideScore, L[context or "Context"], L[reason]
                             ), 1, 1, 1, true)
                         else
                             AddTipLine(string.format(
-                                "|cffffaa00[Situational]|r |cffaaaaaa(%s: %s)|r",
-                                context or "Context", reason
+                                L["|cffffaa00[Situational]|r |cffaaaaaa(%s: %s)|r"],
+                                L[context or "Context"], L[reason]
                             ), 1, 1, 1, true)
                         end
                     elseif overrideScore and overrideScore > 0 then
                         AddTipLine(string.format(
                             "|cff00ffff[GSI Override: +%.1f]|r |cffaaaaaa(%s)|r",
-                            overrideScore, reason
+                            overrideScore, L[reason]
                         ), 1, 1, 1, true)
                     end
                 end
@@ -799,15 +801,15 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 if prog and prog.setName then
                     if prog.maxEquipped and prog.count >= prog.maxEquipped then
                         AddTipLine(string.format(
-                            "|cffff8800Set: %s (%d/%d Limit Reached)|r",
+                            L["|cffff8800Set: %s (%d/%d Limit Reached)|r"],
                             prog.setName, prog.count, prog.maxEquipped
                         ), 1, 1, 1, true)
                     elseif prog.nextThreshold then
                         local gainText = (prog.nextScoreDelta and prog.nextScoreDelta > 0)
-                            and string.format(" (+%.1f GSI)", prog.nextScoreDelta)
+                            and string.format(L[" (+%.1f GSI)"], prog.nextScoreDelta)
                             or ""
                         AddTipLine(string.format(
-                            "|cff00ff00Set: %s|r |cffaaaaaa(%d pcs, next at %d)%s|r",
+                            L["|cff00ff00Set: %s|r |cffaaaaaa(%d pcs, next at %d)%s|r"],
                             prog.setName, prog.count, prog.nextThreshold, gainText
                         ), 1, 1, 1, true)
                     end

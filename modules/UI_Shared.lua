@@ -6,6 +6,8 @@
 
 GSI_UI = GSI_UI or {}
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 local BackdropTemplateMixin = _G.BackdropTemplateMixin
@@ -158,6 +160,13 @@ local function IsValidFont(fontPath)
 end
 
 local function ResolveExpresswayFont()
+    -- 0. Russian client: GSI's own Expressway has the Cyrillic letters, an
+    -- Expressway another addon registered may not
+    local bundled = "Interface\\AddOns\\GearSetImprover\\Fonts\\Expressway.ttf"
+    if GSI_LOCALE == "ruRU" and IsValidFont(bundled) then
+        return bundled
+    end
+
     -- 1. Check LibSharedMedia-3.0 if available
     if LibStub then
         local LSM = LibStub("LibSharedMedia-3.0", true)
@@ -1031,49 +1040,49 @@ function GSI_UI:IsSameItemLink(link1, link2)
 end
 
 local STAT_DISPLAY_NAMES = {
-    Strength           = "Strength",
-    Agility            = "Agility",
-    Stamina            = "Stamina",
-    Intellect          = "Intellect",
-    Spirit             = "Spirit",
-    Armor              = "Armor",
-    Defense            = "Defense",
-    Dodge              = "Dodge",
-    Parry              = "Parry",
-    Block              = "Block Chance",
-    BlockValue         = "Block Value",
-    AttackPower        = "Attack Power (AP)",
-    FeralAttackPower   = "Feral Attack Power (FAP)",
-    RangedAttackPower  = "Ranged AP (RAP)",
-    SpellPower         = "Spell Power (SP)",
-    HealingPower       = "Healing Power",
-    ArcaneSpellPower   = "Arcane Spell Power",
-    FireSpellPower     = "Fire Spell Power",
-    FrostSpellPower    = "Frost Spell Power",
-    ShadowSpellPower   = "Shadow Spell Power",
-    NatureSpellPower   = "Nature Spell Power",
-    HolySpellPower     = "Holy Spell Power",
-    Hit                = "Hit Chance (% Hit)",
-    Crit               = "Critical Strike (% Crit)",
-    Haste              = "Haste",
-    WeaponDamage       = "Weapon Damage (DPS)",
-    WeaponDamageOH     = "Off-Hand DPS (OH)",
-    FlatWeaponDamage   = "Weapon Damage (Flat)",
-    RangedDPS          = "Ranged Weapon DPS",
-    WeaponSpeed        = "Weapon Speed",
-    WeaponSkill        = "Weapon Skill",
-    AvoidanceReduction = "Avoidance Reduction",
-    ArmorPenetration   = "Armor Penetration",
-    SpellPenetration   = "Spell Penetration",
-    MP5                = "Mana per 5 sec (MP5)",
-    HP5                = "Health per 5 sec (HP5)",
-    Mana               = "Max Mana",
-    Speed              = "Movement Speed",
-    FireResist         = "Fire Resistance",
-    NatureResist       = "Nature Resistance",
-    FrostResist        = "Frost Resistance",
-    ShadowResist       = "Shadow Resistance",
-    ArcaneResist       = "Arcane Resistance",
+    Strength           = L["Strength"],
+    Agility            = L["Agility"],
+    Stamina            = L["Stamina"],
+    Intellect          = L["Intellect"],
+    Spirit             = L["Spirit"],
+    Armor              = L["Armor"],
+    Defense            = L["Defense"],
+    Dodge              = L["Dodge"],
+    Parry              = L["Parry"],
+    Block              = L["Block Chance"],
+    BlockValue         = L["Block Value"],
+    AttackPower        = L["Attack Power (AP)"],
+    FeralAttackPower   = L["Feral Attack Power (FAP)"],
+    RangedAttackPower  = L["Ranged AP (RAP)"],
+    SpellPower         = L["Spell Power (SP)"],
+    HealingPower       = L["Healing Power"],
+    ArcaneSpellPower   = L["Arcane Spell Power"],
+    FireSpellPower     = L["Fire Spell Power"],
+    FrostSpellPower    = L["Frost Spell Power"],
+    ShadowSpellPower   = L["Shadow Spell Power"],
+    NatureSpellPower   = L["Nature Spell Power"],
+    HolySpellPower     = L["Holy Spell Power"],
+    Hit                = L["Hit Chance (% Hit)"],
+    Crit               = L["Critical Strike (% Crit)"],
+    Haste              = L["Haste"],
+    WeaponDamage       = L["Weapon Damage (DPS)"],
+    WeaponDamageOH     = L["Off-Hand DPS (OH)"],
+    FlatWeaponDamage   = L["Weapon Damage (Flat)"],
+    RangedDPS          = L["Ranged Weapon DPS"],
+    WeaponSpeed        = L["Weapon Speed"],
+    WeaponSkill        = L["Weapon Skill"],
+    AvoidanceReduction = L["Avoidance Reduction"],
+    ArmorPenetration   = L["Armor Penetration"],
+    SpellPenetration   = L["Spell Penetration"],
+    MP5                = L["Mana per 5 sec (MP5)"],
+    HP5                = L["Health per 5 sec (HP5)"],
+    Mana               = L["Max Mana"],
+    Speed              = L["Movement Speed"],
+    FireResist         = L["Fire Resistance"],
+    NatureResist       = L["Nature Resistance"],
+    FrostResist        = L["Frost Resistance"],
+    ShadowResist       = L["Shadow Resistance"],
+    ArcaneResist       = L["Arcane Resistance"],
 }
 GSI_UI.STAT_DISPLAY_NAMES = STAT_DISPLAY_NAMES
 

@@ -6,6 +6,8 @@
 
 GSI_UI = GSI_UI or {}
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local BackdropTemplateMixin = _G.BackdropTemplateMixin
 local BACKDROP_TEMPLATE = BackdropTemplateMixin and "BackdropTemplate" or nil
@@ -24,12 +26,12 @@ local T = GSI_UI.THEME
 function GSI_UI:DrawGear(parent)
     local T = self.THEME
 
-    local title = CreateText(parent, "TITLE", "EQUIPPED GEAR (17 EQUIPMENT SLOTS)", "LEFT")
+    local title = CreateText(parent, "TITLE", L["EQUIPPED GEAR (17 EQUIPMENT SLOTS)"], "LEFT")
     title:SetPoint("TOPLEFT", 16, -16)
     title:SetPoint("TOPRIGHT", -16, -16)
     title:SetWordWrap(false)
 
-    local sub = CreateText(parent, "SMALL", "Real-time slot analysis, item quality borders & upgrade availability from your bags:", "LEFT")
+    local sub = CreateText(parent, "SMALL", L["Real-time slot analysis, item quality borders & upgrade availability from your bags:"], "LEFT")
     sub:SetPoint("TOPLEFT", title, "BOTTOMLEFT", 0, -3)
     sub:SetPoint("TOPRIGHT", title, "BOTTOMRIGHT", 0, -3)
     sub:SetWordWrap(false)
@@ -56,7 +58,7 @@ function GSI_UI:DrawGear(parent)
         SkinCard(row, true)
 
         -- Slot Name Badge (SECTION style, clean uppercase)
-        row.slotLabel = CreateText(row, "SECTION", string.upper(GSI_ClassicData.SlotNames[slotID] or ("Slot " .. slotID)), "LEFT")
+        row.slotLabel = CreateText(row, "SECTION", L[string.upper(GSI_ClassicData.SlotNames[slotID] or ("Slot " .. slotID))], "LEFT")
         row.slotLabel:SetPoint("LEFT", 12, 0)
         row.slotLabel:SetWidth(100)
         row.slotLabel:SetWordWrap(false)
@@ -72,7 +74,7 @@ function GSI_UI:DrawGear(parent)
         row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
         -- Delta / Upgrade Status Pill
-        row.pill = CreatePill(row, "OPTIMAL", "NEUTRAL")
+        row.pill = CreatePill(row, L["OPTIMAL"], "NEUTRAL")
         row.pill:SetPoint("RIGHT", -10, 0)
 
         -- Score (Mono-num, anchored before itemText so itemText cleanly clears scoreText)
@@ -138,9 +140,9 @@ function GSI_UI:UpdateGear(parent)
 
                 local up = upgrades[slotID]
                 if up and up.delta and up.delta > 0.1 then
-                    row.pill:SetPillStyle(string.format("+%.1f IN BAGS", up.delta), "SUCCESS")
+                    row.pill:SetPillStyle(string.format(L["+%.1f IN BAGS"], up.delta), "SUCCESS")
                 else
-                    row.pill:SetPillStyle("OPTIMAL", "NEUTRAL")
+                    row.pill:SetPillStyle(L["OPTIMAL"], "NEUTRAL")
                 end
             else
                 row.itemLink = nil
@@ -149,8 +151,8 @@ function GSI_UI:UpdateGear(parent)
                     row.iconFrame:SetBorderColor(0.2, 0.2, 0.2, 0.5)
                 end
                 row.scoreText:SetText("-")
-                row.itemText:SetText("|cff555562(Empty Slot)|r")
-                row.pill:SetPillStyle("EMPTY", "DANGER")
+                row.itemText:SetText(L["|cff555562(Empty Slot)|r"])
+                row.pill:SetPillStyle(L["EMPTY"], "DANGER")
             end
         end
     end

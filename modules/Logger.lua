@@ -3,6 +3,8 @@
 -- Records optimization and scoring decisions for log export.
 -- ============================================================
 
+local L = GSI_L
+
 GSI_Logger = {
     logs = {},
     maxLines = 500,
@@ -191,7 +193,7 @@ function GSI_Logger:RefreshExportWindow()
     local maxSessCount = self.maxSessions or 20
     if f.statusText then
         f.statusText:SetText(string.format(
-            "Press Ctrl+C to copy  |  Session: %d / %d lines  |  Saved sessions: %d / %d",
+            L["Press Ctrl+C to copy  |  Session: %d / %d lines  |  Saved sessions: %d / %d"],
             lineCount, maxMemLines, sessCount, maxSessCount
         ))
     end
@@ -263,13 +265,13 @@ function GSI_Logger:ShowExportWindow()
 
         local title
         if GSI_UI and GSI_UI.CreateText then
-            title = GSI_UI:CreateText(f, "TITLE", "GearSetImprover - Log Export (WoW Forever)", "LEFT")
+            title = GSI_UI:CreateText(f, "TITLE", L["GearSetImprover - Log Export (WoW Forever)"], "LEFT")
         else
             title = f:CreateFontString(nil, "OVERLAY")
             title:SetFont(fontPath, 14, "")
             title:SetTextColor(0.95, 0.96, 0.97, 1)
             title:SetJustifyH("LEFT")
-            title:SetText("GearSetImprover - Log Export (WoW Forever)")
+            title:SetText(L["GearSetImprover - Log Export (WoW Forever)"])
         end
         title:SetPoint("TOPLEFT", f, "TOPLEFT", 16, -14)
         title:SetPoint("RIGHT", topClose, "LEFT", -8, 0)
@@ -339,13 +341,13 @@ function GSI_Logger:ShowExportWindow()
 
         local emptyLabel
         if GSI_UI and GSI_UI.CreateText then
-            emptyLabel = GSI_UI:CreateText(inputBg, "BODY", "No log entries recorded in this session yet.\nRun an optimization or gear check to populate the log.", "CENTER")
+            emptyLabel = GSI_UI:CreateText(inputBg, "BODY", L["No log entries recorded in this session yet.\nRun an optimization or gear check to populate the log."], "CENTER")
         else
             emptyLabel = inputBg:CreateFontString(nil, "OVERLAY")
             emptyLabel:SetFont(fontPath, 11, "")
             emptyLabel:SetTextColor(0.55, 0.58, 0.65, 1)
             emptyLabel:SetJustifyH("CENTER")
-            emptyLabel:SetText("No log entries recorded in this session yet.\nRun an optimization or gear check to populate the log.")
+            emptyLabel:SetText(L["No log entries recorded in this session yet.\nRun an optimization or gear check to populate the log."])
         end
         emptyLabel:SetPoint("CENTER", sf, "CENTER", 0, 0)
         emptyLabel:SetWidth(460)
@@ -406,24 +408,24 @@ function GSI_Logger:ShowExportWindow()
         sf:SetScript("OnMouseDown", function() eb:SetFocus() end)
 
         -- Bottom action buttons: Clear Log + Refresh on left; Select All + Close on right
-        local clearBtn = CreateStyledButton(f, 100, 26, "Clear Log", "DANGER", fontPath)
+        local clearBtn = CreateStyledButton(f, 100, 26, L["Clear Log"], "DANGER", fontPath)
         clearBtn:SetPoint("BOTTOMLEFT", f, "BOTTOMLEFT", 16, 12)
         clearBtn:SetScript("OnClick", function()
             GSI_Logger:Clear(true)
             GSI_Logger:RefreshExportWindow()
         end)
 
-        local refreshBtn = CreateStyledButton(f, 90, 26, "Refresh", "SECONDARY", fontPath)
+        local refreshBtn = CreateStyledButton(f, 90, 26, L["Refresh"], "SECONDARY", fontPath)
         refreshBtn:SetPoint("LEFT", clearBtn, "RIGHT", 8, 0)
         refreshBtn:SetScript("OnClick", function()
             GSI_Logger:RefreshExportWindow()
         end)
 
-        local closeBtn = CreateStyledButton(f, 100, 26, "Close", "SECONDARY", fontPath)
+        local closeBtn = CreateStyledButton(f, 100, 26, L["Close"], "SECONDARY", fontPath)
         closeBtn:SetPoint("BOTTOMRIGHT", f, "BOTTOMRIGHT", -16, 12)
         closeBtn:SetScript("OnClick", function() f:Hide() end)
 
-        local selectBtn = CreateStyledButton(f, 105, 26, "Select All", "PRIMARY", fontPath)
+        local selectBtn = CreateStyledButton(f, 105, 26, L["Select All"], "PRIMARY", fontPath)
         selectBtn:SetPoint("RIGHT", closeBtn, "LEFT", -8, 0)
         selectBtn:SetScript("OnClick", function()
             eb:SetFocus()

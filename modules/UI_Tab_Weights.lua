@@ -4,6 +4,8 @@
 
 GSI_UI = GSI_UI or {}
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 local BackdropTemplateMixin = _G.BackdropTemplateMixin
@@ -79,7 +81,7 @@ function GSI_UI:OpenProfilePromptModal(parent, mode, currentName)
         f.header = GSI_UI:CreateText(f, "TITLE", "")
         f.header:SetPoint("TOPLEFT", 16, -16)
 
-        f.subText = GSI_UI:CreateText(f, "SMALL", "Enter profile name:")
+        f.subText = GSI_UI:CreateText(f, "SMALL", L["Enter profile name:"])
         f.subText:SetPoint("TOPLEFT", 16, -42)
 
         local eb = CreateFrame("EditBox", nil, f, BACKDROP_TEMPLATE)
@@ -102,7 +104,7 @@ function GSI_UI:OpenProfilePromptModal(parent, mode, currentName)
         local cancelBtn = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
         cancelBtn:SetSize(90, 24)
         cancelBtn:SetPoint("RIGHT", okBtn, "LEFT", -10, 0)
-        cancelBtn:SetText("Cancel")
+        cancelBtn:SetText(L["Cancel"])
         SkinButton(cancelBtn)
         cancelBtn:SetScript("OnClick", function() f:Hide() end)
         f.cancelBtn = cancelBtn
@@ -129,8 +131,8 @@ function GSI_UI:OpenProfilePromptModal(parent, mode, currentName)
     local specKey = GSI_StatWeights:GetSpecKey()
 
     if mode == "NEW" then
-        f.header:SetText("New Stat Weight Profile")
-        f.okBtn:SetText("Create")
+        f.header:SetText(L["New Stat Weight Profile"])
+        f.okBtn:SetText(L["Create"])
         eb:SetText("")
         eb:SetFocus()
         f.okBtn:SetScript("OnClick", function()
@@ -139,15 +141,15 @@ function GSI_UI:OpenProfilePromptModal(parent, mode, currentName)
                 name = name:gsub("^%s+", ""):gsub("%s+$", "")
                 local collected = CollectEditBoxWeights(parent)
                 GSI_StatWeights:SaveProfile(specKey, name, collected)
-                print(string.format("|cff00ff00[GearSetImprover]|r Profile |cffffcc00%s|r created!", name))
+                print(string.format(L["|cff00ff00[GearSetImprover]|r Profile |cffffcc00%s|r created!"], name))
                 f:Hide()
                 GSI_UI:UpdateWeights(parent)
                 GSI_UI:RefreshPanel(true)
             end
         end)
     elseif mode == "RENAME" then
-        f.header:SetText("Rename Profile")
-        f.okBtn:SetText("Save")
+        f.header:SetText(L["Rename Profile"])
+        f.okBtn:SetText(L["Save"])
         eb:SetText(currentName or "")
         eb:HighlightText()
         eb:SetFocus()
@@ -156,7 +158,7 @@ function GSI_UI:OpenProfilePromptModal(parent, mode, currentName)
             if newName and newName:gsub("%s+", "") ~= "" and newName ~= currentName then
                 newName = newName:gsub("^%s+", ""):gsub("%s+$", "")
                 GSI_StatWeights:RenameProfile(specKey, currentName, newName)
-                print(string.format("|cff00ff00[GearSetImprover]|r Profile renamed to |cffffcc00%s|r!", newName))
+                print(string.format(L["|cff00ff00[GearSetImprover]|r Profile renamed to |cffffcc00%s|r!"], newName))
                 f:Hide()
                 GSI_UI:UpdateWeights(parent)
                 GSI_UI:RefreshPanel(true)
@@ -171,13 +173,13 @@ end
 -- TAB 3: STAT WEIGHTS
 -- ---------------------------------------------------------------
 function GSI_UI:DrawWeights(parent)
-    local title = GSI_UI:CreateText(parent, "TITLE", "Customize Stat Weights")
+    local title = GSI_UI:CreateText(parent, "TITLE", L["Customize Stat Weights"])
     title:SetPoint("TOPLEFT", 15, -12)
     title:SetPoint("TOPRIGHT", -20, -12)
     title:SetWordWrap(false)
 
     -- Profile Selector Bar
-    local profLabel = GSI_UI:CreateText(parent, "CARD_TITLE", "Profile:")
+    local profLabel = GSI_UI:CreateText(parent, "CARD_TITLE", L["Profile:"])
     profLabel:SetPoint("TOPLEFT", 15, -38)
 
     local profBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
@@ -249,9 +251,9 @@ function GSI_UI:DrawWeights(parent)
 
             local isSelected = (name == "Default (Baseline)" and not activeProf) or (activeProf == name)
             if isSelected then
-                b:SetText(string.format("  |cff00ff00%s|r", name))
+                b:SetText(string.format("  |cff00ff00%s|r", L[name]))
             else
-                b:SetText(string.format("  %s", name))
+                b:SetText(string.format("  %s", L[name]))
             end
             local txt = b:GetFontString()
             if txt then
@@ -283,7 +285,7 @@ function GSI_UI:DrawWeights(parent)
     local newProfBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     newProfBtn:SetSize(60, 24)
     newProfBtn:SetPoint("LEFT", profBtn, "RIGHT", 6, 0)
-    newProfBtn:SetText("+ New")
+    newProfBtn:SetText(L["+ New"])
     SkinButton(newProfBtn)
     newProfBtn:SetScript("OnClick", function()
         CloseProfileMenu()
@@ -294,7 +296,7 @@ function GSI_UI:DrawWeights(parent)
     local renameProfBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     renameProfBtn:SetSize(68, 24)
     renameProfBtn:SetPoint("LEFT", newProfBtn, "RIGHT", 6, 0)
-    renameProfBtn:SetText("Rename")
+    renameProfBtn:SetText(L["Rename"])
     SkinButton(renameProfBtn)
     renameProfBtn:SetScript("OnClick", function()
         CloseProfileMenu()
@@ -309,7 +311,7 @@ function GSI_UI:DrawWeights(parent)
     local deleteProfBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     deleteProfBtn:SetSize(65, 24)
     deleteProfBtn:SetPoint("LEFT", renameProfBtn, "RIGHT", 6, 0)
-    deleteProfBtn:SetText("Delete")
+    deleteProfBtn:SetText(L["Delete"])
     SkinButton(deleteProfBtn, true)
     deleteProfBtn:SetScript("OnClick", function()
         CloseProfileMenu()
@@ -317,14 +319,14 @@ function GSI_UI:DrawWeights(parent)
         local act = GSI_StatWeights:GetActiveProfileName(specKey)
         if act then
             GSI_StatWeights:DeleteProfile(specKey, act)
-            print(string.format("|cffff4444[GearSetImprover]|r Profile |cffffcc00%s|r deleted.", act))
+            print(string.format(L["|cffff4444[GearSetImprover]|r Profile |cffffcc00%s|r deleted."], act))
             GSI_UI:UpdateWeights(parent)
             GSI_UI:RefreshPanel(true)
         end
     end)
     parent.deleteProfBtn = deleteProfBtn
 
-    local desc = GSI_UI:CreateText(parent, "BODY", "Adjust stat weights for the active profile (negative numbers allowed for weapon speed):")
+    local desc = GSI_UI:CreateText(parent, "BODY", L["Adjust stat weights for the active profile (negative numbers allowed for weapon speed):"])
     desc:SetPoint("TOPLEFT", 15, -68)
     desc:SetPoint("TOPRIGHT", -20, -68)
     desc:SetWordWrap(false)
@@ -346,55 +348,55 @@ function GSI_UI:DrawWeights(parent)
     parent.resistRows = {}
 
     local STAT_LIST = {
-        { key = "Stamina",            name = "Stamina" },
-        { key = "Agility",            name = "Agility" },
-        { key = "Armor",              name = "Armor" },
-        { key = "Defense",            name = "Defense" },
-        { key = "Dodge",              name = "Dodge" },
-        { key = "Strength",           name = "Strength" },
-        { key = "AttackPower",        name = "Attack Power (AP)" },
-        { key = "Hit",                name = "Hit Chance (% Hit)" },
-        { key = "Crit",               name = "Critical Strike (% Crit)" },
-        { key = "Haste",              name = "Haste" },
-        { key = "ArmorPenetration",   name = "Armor Penetration" },
-        { key = "WeaponDamage",       name = "Weapon Damage (DPS)" },
-        { key = "WeaponDamageOH",     name = "Off-Hand DPS (OH)" },
-        { key = "FlatWeaponDamage",   name = "Weapon Damage (Flat)" },
-        { key = "RangedDPS",          name = "Ranged Weapon DPS" },
-        { key = "WeaponSpeed",        name = "Weapon Speed (Speed, +/-)", isSpeed = true },
-        { key = "Parry",              name = "Parry" },
-        { key = "Block",              name = "Block Chance" },
-        { key = "BlockValue",         name = "Block Value" },
-        { key = "Intellect",          name = "Intellect" },
-        { key = "Spirit",             name = "Spirit" },
-        { key = "Mana",               name = "Max Mana" },
-        { key = "SpellPower",         name = "Spell Power (SP)" },
-        { key = "SpellPenetration",   name = "Spell Penetration" },
-        { key = "HealingPower",       name = "Healing Power" },
-        { key = "MP5",                name = "Mana per 5 sec (MP5)" },
-        { key = "HP5",                name = "Health per 5 sec (HP5)" },
-        { key = "RangedAttackPower",  name = "Ranged AP (RAP)" },
-        { key = "FeralAttackPower",   name = "Feral Attack Power (FAP)" },
-        { key = "WeaponSkill",        name = "Weapon Skill" },
-        { key = "AvoidanceReduction", name = "Avoidance Reduction" },
-        { key = "Speed",              name = "Movement Speed (%)" },
+        { key = "Stamina",            name = L["Stamina"] },
+        { key = "Agility",            name = L["Agility"] },
+        { key = "Armor",              name = L["Armor"] },
+        { key = "Defense",            name = L["Defense"] },
+        { key = "Dodge",              name = L["Dodge"] },
+        { key = "Strength",           name = L["Strength"] },
+        { key = "AttackPower",        name = L["Attack Power (AP)"] },
+        { key = "Hit",                name = L["Hit Chance (% Hit)"] },
+        { key = "Crit",               name = L["Critical Strike (% Crit)"] },
+        { key = "Haste",              name = L["Haste"] },
+        { key = "ArmorPenetration",   name = L["Armor Penetration"] },
+        { key = "WeaponDamage",       name = L["Weapon Damage (DPS)"] },
+        { key = "WeaponDamageOH",     name = L["Off-Hand DPS (OH)"] },
+        { key = "FlatWeaponDamage",   name = L["Weapon Damage (Flat)"] },
+        { key = "RangedDPS",          name = L["Ranged Weapon DPS"] },
+        { key = "WeaponSpeed",        name = L["Weapon Speed (Speed, +/-)"], isSpeed = true },
+        { key = "Parry",              name = L["Parry"] },
+        { key = "Block",              name = L["Block Chance"] },
+        { key = "BlockValue",         name = L["Block Value"] },
+        { key = "Intellect",          name = L["Intellect"] },
+        { key = "Spirit",             name = L["Spirit"] },
+        { key = "Mana",               name = L["Max Mana"] },
+        { key = "SpellPower",         name = L["Spell Power (SP)"] },
+        { key = "SpellPenetration",   name = L["Spell Penetration"] },
+        { key = "HealingPower",       name = L["Healing Power"] },
+        { key = "MP5",                name = L["Mana per 5 sec (MP5)"] },
+        { key = "HP5",                name = L["Health per 5 sec (HP5)"] },
+        { key = "RangedAttackPower",  name = L["Ranged AP (RAP)"] },
+        { key = "FeralAttackPower",   name = L["Feral Attack Power (FAP)"] },
+        { key = "WeaponSkill",        name = L["Weapon Skill"] },
+        { key = "AvoidanceReduction", name = L["Avoidance Reduction"] },
+        { key = "Speed",              name = L["Movement Speed (%)"] },
     }
 
     local SCHOOL_LIST = {
-        { key = "ArcaneSpellPower", elem = "Arcane", name = "Arcane", color = "ffff77ff" },
-        { key = "FireSpellPower",   elem = "Fire",   name = "Fire",   color = "ffff6600" },
-        { key = "FrostSpellPower",  elem = "Frost",  name = "Frost",  color = "ff00ffff" },
-        { key = "ShadowSpellPower", elem = "Shadow", name = "Shadow", color = "ffa335ee" },
-        { key = "NatureSpellPower", elem = "Nature", name = "Nature", color = "ff44ff44" },
-        { key = "HolySpellPower",   elem = "Holy",   name = "Holy",   color = "ffffffaa" },
+        { key = "ArcaneSpellPower", elem = "Arcane", name = L["Arcane"], color = "ffff77ff" },
+        { key = "FireSpellPower",   elem = "Fire",   name = L["Fire"],   color = "ffff6600" },
+        { key = "FrostSpellPower",  elem = "Frost",  name = L["Frost"],  color = "ff00ffff" },
+        { key = "ShadowSpellPower", elem = "Shadow", name = L["Shadow"], color = "ffa335ee" },
+        { key = "NatureSpellPower", elem = "Nature", name = L["Nature"], color = "ff44ff44" },
+        { key = "HolySpellPower",   elem = "Holy",   name = L["Holy"],   color = "ffffffaa" },
     }
 
     local RESIST_LIST = {
-        { key = "FireResist",   elem = "Fire",   name = "Fire",   color = "ffff6600" },
-        { key = "NatureResist", elem = "Nature", name = "Nature", color = "ff44ff44" },
-        { key = "FrostResist",  elem = "Frost",  name = "Frost",  color = "ff00ffff" },
-        { key = "ShadowResist", elem = "Shadow", name = "Shadow", color = "ffa335ee" },
-        { key = "ArcaneResist", elem = "Arcane", name = "Arcane", color = "ffff77ff" },
+        { key = "FireResist",   elem = "Fire",   name = L["Fire"],   color = "ffff6600" },
+        { key = "NatureResist", elem = "Nature", name = L["Nature"], color = "ff44ff44" },
+        { key = "FrostResist",  elem = "Frost",  name = L["Frost"],  color = "ff00ffff" },
+        { key = "ShadowResist", elem = "Shadow", name = L["Shadow"], color = "ffa335ee" },
+        { key = "ArcaneResist", elem = "Arcane", name = L["Arcane"], color = "ffff77ff" },
     }
 
     local function SetToggleRowVisuals(row, isChecked)
@@ -540,7 +542,7 @@ function GSI_UI:DrawWeights(parent)
 
     -- Category: Magic Schools (School Spell Power)
     yOff = yOff + 8
-    CreateCategoryHeader(yOff, "|cffffcc00Magic Schools (Spell Power)|r")
+    CreateCategoryHeader(yOff, L["|cffffcc00Magic Schools (Spell Power)|r"])
     yOff = yOff + 28
 
     for _, item in ipairs(SCHOOL_LIST) do
@@ -563,7 +565,7 @@ function GSI_UI:DrawWeights(parent)
 
     -- Category: Resistances
     yOff = yOff + 8
-    CreateCategoryHeader(yOff, "|cffffcc00Resistances|r")
+    CreateCategoryHeader(yOff, L["|cffffcc00Resistances|r"])
     yOff = yOff + 28
 
     for _, item in ipairs(RESIST_LIST) do
@@ -592,7 +594,7 @@ function GSI_UI:DrawWeights(parent)
     local saveBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     saveBtn:SetSize(90, 26)
     saveBtn:SetPoint("BOTTOMRIGHT", -20, 12)
-    saveBtn:SetText("Save")
+    saveBtn:SetText(L["Save"])
     SkinButton(saveBtn, nil, true)
     saveBtn:SetScript("OnClick", function()
         local specKey = GSI_StatWeights:GetSpecKey()
@@ -600,7 +602,7 @@ function GSI_UI:DrawWeights(parent)
 
         local collected = CollectEditBoxWeights(parent)
         GSI_StatWeights:SaveProfile(specKey, activeProf, collected)
-        print(string.format("|cff00ff00[GearSetImprover]|r Stat weights for |cffffcc00%s (%s)|r saved successfully!", specKey, activeProf))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Stat weights for |cffffcc00%s (%s)|r saved successfully!"], specKey, activeProf))
         GSI_ItemScore:ResetCache()
         GSI_UI:UpdateWeights(parent)
         GSI_UI:RefreshPanel(true)
@@ -609,7 +611,7 @@ function GSI_UI:DrawWeights(parent)
     local resetBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     resetBtn:SetSize(120, 26)
     resetBtn:SetPoint("RIGHT", saveBtn, "LEFT", -8, 0)
-    resetBtn:SetText("Reset Defaults")
+    resetBtn:SetText(L["Reset Defaults"])
     SkinButton(resetBtn)
     resetBtn:SetScript("OnClick", function()
         local specKey = GSI_StatWeights:GetSpecKey()
@@ -623,13 +625,13 @@ function GSI_UI:DrawWeights(parent)
         GSI_UI:UpdateWeights(parent)
         GSI_ItemScore:ResetCache()
         GSI_UI:RefreshPanel(true)
-        print(string.format("|cff00ff00[GearSetImprover]|r Default weights for |cffffcc00%s|r restored!", specKey))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Default weights for |cffffcc00%s|r restored!"], specKey))
     end)
 
     local exportBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     exportBtn:SetSize(80, 26)
     exportBtn:SetPoint("RIGHT", resetBtn, "LEFT", -8, 0)
-    exportBtn:SetText("Export")
+    exportBtn:SetText(L["Export"])
     SkinButton(exportBtn)
     exportBtn:SetScript("OnClick", function()
         GSI_UI:OpenWeightsIOModal(parent, "EXPORT")
@@ -638,7 +640,7 @@ function GSI_UI:DrawWeights(parent)
     local importBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     importBtn:SetSize(80, 26)
     importBtn:SetPoint("RIGHT", exportBtn, "LEFT", -8, 0)
-    importBtn:SetText("Import")
+    importBtn:SetText(L["Import"])
     SkinButton(importBtn)
     importBtn:SetScript("OnClick", function()
         GSI_UI:OpenWeightsIOModal(parent, "IMPORT")
@@ -659,7 +661,7 @@ function GSI_UI:UpdateWeights(parent)
     -- Update profile dropdown button text and controls
     if parent.profileBtn then
         local displayName = activeProf or "Default (Baseline)"
-        parent.profileBtn:SetText(displayName)
+        parent.profileBtn:SetText(L[displayName])
         FormatProfileBtnText(parent.profileBtn, parent.profileArrow)
         if parent.renameProfBtn then
             if activeProf then
@@ -822,7 +824,7 @@ local GSI_WEIGHT_ALIASES = {
 
 function GSI_UI:ParseWeightsString(str)
     if not str or type(str) ~= "string" or str:gsub("%s+", "") == "" then
-        return nil, 0, nil, "The entered string is empty."
+        return nil, 0, nil, L["The entered string is empty."]
     end
 
     local parsed = {}
@@ -843,7 +845,7 @@ function GSI_UI:ParseWeightsString(str)
     end
 
     if count == 0 then
-        return nil, 0, nil, "No valid stat weights found. Supported: Key=Value (GSI or Pawn format)."
+        return nil, 0, nil, L["No valid stat weights found. Supported: Key=Value (GSI or Pawn format)."]
     end
 
     -- Extract profile name from Pawn or GSI strings if present
@@ -877,7 +879,7 @@ function GSI_UI:PromptImportProfileChoice(parent, specKey, parsedWeights, count,
         f:SetBackdropColor(0.08, 0.08, 0.08, 0.98)
         f:SetBackdropBorderColor(1, 0.82, 0, 1)
 
-        f.header = GSI_UI:CreateText(f, "TITLE", "Import Stat Weights")
+        f.header = GSI_UI:CreateText(f, "TITLE", L["Import Stat Weights"])
         f.header:SetPoint("TOPLEFT", 16, -16)
 
         f.subText = GSI_UI:CreateText(f, "SMALL", "")
@@ -897,7 +899,7 @@ function GSI_UI:PromptImportProfileChoice(parent, specKey, parsedWeights, count,
         -- Radio Button 2: Create new profile
         local rbNew = CreateFrame("CheckButton", "GSI_ImportRB_New", f, "UIRadioButtonTemplate")
         rbNew:SetPoint("TOPLEFT", 16, -118)
-        rbNew.text = GSI_UI:CreateText(rbNew, "BODY", "Create as new profile:")
+        rbNew.text = GSI_UI:CreateText(rbNew, "BODY", L["Create as new profile:"])
         rbNew.text:SetPoint("LEFT", rbNew, "RIGHT", 6, 0)
         f.rbNew = rbNew
 
@@ -950,14 +952,14 @@ function GSI_UI:PromptImportProfileChoice(parent, specKey, parsedWeights, count,
         local okBtn = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
         okBtn:SetSize(110, 24)
         okBtn:SetPoint("BOTTOMRIGHT", -16, 14)
-        okBtn:SetText("Import")
+        okBtn:SetText(L["Import"])
         SkinButton(okBtn)
         f.okBtn = okBtn
 
         local cancelBtn = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
         cancelBtn:SetSize(90, 24)
         cancelBtn:SetPoint("RIGHT", okBtn, "LEFT", -10, 0)
-        cancelBtn:SetText("Cancel")
+        cancelBtn:SetText(L["Cancel"])
         SkinButton(cancelBtn)
         cancelBtn:SetScript("OnClick", function() f:Hide() end)
         f.cancelBtn = cancelBtn
@@ -980,10 +982,10 @@ function GSI_UI:PromptImportProfileChoice(parent, specKey, parsedWeights, count,
 
     local f = self.importChoiceFrame
     local activeProf = GSI_StatWeights:GetActiveProfileName(specKey)
-    local activeLabel = activeProf or "Default (Baseline)"
+    local activeLabel = L[activeProf or "Default (Baseline)"]
 
-    f.subText:SetText(string.format("|cff00ff00%d stat weights detected|r for |cffffcc00%s|r.\nWould you like to overwrite the active profile or create a new one?", count, specKey))
-    f.rbOverwrite.text:SetText(string.format("Overwrite active profile: |cffffcc00%s|r", activeLabel))
+    f.subText:SetText(string.format(L["|cff00ff00%d stat weights detected|r for |cffffcc00%s|r.\nWould you like to overwrite the active profile or create a new one?"], count, specKey))
+    f.rbOverwrite.text:SetText(string.format(L["Overwrite active profile: |cffffcc00%s|r"], activeLabel))
 
     local defaultNewName = suggestedName
     if not defaultNewName or defaultNewName == "" then
@@ -1031,7 +1033,7 @@ function GSI_UI:PromptImportProfileChoice(parent, specKey, parsedWeights, count,
         f:Hide()
         if self.weightsIOFrame then self.weightsIOFrame:Hide() end
 
-        print(string.format("|cff00ff00[GearSetImprover]|r %d stat weights successfully imported into profile '|cffffcc00%s|r'!", count, targetProfileName))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r %d stat weights successfully imported into profile '|cffffcc00%s|r'!"], count, targetProfileName))
     end)
 
     f:Show()
@@ -1114,11 +1116,11 @@ function GSI_UI:OpenWeightsIOModal(parent, mode)
         sf:SetScrollChild(eb)
         f.editBox = eb
 
-        local placeholder = GSI_UI:CreateText(inputBg, "SMALL", "Click here and press Ctrl+V to paste...\n\nSupported formats:\n• GSI:   DRUID-2, Agility=0.66, Strength=0.1, Crit=3.09\n• Pawn:  ( Pawn: v1: \"Feral\": Agility=0.66, CritRating=3.09 )")
+        local placeholder = GSI_UI:CreateText(inputBg, "SMALL", L["Click here and press Ctrl+V to paste...\n\nSupported formats:\n• GSI:   DRUID-2, Agility=0.66, Strength=0.1, Crit=3.09\n• Pawn:  ( Pawn: v1: \"Feral\": Agility=0.66, CritRating=3.09 )"])
         placeholder:SetPoint("TOPLEFT", 12, -10)
         placeholder:SetPoint("RIGHT", -30, 0)
         placeholder:SetJustifyH("LEFT")
-        placeholder:SetText("Click here and press Ctrl+V to paste...\n\nSupported formats:\n• GSI:   DRUID-2, Agility=0.66, Strength=0.1, Crit=3.09\n• Pawn:  ( Pawn: v1: \"Feral\": Agility=0.66, CritRating=3.09 )")
+        placeholder:SetText(L["Click here and press Ctrl+V to paste...\n\nSupported formats:\n• GSI:   DRUID-2, Agility=0.66, Strength=0.1, Crit=3.09\n• Pawn:  ( Pawn: v1: \"Feral\": Agility=0.66, CritRating=3.09 )"])
         f.placeholder = placeholder
 
         local function UpdateEditBoxState()
@@ -1176,7 +1178,7 @@ function GSI_UI:OpenWeightsIOModal(parent, mode)
         local cancelBtn = CreateFrame("Button", nil, f, BACKDROP_TEMPLATE)
         cancelBtn:SetSize(100, 24)
         cancelBtn:SetPoint("RIGHT", actionBtn, "LEFT", -10, 0)
-        cancelBtn:SetText("Close")
+        cancelBtn:SetText(L["Close"])
         SkinButton(cancelBtn)
         cancelBtn:SetScript("OnClick", function() f:Hide() end)
         f.cancelBtn = cancelBtn
@@ -1201,8 +1203,8 @@ function GSI_UI:OpenWeightsIOModal(parent, mode)
     f._mode = mode
 
     if mode == "EXPORT" then
-        f.header:SetText("Export Stat Weights")
-        f.subText:SetText(string.format("Copy string using Ctrl+C (Profile: |cffffcc00%s|r):", tostring(specKey)))
+        f.header:SetText(L["Export Stat Weights"])
+        f.subText:SetText(string.format(L["Copy string using Ctrl+C (Profile: |cffffcc00%s|r):"], tostring(specKey)))
         if f.placeholder then f.placeholder:Hide() end
         local exportStr = GSI_UI:GetWeightsExportString(specKey)
         eb:SetText(exportStr)
@@ -1214,12 +1216,12 @@ function GSI_UI:OpenWeightsIOModal(parent, mode)
                 eb:HighlightText()
             end
         end)
-        f.actionBtn:SetText("Close")
+        f.actionBtn:SetText(L["Close"])
         f.actionBtn:SetScript("OnClick", function() f:Hide() end)
         f.cancelBtn:Hide()
     else -- IMPORT
-        f.header:SetText("Import Stat Weights")
-        f.subText:SetText(string.format("Paste string here using Ctrl+V (Target Profile: |cffffcc00%s|r):\n|cffaaaaaaSupports GSI format and Pawn strings.|r", tostring(specKey)))
+        f.header:SetText(L["Import Stat Weights"])
+        f.subText:SetText(string.format(L["Paste string here using Ctrl+V (Target Profile: |cffffcc00%s|r):\n|cffaaaaaaSupports GSI format and Pawn strings.|r"], tostring(specKey)))
         eb:SetText("")
         if f.placeholder then f.placeholder:Show() end
         if f.UpdateEditBoxState then f.UpdateEditBoxState() end
@@ -1228,13 +1230,13 @@ function GSI_UI:OpenWeightsIOModal(parent, mode)
                 eb:SetFocus()
             end
         end)
-        f.actionBtn:SetText("Import")
+        f.actionBtn:SetText(L["Import"])
         f.cancelBtn:Show()
         f.actionBtn:SetScript("OnClick", function()
             local text = eb:GetText()
             local parsed, count, suggestedName, err = GSI_UI:ParseWeightsString(text)
             if not parsed then
-                print("|cffff4444[GearSetImprover] Import error:|r " .. tostring(err or "No valid stat weights found."))
+                print(string.format(L["|cffff4444[GearSetImprover] Import error:|r %s"], tostring(err or L["No valid stat weights found."])))
                 return
             end
 

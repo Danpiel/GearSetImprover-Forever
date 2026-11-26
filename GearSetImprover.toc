@@ -9,6 +9,14 @@
 ## AddonCompartmentFunc: GearSetImprover_OnAddonCompartmentClick
 ## OptionalDeps: EllesmereUI
 
+## Locales
+Locales\Locales.lua
+Locales\ruRU_Macros.lua
+Locales\ruRU_Settings.lua
+Locales\ruRU_Window.lua
+Locales\ruRU_Bags.lua
+Locales\ruRU_Scores.lua
+
 ## Modules
 modules\Config.lua
 modules\Profiles_v2_2.lua

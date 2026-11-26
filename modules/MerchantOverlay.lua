@@ -5,6 +5,8 @@
 -- single-sell, Sell All, and Disenchant actions.
 -- ============================================================
 
+local L = GSI_L
+
 GSI_UI = GSI_UI or {}
 
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
@@ -18,17 +20,22 @@ local function SafeUseBagItem(bag, slot)
     end
 end
 
+-- The client's own coin letters: g/s/c, on a Russian client з/с/м
+local G_SYM = _G.GOLD_AMOUNT_SYMBOL or "g"
+local S_SYM = _G.SILVER_AMOUNT_SYMBOL or "s"
+local C_SYM = _G.COPPER_AMOUNT_SYMBOL or "c"
+
 local function FormatMoneyString(copper)
-    if not copper or copper <= 0 then return "0c" end
+    if not copper or copper <= 0 then return "0" .. C_SYM end
     local gold = math.floor(copper / 10000)
     local silver = math.floor((copper % 10000) / 100)
     local c = copper % 100
     if gold > 0 then
-        return string.format("%d|cffffd700g|r %d|cffc7c7cfs|r %d|cffeda55fc|r", gold, silver, c)
+        return string.format("%d|cffffd700%s|r %d|cffc7c7cf%s|r %d|cffeda55f%s|r", gold, G_SYM, silver, S_SYM, c, C_SYM)
     elseif silver > 0 then
-        return string.format("%d|cffc7c7cfs|r %d|cffeda55fc|r", silver, c)
+        return string.format("%d|cffc7c7cf%s|r %d|cffeda55f%s|r", silver, S_SYM, c, C_SYM)
     else
-        return string.format("%d|cffeda55fc|r", c)
+        return string.format("%d|cffeda55f%s|r", c, C_SYM)
     end
 end
 
@@ -62,11 +69,11 @@ local function UpdateMerchantFooterState(overlay)
                 if #deItems > 0 then
                     overlay.deMacroBtn:Enable()
                     overlay.deMacroBtn:SetAlpha(1.0)
-                    overlay.deMacroBtn:SetText(string.format("DE (%d)", #deItems))
+                    overlay.deMacroBtn:SetText(string.format(L["DE (%d)"], #deItems))
                 else
                     overlay.deMacroBtn:Disable()
                     overlay.deMacroBtn:SetAlpha(0.5)
-                    overlay.deMacroBtn:SetText("DE (0)")
+                    overlay.deMacroBtn:SetText(L["DE (0)"])
                 end
                 if GSI_UI.SyncExistingDisenchantMacro then
                     GSI_UI:SyncExistingDisenchantMacro()
@@ -127,7 +134,7 @@ function GSI_UI:CreateMerchantOverlay()
         end
     end)
 
-    local title = self:CreateText(header, "CARD_TITLE", "|cffffcc00GSI|r Clean-up")
+    local title = self:CreateText(header, "CARD_TITLE", L["|cffffcc00GSI|r Clean-up"])
     title:SetPoint("LEFT", 12, 0)
 
     local countLabel = self:CreateText(header, "SMALL", "")
@@ -157,7 +164,7 @@ function GSI_UI:CreateMerchantOverlay()
     noticeText:SetJustifyH("LEFT")
     noticeText:SetJustifyV("TOP")
     noticeText:SetWordWrap(true)
-    noticeText:SetText("|cff88ff88Safe to sell:|r These items are weaker than currently equipped gear based on your GSI settings.")
+    noticeText:SetText(L["|cff88ff88Safe to sell:|r These items are weaker than currently equipped gear based on your GSI settings."])
 
     -- Scroll Area (340 - 10 - 26 = 304px viewport)
     local scrollFrame = CreateFrame("ScrollFrame", "GSIMerchantScrollFrame", overlay, "UIPanelScrollFrameTemplate")
@@ -175,7 +182,7 @@ function GSI_UI:CreateMerchantOverlay()
     overlay.rows = {}
 
     -- Empty State Message
-    local emptyLabel = self:CreateText(scrollChild, "SMALL", "No obsolete gear in bags.")
+    local emptyLabel = self:CreateText(scrollChild, "SMALL", L["No obsolete gear in bags."])
     emptyLabel:SetPoint("CENTER", scrollFrame, "CENTER", 0, 0)
     emptyLabel:SetWidth(280)
     emptyLabel:SetJustifyH("CENTER")
@@ -190,9 +197,9 @@ function GSI_UI:CreateMerchantOverlay()
     local sellAllBtn = CreateFrame("Button", nil, bottomBar, self.BACKDROP_TEMPLATE)
     sellAllBtn:SetSize(84, 24)
     sellAllBtn:SetPoint("RIGHT", -10, 0)
-    sellAllBtn:SetText("Sell All")
+    sellAllBtn:SetText(L["Sell All"])
     if self.SkinButton then
-        self:SkinButton(sellAllBtn, "Sell All", true)
+        self:SkinButton(sellAllBtn, L["Sell All"], true)
     end
     sellAllBtn:SetScript("OnClick", function()
         if StaticPopup_Show then
@@ -208,9 +215,9 @@ function GSI_UI:CreateMerchantOverlay()
     local deMacroBtn = CreateFrame("Button", "GSI_MerchantDisenchantBtn", bottomBar, deBtnTemplates)
     deMacroBtn:SetSize(78, 24)
     deMacroBtn:SetPoint("RIGHT", sellAllBtn, "LEFT", -6, 0)
-    deMacroBtn:SetText("DE (0)")
+    deMacroBtn:SetText(L["DE (0)"])
     if self.SkinButton then
-        self:SkinButton(deMacroBtn, "DE (0)", false)
+        self:SkinButton(deMacroBtn, L["DE (0)"], false)
     end
     if self.BindDisenchantActionButton then
         self:BindDisenchantActionButton(deMacroBtn)
@@ -218,9 +225,9 @@ function GSI_UI:CreateMerchantOverlay()
     deMacroBtn:HookScript("OnEnter", function(selfBtn)
         GameTooltip:SetOwner(selfBtn, "ANCHOR_TOP")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("|cffffcc00Disenchant Next Item|r", 1, 1, 1)
-        GameTooltip:AddLine("Click repeatedly to disenchant listed obsolete gear items one by one.", 0.9, 0.9, 0.9, true)
-        GameTooltip:AddLine("|cff888888Tip: You can also drag out an Action Bar macro in the Settings tab.|r", 0.7, 0.7, 0.7, true)
+        GameTooltip:AddLine(L["|cffffcc00Disenchant Next Item|r"], 1, 1, 1)
+        GameTooltip:AddLine(L["Click repeatedly to disenchant listed obsolete gear items one by one."], 0.9, 0.9, 0.9, true)
+        GameTooltip:AddLine(L["|cff888888Tip: You can also drag out an Action Bar macro in the Settings tab.|r"], 0.7, 0.7, 0.7, true)
         GameTooltip:Show()
     end)
     deMacroBtn:HookScript("OnLeave", function() GameTooltip:Hide() end)
@@ -252,9 +259,9 @@ local function CreateOrUpdateMerchantToggleBtn()
         btn:SetSize(90, 20)
         btn:SetPoint("TOPRIGHT", MerchantFrame, "TOPRIGHT", -36, -3)
         btn:SetFrameLevel((MerchantFrame:GetFrameLevel() or 10) + 10)
-        btn:SetText("GSI Clean-up")
+        btn:SetText(L["GSI Clean-up"])
         if GSI_UI.SkinButton then
-            GSI_UI:SkinButton(btn, "GSI Clean-up", false)
+            GSI_UI:SkinButton(btn, L["GSI Clean-up"], false)
         end
         btn:SetScript("OnClick", function()
             if GSI_UI.merchantOverlay and GSI_UI.merchantOverlay:IsShown() then
@@ -270,8 +277,8 @@ local function CreateOrUpdateMerchantToggleBtn()
         btn:SetScript("OnEnter", function(selfBtn)
             GameTooltip:SetOwner(selfBtn, "ANCHOR_TOP")
             GameTooltip:ClearLines()
-            GameTooltip:AddLine("|cffffcc00GSI Clean-up|r", 1, 1, 1)
-            GameTooltip:AddLine("Click to toggle the Clean-up gear panel.", 0.9, 0.9, 0.9, true)
+            GameTooltip:AddLine(L["|cffffcc00GSI Clean-up|r"], 1, 1, 1)
+            GameTooltip:AddLine(L["Click to toggle the Clean-up gear panel."], 0.9, 0.9, 0.9, true)
             GameTooltip:Show()
         end)
         btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -372,9 +379,9 @@ function GSI_UI:UpdateMerchantPanel()
             local singleSellBtn = CreateFrame("Button", nil, row, self.BACKDROP_TEMPLATE)
             singleSellBtn:SetSize(48, 20)
             singleSellBtn:SetPoint("RIGHT", -4, 0)
-            singleSellBtn:SetText("Sell")
+            singleSellBtn:SetText(L["Sell"])
             if self.SkinButton then
-                self:SkinButton(singleSellBtn, "Sell", false)
+                self:SkinButton(singleSellBtn, L["Sell"], false)
             end
             row.singleSellBtn = singleSellBtn
 
@@ -389,7 +396,7 @@ function GSI_UI:UpdateMerchantPanel()
         end
 
         row.item = item
-        row.linkText:SetText(item.link or "Item")
+        row.linkText:SetText(item.link or L["Item"])
         row.icon:SetTexture(GetItemIcon(item.link))
         if self.SkinItemIcon then
             self:SkinItemIcon(row.icon, row, item.quality)

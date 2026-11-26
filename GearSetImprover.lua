@@ -3,6 +3,8 @@
 -- Main entry point. Initializes all modules on PLAYER_LOGIN.
 -- ============================================================
 
+local L = GSI_L
+
 local ADDON_NAME = "GearSetImprover"
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version"))
     or (GetAddOnMetadata and GetAddOnMetadata(ADDON_NAME, "Version"))
@@ -198,7 +200,7 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
         for _, m in ipairs(modules) do
             local ok, err = pcall(m[2])
             if not ok then
-                print(string.format("|cffff4444GearSetImprover|r: Module %s error: %s", m[1], tostring(err)))
+                print(string.format(L["|cffff4444GearSetImprover|r: Module %s error: %s"], m[1], tostring(err)))
             end
         end
 
@@ -207,11 +209,11 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
                 or select(2, UnitClass("player")) or "WARRIOR"
             local specIdx = GSI_StatWeights:GetActiveSpecIndex()
             local classData = GSI_ClassicData.Classes[class]
-            local specName = classData and classData.specs and classData.specs[specIdx] and (classData.specs[specIdx].name or classData.specs[specIdx].nameDE) or ("Spec " .. tostring(specIdx))
+            local specName = classData and classData.specs and classData.specs[specIdx] and (classData.specs[specIdx].name or classData.specs[specIdx].nameDE) or string.format(L["Spec %s"], tostring(specIdx))
             local className = classData and (classData.name or classData.nameDE) or class
             print(string.format(
-                "|cffffcc00GearSetImprover Forever|r v%s loaded for |cff00ff00%s %s|r - Type |cffffcc00/gsi|r to open the menu",
-                VERSION, specName, className
+                L["|cffffcc00GearSetImprover Forever|r v%s loaded for |cff00ff00%s %s|r - Type |cffffcc00/gsi|r to open the menu"],
+                VERSION, L[specName], L[className]
             ))
 
             if GearSetImproverDB and not GearSetImproverDB.tutorialSeen then

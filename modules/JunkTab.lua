@@ -4,11 +4,13 @@
 -- Supports quick selling at merchants and disenchanting.
 -- ============================================================
 
+local L = GSI_L
+
 -- Static Popup for confirmation
 StaticPopupDialogs["GSI_CONFIRM_SELL_ALL"] = {
-    text = "Are you sure you want to sell all listed obsolete gear items to the merchant?\n\n|cff88ff88Note:|r Equipment sets and locked items are safe and will not be sold.",
-    button1 = "Sell Obsolete Gear",
-    button2 = "Cancel",
+    text = L["Are you sure you want to sell all listed obsolete gear items to the merchant?\n\n|cff88ff88Note:|r Equipment sets and locked items are safe and will not be sold."],
+    button1 = L["Sell Obsolete Gear"],
+    button2 = L["Cancel"],
     OnAccept = function()
         GSI_UI:ExecuteSellAll()
     end,
@@ -623,7 +625,7 @@ function GSI_UI:ExecuteSellAll()
     local items = ScanBagsForJunk()
     if #items == 0 then return end
     if not (MerchantFrame and MerchantFrame:IsShown()) then
-        print("|cffff4444GSI:|r Please open a merchant first!")
+        print(L["|cffff4444GSI:|r Please open a merchant first!"])
         return
     end
     local queue = {}
@@ -631,7 +633,7 @@ function GSI_UI:ExecuteSellAll()
     local soldCount = 0
     local function SellNext()
         if #queue == 0 then
-            print(string.format("|cffffcc00GSI:|r %d item(s) sold to merchant.", soldCount))
+            print(string.format(L["|cffffcc00GSI:|r %d item(s) sold to merchant."], soldCount))
             if GSI_UI.activeTab == "JUNK" and GSI_UI.mainFrame then
                 local frame = GSI_UI.mainFrame.tabFrames and GSI_UI.mainFrame.tabFrames["JUNK"]
                 if frame then GSI_UI:UpdateJunkList(frame) end
@@ -642,7 +644,7 @@ function GSI_UI:ExecuteSellAll()
             return
         end
         if not (MerchantFrame and MerchantFrame:IsShown()) then
-            print(string.format("|cffffcc00GSI:|r Selling stopped (merchant closed). %d sold.", soldCount))
+            print(string.format(L["|cffffcc00GSI:|r Selling stopped (merchant closed). %d sold."], soldCount))
             return
         end
         local item = table.remove(queue, 1)
@@ -775,7 +777,7 @@ local function DisenchantAction_PreClick(self)
     self._activeCandidate = nil
 
     if not HasDisenchantSpell() then
-        print("|cffff4444[GSI]|r You do not know Disenchant.")
+        print(L["|cffff4444[GSI]|r You do not know Disenchant."])
         return
     end
 
@@ -795,7 +797,7 @@ local function DisenchantAction_PreClick(self)
         return
     end
     if GetUnitSpeed and GetUnitSpeed("player") > 0 then
-        print("|cffffcc00[GSI]|r Stand still to disenchant.")
+        print(L["|cffffcc00[GSI]|r Stand still to disenchant."])
         return
     end
     if (IsMounted and IsMounted()) or (UnitIsDeadOrGhost and UnitIsDeadOrGhost("player")) then
@@ -809,7 +811,7 @@ local function DisenchantAction_PreClick(self)
     local deItems = GSI_UI:GetDisenchantableItems()
     local item = deItems[1]
     if not item then
-        print("|cff00ff00[GSI]|r No more disenchantable items in the Clean-up list!")
+        print(L["|cff00ff00[GSI]|r No more disenchantable items in the Clean-up list!"])
         return
     end
 
@@ -820,7 +822,7 @@ local function DisenchantAction_PreClick(self)
 
     self._activeCandidate = item
     SetDEProxyTarget(self, item.bagID, item.slotID)
-    print(string.format("|cff00ff00[GSI]|r Disenchanting %s (%d remaining)...", item.link, #deItems))
+    print(string.format(L["|cff00ff00[GSI]|r Disenchanting %s (%d remaining)..."], item.link, #deItems))
 end
 
 local function DisenchantAction_PostClick(self)
@@ -833,7 +835,7 @@ local function DisenchantAction_PostClick(self)
         if SpellStopTargeting then SpellStopTargeting() end
         if candidate and candidate.link then
             _sessionSkippedDE[candidate.link] = true
-            print(string.format("|cffff4444[GSI]|r Could not disenchant %s (skill too low or not disenchantable) — skipping for this session.", candidate.link))
+            print(string.format(L["|cffff4444[GSI]|r Could not disenchant %s (skill too low or not disenchantable) — skipping for this session."], candidate.link))
         end
     end
 end
@@ -901,7 +903,7 @@ end
 
 function GSI_UI:EnsureDisenchantMacro()
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff4444[GSI]|r Cannot create macros while in combat!")
+        print(L["|cffff4444[GSI]|r Cannot create macros while in combat!"])
         return nil
     end
 
@@ -920,7 +922,7 @@ function GSI_UI:EnsureDisenchantMacro()
             EditMacro(existingIdx, macroName, macroIcon, macroBody)
         end)
         if not ok then
-            print("|cffff4444[GSI]|r Error updating Disenchant macro: " .. tostring(err))
+            print(string.format(L["|cffff4444[GSI]|r Error updating Disenchant macro: %s"], tostring(err)))
         end
         return existingIdx
     else
@@ -935,7 +937,7 @@ function GSI_UI:EnsureDisenchantMacro()
             if numAccount < maxAccount then
                 isChar = nil
             else
-                print("|cffff4444[GSI]|r Cannot create macro: Character and Account macro slots are full!")
+                print(L["|cffff4444[GSI]|r Cannot create macro: Character and Account macro slots are full!"])
                 return nil
             end
         end
@@ -945,17 +947,17 @@ function GSI_UI:EnsureDisenchantMacro()
             newIdx = CreateMacro(macroName, macroIcon, macroBody, isChar)
         end)
         if not ok or not newIdx then
-            print("|cffff4444[GSI]|r Failed to create Disenchant macro: " .. tostring(err or "unknown error"))
+            print(string.format(L["|cffff4444[GSI]|r Failed to create Disenchant macro: %s"], tostring(err or L["unknown error"])))
             return nil
         end
-        print(string.format("|cff00ff00[GSI]|r Created macro '|cffffcc00%s|r' (%s)!", macroName, isChar and "Character" or "Account"))
+        print(string.format(L["|cff00ff00[GSI]|r Created macro '|cffffcc00%s|r' (%s)!"], macroName, isChar and L["Character"] or L["Account"]))
         return newIdx
     end
 end
 
 function GSI_UI:PickupDisenchantMacro()
     if InCombatLockdown and InCombatLockdown() then
-        print("|cffff4444[GSI]|r Cannot pick up macros while in combat!")
+        print(L["|cffff4444[GSI]|r Cannot pick up macros while in combat!"])
         return
     end
 
@@ -967,9 +969,9 @@ function GSI_UI:PickupDisenchantMacro()
         PickupMacro(idx)
     end)
     if ok then
-        print("|cff00ff00[GSI]|r Disenchant macro attached to cursor! Place it on your Action Bar and press it repeatedly to disenchant items one by one.")
+        print(L["|cff00ff00[GSI]|r Disenchant macro attached to cursor! Place it on your Action Bar and press it repeatedly to disenchant items one by one."])
     else
-        print("|cffff4444[GSI]|r PickupMacro error: " .. tostring(err))
+        print(string.format(L["|cffff4444[GSI]|r PickupMacro error: %s"], tostring(err)))
     end
 end
 
@@ -989,10 +991,10 @@ function GSI_UI:OpenLockedCleanUpDialog(parent)
         f:SetBackdropColor(0.08, 0.08, 0.08, 0.98)
         f:SetBackdropBorderColor(1, 0.82, 0, 1)
 
-        local title = GSI_UI:CreateText(f, "CARD_TITLE", "Locked Items (Clean-up Protection)")
+        local title = GSI_UI:CreateText(f, "CARD_TITLE", L["Locked Items (Clean-up Protection)"])
         title:SetPoint("TOPLEFT", 15, -15)
 
-        local desc = GSI_UI:CreateText(f, "SMALL", "These items are excluded from clean-up and will never be automatically sold.")
+        local desc = GSI_UI:CreateText(f, "SMALL", L["These items are excluded from clean-up and will never be automatically sold."])
         desc:SetPoint("TOPLEFT", 15, -34)
         desc:SetPoint("RIGHT", -15, 0)
         desc:SetJustifyH("LEFT")
@@ -1000,14 +1002,14 @@ function GSI_UI:OpenLockedCleanUpDialog(parent)
         local closeBtn = CreateFrame("Button", nil, f, _BACKDROP_TEMPLATE)
         closeBtn:SetSize(80, 22)
         closeBtn:SetPoint("BOTTOMRIGHT", -15, 12)
-        closeBtn:SetText("Close")
+        closeBtn:SetText(L["Close"])
         _SkinButton(closeBtn)
         closeBtn:SetScript("OnClick", function() f:Hide() end)
 
         local unlockAllBtn = CreateFrame("Button", nil, f, _BACKDROP_TEMPLATE)
         unlockAllBtn:SetSize(115, 22)
         unlockAllBtn:SetPoint("BOTTOMLEFT", 15, 12)
-        unlockAllBtn:SetText("Unlock All")
+        unlockAllBtn:SetText(L["Unlock All"])
         _SkinButton(unlockAllBtn)
         unlockAllBtn:SetScript("OnClick", function()
             if GearSetImproverDB then
@@ -1030,7 +1032,7 @@ function GSI_UI:OpenLockedCleanUpDialog(parent)
         f._scrollChild = child
         f._rows = {}
 
-        local emptyText = GSI_UI:CreateText(f, "BODY", "No locked items.")
+        local emptyText = GSI_UI:CreateText(f, "BODY", L["No locked items."])
         emptyText:SetPoint("CENTER", f, "CENTER", 0, -10)
         emptyText:SetTextColor(0.5, 0.5, 0.5)
         emptyText:Hide()
@@ -1072,7 +1074,7 @@ function GSI_UI:RefreshLockedCleanUpList(f)
             local unlockBtn = CreateFrame("Button", nil, row, _BACKDROP_TEMPLATE)
             unlockBtn:SetSize(80, 18)
             unlockBtn:SetPoint("RIGHT", -4, 0)
-            unlockBtn:SetText("Unlock")
+            unlockBtn:SetText(L["Unlock"])
             _SkinButton(unlockBtn)
             row._unlockBtn = unlockBtn
 
@@ -1087,7 +1089,7 @@ function GSI_UI:RefreshLockedCleanUpList(f)
 
         local itemID = item.itemID
         local itemLink = "item:" .. itemID
-        local itemName = GetItemInfo(itemID) or item.info or ("Item " .. itemID)
+        local itemName = GetItemInfo(itemID) or item.info or (L["Item "] .. itemID)
 
         row._icon:SetTexture(GetItemIcon(itemID))
         local q = select(3, GetItemInfo(itemID))
@@ -1129,10 +1131,10 @@ function GSI_UI:RefreshLockedCleanUpList(f)
 end
 
 function GSI_UI:DrawJunk(parent)
-    local title = GSI_UI:CreateText(parent, "TITLE", "Obsolete Gear Clean-up")
+    local title = GSI_UI:CreateText(parent, "TITLE", L["Obsolete Gear Clean-up"])
     title:SetPoint("TOPLEFT", 15, -15)
 
-    local sub = GSI_UI:CreateText(parent, "SMALL", "Scans bags for obsolete gear. Gray trash is never sold; equipment sets and locked items are safe.")
+    local sub = GSI_UI:CreateText(parent, "SMALL", L["Scans bags for obsolete gear. Gray trash is never sold; equipment sets and locked items are safe."])
     sub:SetPoint("TOPLEFT", 15, -38)
     sub:SetPoint("RIGHT", -15, 0)
     sub:SetJustifyH("LEFT")
@@ -1141,11 +1143,11 @@ function GSI_UI:DrawJunk(parent)
     local sellAllBtn = CreateFrame("Button", nil, parent, _BACKDROP_TEMPLATE)
     sellAllBtn:SetSize(90, 24)
     sellAllBtn:SetPoint("TOPRIGHT", -15, -12)
-    sellAllBtn:SetText("Sell All")
+    sellAllBtn:SetText(L["Sell All"])
     _SkinButton(sellAllBtn)
     sellAllBtn:SetScript("OnClick", function()
         if not (MerchantFrame and MerchantFrame:IsShown()) then
-            print("|cffff4444[GSI]|r Please visit a merchant first!")
+            print(L["|cffff4444[GSI]|r Please visit a merchant first!"])
             return
         end
         StaticPopup_Show("GSI_CONFIRM_SELL_ALL")
@@ -1155,14 +1157,14 @@ function GSI_UI:DrawJunk(parent)
     local refreshBtn = CreateFrame("Button", nil, parent, _BACKDROP_TEMPLATE)
     refreshBtn:SetSize(90, 24)
     refreshBtn:SetPoint("RIGHT", sellAllBtn, "LEFT", -6, 0)
-    refreshBtn:SetText("Refresh")
+    refreshBtn:SetText(L["Refresh"])
     _SkinButton(refreshBtn)
     refreshBtn:SetScript("OnClick", function() GSI_UI:UpdateJunkList(parent) end)
 
     local lockedBtn = CreateFrame("Button", nil, parent, _BACKDROP_TEMPLATE)
     lockedBtn:SetSize(100, 24)
     lockedBtn:SetPoint("RIGHT", refreshBtn, "LEFT", -6, 0)
-    lockedBtn:SetText("Locked (0)")
+    lockedBtn:SetText(L["Locked (0)"])
     _SkinButton(lockedBtn)
     lockedBtn:SetScript("OnClick", function() GSI_UI:OpenLockedCleanUpDialog(parent) end)
     parent._lockedBtn = lockedBtn
@@ -1172,22 +1174,22 @@ function GSI_UI:DrawJunk(parent)
     local deMacroBtn = CreateFrame("Button", "GSI_CleanUpDisenchantBtn", parent, deBtnTemplates)
     deMacroBtn:SetSize(115, 24)
     deMacroBtn:SetPoint("RIGHT", lockedBtn, "LEFT", -6, 0)
-    deMacroBtn:SetText("Disenchant")
+    deMacroBtn:SetText(L["Disenchant"])
     _SkinButton(deMacroBtn)
     GSI_UI:BindDisenchantActionButton(deMacroBtn)
     deMacroBtn:HookScript("OnEnter", function(selfBtn)
         GameTooltip:SetOwner(selfBtn, "ANCHOR_TOP")
         GameTooltip:ClearLines()
-        GameTooltip:AddLine("|cffffcc00Disenchant Next Item|r", 1, 1, 1)
-        GameTooltip:AddLine("Click repeatedly to disenchant listed obsolete gear items one by one.", 0.9, 0.9, 0.9, true)
-        GameTooltip:AddLine("|cff888888Tip: You can also drag out an Action Bar macro in the Settings tab.|r", 0.7, 0.7, 0.7, true)
+        GameTooltip:AddLine(L["|cffffcc00Disenchant Next Item|r"], 1, 1, 1)
+        GameTooltip:AddLine(L["Click repeatedly to disenchant listed obsolete gear items one by one."], 0.9, 0.9, 0.9, true)
+        GameTooltip:AddLine(L["|cff888888Tip: You can also drag out an Action Bar macro in the Settings tab.|r"], 0.7, 0.7, 0.7, true)
         GameTooltip:Show()
     end)
     deMacroBtn:HookScript("OnLeave", function() GameTooltip:Hide() end)
     parent._deMacroBtn = deMacroBtn
 
     local currentThreshold = (GearSetImproverDB and GearSetImproverDB.junkThreshold) or GSI_Config.JunkThreshold or 5
-    local sliderLabel = GSI_UI:CreateText(parent, "BODY", string.format("Filter Threshold: Worse by at least %d GSI Score", currentThreshold))
+    local sliderLabel = GSI_UI:CreateText(parent, "BODY", string.format(L["Filter Threshold: Worse by at least %d GSI Score"], currentThreshold))
     sliderLabel:SetPoint("TOPLEFT", 15, -58)
     parent._junkSliderLabel = sliderLabel
 
@@ -1217,7 +1219,7 @@ function GSI_UI:DrawJunk(parent)
         local v = math.floor(val)
         GSI_Config.JunkThreshold = v
         if GearSetImproverDB then GearSetImproverDB.junkThreshold = v end
-        sliderLabel:SetText(string.format("Filter Threshold: Worse by at least %d GSI Score", v))
+        sliderLabel:SetText(string.format(L["Filter Threshold: Worse by at least %d GSI Score"], v))
         if _G["GSI_SettingsJunkSlider"] and _G["GSI_SettingsJunkSlider"].GetValue and math.floor(_G["GSI_SettingsJunkSlider"]:GetValue()) ~= v then
             _G["GSI_SettingsJunkSlider"]:SetValue(v)
         end
@@ -1231,13 +1233,13 @@ function GSI_UI:DrawJunk(parent)
     local maxLbl = GSI_UI:CreateText(parent, "SMALL", "50")
     maxLbl:SetPoint("TOPLEFT", 235, -94)
 
-    local merchantHeader = GSI_UI:CreateText(parent, "BODY", "Merchant Window:")
+    local merchantHeader = GSI_UI:CreateText(parent, "BODY", L["Merchant Window:"])
     merchantHeader:SetPoint("TOPLEFT", 290, -58)
 
     local merchantOverlayCheck = CreateFrame("CheckButton", "GSI_JunkMerchantOverlayCheck", parent, "UICheckButtonTemplate")
     merchantOverlayCheck:SetSize(22, 22)
     merchantOverlayCheck:SetPoint("TOPLEFT", 288, -74)
-    merchantOverlayCheck.text = GSI_UI:CreateText(merchantOverlayCheck, "BODY", "Show Clean-up sell window at merchant")
+    merchantOverlayCheck.text = GSI_UI:CreateText(merchantOverlayCheck, "BODY", L["Show Clean-up sell window at merchant"])
     merchantOverlayCheck.text:SetPoint("LEFT", merchantOverlayCheck, "RIGHT", 4, 0)
     merchantOverlayCheck.text:SetWordWrap(false)
     merchantOverlayCheck:SetChecked(not (GearSetImproverDB and GearSetImproverDB.merchantOverlayEnabled == false))
@@ -1252,8 +1254,8 @@ function GSI_UI:DrawJunk(parent)
     end)
     merchantOverlayCheck:SetScript("OnEnter", function(selfBtn)
         GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
-        GameTooltip:AddLine("Show Clean-up sell window at merchant", 1, 0.82, 0)
-        GameTooltip:AddLine("Automatically docks a Clean-up sell panel next to the Merchant window with quick 'Sell' and 'Sell All' buttons.", 1, 1, 1, true)
+        GameTooltip:AddLine(L["Show Clean-up sell window at merchant"], 1, 0.82, 0)
+        GameTooltip:AddLine(L["Automatically docks a Clean-up sell panel next to the Merchant window with quick 'Sell' and 'Sell All' buttons."], 1, 1, 1, true)
         GameTooltip:Show()
     end)
     merchantOverlayCheck:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1263,7 +1265,7 @@ function GSI_UI:DrawJunk(parent)
     local armorCheck = CreateFrame("CheckButton", "GSI_JunkArmorCheck", parent, "UICheckButtonTemplate")
     armorCheck:SetSize(22, 22)
     armorCheck:SetPoint("TOPLEFT", 13, -114)
-    armorCheck.text = GSI_UI:CreateText(armorCheck, "BODY", "Include other armor classes")
+    armorCheck.text = GSI_UI:CreateText(armorCheck, "BODY", L["Include other armor classes"])
     armorCheck.text:SetPoint("LEFT", armorCheck, "RIGHT", 4, 0)
     armorCheck:SetChecked((GearSetImproverDB and GearSetImproverDB.junkIncludeOtherArmor) or false)
     armorCheck:SetScript("OnClick", function(self)
@@ -1281,7 +1283,7 @@ function GSI_UI:DrawJunk(parent)
     local whiteCheck = CreateFrame("CheckButton", "GSI_JunkWhiteGearCheck", parent, "UICheckButtonTemplate")
     whiteCheck:SetSize(22, 22)
     whiteCheck:SetPoint("TOPLEFT", 225, -114)
-    whiteCheck.text = GSI_UI:CreateText(whiteCheck, "BODY", "Include Common (White) gear")
+    whiteCheck.text = GSI_UI:CreateText(whiteCheck, "BODY", L["Include Common (White) gear"])
     whiteCheck.text:SetPoint("LEFT", whiteCheck, "RIGHT", 4, 0)
     whiteCheck:SetChecked((GearSetImproverDB and GearSetImproverDB.junkIncludeWhiteGear ~= false))
     whiteCheck:SetScript("OnClick", function(self)
@@ -1299,7 +1301,7 @@ function GSI_UI:DrawJunk(parent)
     local unusableCheck = CreateFrame("CheckButton", "GSI_JunkUnusableCheck", parent, "UICheckButtonTemplate")
     unusableCheck:SetSize(22, 22)
     unusableCheck:SetPoint("TOPLEFT", 440, -114)
-    unusableCheck.text = GSI_UI:CreateText(unusableCheck, "BODY", "Include unusable gear")
+    unusableCheck.text = GSI_UI:CreateText(unusableCheck, "BODY", L["Include unusable gear"])
     unusableCheck.text:SetPoint("LEFT", unusableCheck, "RIGHT", 4, 0)
     unusableCheck:SetChecked((GearSetImproverDB and GearSetImproverDB.junkIncludeUnusableGear ~= false))
     unusableCheck:SetScript("OnClick", function(self)
@@ -1367,7 +1369,7 @@ function GSI_UI:UpdateJunkList(parent)
         for _ in pairs(GearSetImproverDB.lockedCleanUpItems) do countLocked = countLocked + 1 end
     end
     if parent._lockedBtn then
-        parent._lockedBtn:SetText(string.format("Locked (%d)", countLocked))
+        parent._lockedBtn:SetText(string.format(L["Locked (%d)"], countLocked))
     end
 
     local scrollChild = parent._junkScrollChild
@@ -1378,17 +1380,17 @@ function GSI_UI:UpdateJunkList(parent)
     local hasSpell = HasDisenchantSpell()
 
     if #items == 0 then
-        parent._junkStatus:SetText("No obsolete gear found in your bags.")
+        parent._junkStatus:SetText(L["No obsolete gear found in your bags."])
     else
         local modeText = ""
         if merchantOpen then
-            modeText = " |cff00ff00(Merchant open - click item to sell)|r"
+            modeText = L[" |cff00ff00(Merchant open - click item to sell)|r"]
         elseif hasSpell then
-            modeText = " |cff00ffff(Disenchant ready - click item to disenchant)|r"
+            modeText = L[" |cff00ffff(Disenchant ready - click item to disenchant)|r"]
         else
-            modeText = " |cffff8800(No merchant open)|r"
+            modeText = L[" |cffff8800(No merchant open)|r"]
         end
-        parent._junkStatus:SetText(string.format("%d obsolete item(s) found%s", #items, modeText))
+        parent._junkStatus:SetText(string.format(L["%d obsolete item(s) found%s"], #items, modeText))
     end
 
     if parent._sellAllBtn then
@@ -1408,11 +1410,11 @@ function GSI_UI:UpdateJunkList(parent)
             if #deItems > 0 then
                 parent._deMacroBtn:Enable()
                 parent._deMacroBtn:SetAlpha(1.0)
-                parent._deMacroBtn:SetText(string.format("Disenchant (%d)", #deItems))
+                parent._deMacroBtn:SetText(string.format(L["Disenchant (%d)"], #deItems))
             else
                 parent._deMacroBtn:Disable()
                 parent._deMacroBtn:SetAlpha(0.5)
-                parent._deMacroBtn:SetText("Disenchant (0)")
+                parent._deMacroBtn:SetText(L["Disenchant (0)"])
             end
             if GSI_UI.SyncExistingDisenchantMacro then
                 GSI_UI:SyncExistingDisenchantMacro()
@@ -1445,15 +1447,15 @@ function GSI_UI:UpdateJunkList(parent)
             row._icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
             local lockBtn = CreateFrame("Button", nil, row, _BACKDROP_TEMPLATE)
-            lockBtn:SetSize(44, 20)
+            lockBtn:SetSize(64, 20)
             lockBtn:SetPoint("RIGHT", -6, 0)
             lockBtn:SetFrameLevel(row:GetFrameLevel() + 5)
             _SkinButton(lockBtn)
-            lockBtn:SetText("Lock")
+            lockBtn:SetText(L["Lock"])
             lockBtn:HookScript("OnEnter", function(self)
                 GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                GameTooltip:AddLine("Lock Item", 1, 0.82, 0)
-                GameTooltip:AddLine("Permanently excludes this item from the clean-up list so it will never be sold.", 0.8, 0.8, 0.8, true)
+                GameTooltip:AddLine(L["Lock Item"], 1, 0.82, 0)
+                GameTooltip:AddLine(L["Permanently excludes this item from the clean-up list so it will never be sold."], 0.8, 0.8, 0.8, true)
                 GameTooltip:Show()
             end)
             lockBtn:HookScript("OnLeave", function() GameTooltip:Hide() end)
@@ -1463,7 +1465,7 @@ function GSI_UI:UpdateJunkList(parent)
             sellBtn:SetSize(72, 20)
             sellBtn:SetPoint("RIGHT", lockBtn, "LEFT", -6, 0)
             sellBtn:SetFrameLevel(row:GetFrameLevel() + 5)
-            sellBtn:SetText("Sell")
+            sellBtn:SetText(L["Sell"])
             _SkinButton(sellBtn)
             sellBtn:HookScript("OnEnter", function()
                 if row._currentItemLink then
@@ -1481,7 +1483,7 @@ function GSI_UI:UpdateJunkList(parent)
             deBtn:SetSize(78, 20)
             deBtn:SetPoint("RIGHT", lockBtn, "LEFT", -6, 0)
             deBtn:SetFrameLevel(row:GetFrameLevel() + 5)
-            deBtn:SetText("Disenchant")
+            deBtn:SetText(L["Disenchant"])
             deBtn:RegisterForClicks("AnyUp")
             deBtn:SetAttribute("useOnKeyDown", false)
             _SkinButton(deBtn)
@@ -1511,9 +1513,9 @@ function GSI_UI:UpdateJunkList(parent)
         local hex = qualColor and string.format("|cff%02x%02x%02x", qualColor.r*255, qualColor.g*255, qualColor.b*255) or "|cffffffff"
 
         if item.isUnusable then
-            row._ilvlText:SetText(string.format("|cffff4444[%s]|r |cffff4444(-%.0f)|r", item.unusableType or "Unusable", item.delta))
+            row._ilvlText:SetText(string.format("|cffff4444[%s]|r |cffff4444(-%.0f)|r", L[item.unusableType or "Unusable"], item.delta))
         elseif item.isOtherArmor then
-            row._ilvlText:SetText(string.format("|cffffaa00[Armor]|r |cffff4444(-%.0f)|r", item.delta))
+            row._ilvlText:SetText(string.format("|cffffaa00[%s]|r |cffff4444(-%.0f)|r", L["Armor"], item.delta))
         else
             row._ilvlText:SetText(string.format("%s%.0f|r |cffff4444(-%.0f)|r", hex, item.score, item.delta))
         end
@@ -1548,7 +1550,7 @@ function GSI_UI:UpdateJunkList(parent)
                 GearSetImproverDB.lockedCleanUpItems = GearSetImproverDB.lockedCleanUpItems or {}
                 local itemName = GetItemInfo(itemLink) or itemLink
                 GearSetImproverDB.lockedCleanUpItems[itemID] = itemName
-                print(string.format("|cffffcc00[GSI]|r %s locked. Excluded from clean-up list.", itemLink))
+                print(string.format(L["|cffffcc00[GSI]|r %s locked. Excluded from clean-up list."], itemLink))
                 GSI_UI:UpdateJunkList(parent)
             end
         end)
@@ -1557,7 +1559,7 @@ function GSI_UI:UpdateJunkList(parent)
             row._deBtn:Hide()
             row._sellBtn:Show()
             row._sellBtn:Enable()
-            row._sellBtn:SetText("Sell")
+            row._sellBtn:SetText(L["Sell"])
             row._sellBtn:SetScript("OnClick", function()
                 SafeUseBagItem(bagID, slotID)
                 C_Timer.After(0.15, function()
@@ -1571,7 +1573,7 @@ function GSI_UI:UpdateJunkList(parent)
             row._sellBtn:Hide()
             row._deBtn:Show()
             row._deBtn:Enable()
-            row._deBtn:SetText("Disenchant")
+            row._deBtn:SetText(L["Disenchant"])
             row._deBtn:SetAttribute("type", "spell")
             row._deBtn:SetAttribute("type1", "spell")
             row._deBtn:SetAttribute("*type1", "spell")
@@ -1601,7 +1603,7 @@ function GSI_UI:UpdateJunkList(parent)
             parent._junkEmptyText:SetPoint("CENTER", parent._junkScroll or scrollChild, "CENTER", 0, 0)
             parent._junkEmptyText:SetTextColor(0.5, 0.5, 0.5)
         end
-        parent._junkEmptyText:SetText("No obsolete gear found.")
+        parent._junkEmptyText:SetText(L["No obsolete gear found."])
         parent._junkEmptyText:Show()
     else
         if parent._junkEmptyText then parent._junkEmptyText:Hide() end

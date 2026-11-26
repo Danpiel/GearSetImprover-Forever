@@ -6,6 +6,8 @@
 
 GSI_UI = GSI_UI or {}
 
+local L = GSI_L
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 local BackdropTemplateMixin = _G.BackdropTemplateMixin
@@ -112,7 +114,7 @@ mainFrame.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 mainFrame.title = CreateText(mainFrame.header, "TITLE", "GEARSET IMPROVER", "LEFT")
 mainFrame.title:SetPoint("LEFT", mainFrame.iconFrame, "RIGHT", 10, 5)
 
-mainFrame.subtitle = CreateText(mainFrame.header, "SMALL", "WOW FOREVER", "LEFT")
+mainFrame.subtitle = CreateText(mainFrame.header, "SMALL", L["WOW FOREVER"], "LEFT")
 mainFrame.subtitle:SetPoint("TOPLEFT", mainFrame.title, "BOTTOMLEFT", 0, -1)
 mainFrame.subtitle:SetTextColor(unpack(T.accentBright))
 
@@ -148,9 +150,9 @@ mainFrame.settingsBtn.icon:SetVertexColor(unpack(T.textSecondary))
 mainFrame.settingsBtn:SetScript("OnEnter", function(selfBtn)
     selfBtn.icon:SetVertexColor(unpack(T.textPrimary))
     GameTooltip:SetOwner(selfBtn, "ANCHOR_BOTTOMRIGHT")
-    GameTooltip:AddLine("Settings", 1, 0.82, 0)
-    GameTooltip:AddLine("Opens GearSetImprover settings and options.", 1, 1, 1, true)
-    GameTooltip:AddLine("|cff00ff00Left-Click:|r Open addon options", 0.7, 0.7, 0.7)
+    GameTooltip:AddLine(L["Settings"], 1, 0.82, 0)
+    GameTooltip:AddLine(L["Opens GearSetImprover settings and options."], 1, 1, 1, true)
+    GameTooltip:AddLine(L["|cff00ff00Left-Click:|r Open addon options"], 0.7, 0.7, 0.7)
     GameTooltip:Show()
 end)
 mainFrame.settingsBtn:SetScript("OnLeave", function(selfBtn)
@@ -168,7 +170,7 @@ scoreWidget:SetPoint("RIGHT", mainFrame.settingsBtn, "LEFT", -12, 0)
 SkinCard(scoreWidget, false)
 mainFrame.scoreWidget = scoreWidget
 
-scoreWidget.lbl = CreateText(scoreWidget, "SMALL", "GEAR SCORE", "LEFT")
+scoreWidget.lbl = CreateText(scoreWidget, "SMALL", L["GEAR SCORE"], "LEFT")
 scoreWidget.lbl:SetPoint("LEFT", 10, 0)
 if scoreWidget.lbl.SetWordWrap then scoreWidget.lbl:SetWordWrap(false) end
 
@@ -177,7 +179,7 @@ scoreWidget.val:SetPoint("LEFT", scoreWidget.lbl, "RIGHT", 8, 0)
 scoreWidget.val:SetTextColor(unpack(T.textPrimary))
 if scoreWidget.val.SetWordWrap then scoreWidget.val:SetWordWrap(false) end
 
-scoreWidget.deltaPill = CreatePill(scoreWidget, "OPTIMAL", "ACCENT")
+scoreWidget.deltaPill = CreatePill(scoreWidget, L["OPTIMAL"], "ACCENT")
 scoreWidget.deltaPill:SetPoint("RIGHT", -6, 0)
 scoreWidget.val:SetPoint("RIGHT", scoreWidget.deltaPill, "LEFT", -8, 0)
 
@@ -200,7 +202,7 @@ function GSI_UI:UpdateTitleScore()
     if lastGain and lastGain > 0.05 then
         mainFrame.scoreWidget.deltaPill:SetPillStyle(string.format("+%.1f", lastGain), "SUCCESS")
     else
-        mainFrame.scoreWidget.deltaPill:SetPillStyle("OPTIMAL", "ACCENT")
+        mainFrame.scoreWidget.deltaPill:SetPillStyle(L["OPTIMAL"], "ACCENT")
     end
 end
 
@@ -238,7 +240,7 @@ mainFrame.specBtn:SetFrameStrata("HIGH")
 mainFrame.specBtn:SetFrameLevel(120)
 mainFrame.specBtn:EnableMouse(true)
 mainFrame.specBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-SkinButton(mainFrame.specBtn, "Specialization", "SECONDARY")
+SkinButton(mainFrame.specBtn, L["Specialization"], "SECONDARY")
 
 mainFrame.specBtn.icon = mainFrame.specBtn:CreateTexture(nil, "ARTWORK")
 mainFrame.specBtn.icon:SetSize(16, 16)
@@ -250,7 +252,7 @@ mainFrame.specBtn.arrow:SetSize(14, 14)
 mainFrame.specBtn.arrow:SetPoint("RIGHT", mainFrame.specBtn, "RIGHT", -4, 0)
 mainFrame.specBtn.arrow:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
 
-mainFrame.specBtn:SetText("Specialization")
+mainFrame.specBtn:SetText(L["Specialization"])
 LayoutSingleLineButtonText(mainFrame.specBtn, mainFrame.specBtn.icon, "RIGHT", 5, mainFrame.specBtn.arrow, "LEFT", -3)
 
 -- Mode Button (Single Target / AoE / Survival / Threat)
@@ -261,14 +263,14 @@ mainFrame.modeBtn:SetFrameStrata("HIGH")
 mainFrame.modeBtn:SetFrameLevel(120)
 mainFrame.modeBtn:EnableMouse(true)
 mainFrame.modeBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-SkinButton(mainFrame.modeBtn, "Mode", "SECONDARY")
+SkinButton(mainFrame.modeBtn, L["Mode"], "SECONDARY")
 
 mainFrame.modeBtn.arrow = mainFrame.modeBtn:CreateTexture(nil, "ARTWORK")
 mainFrame.modeBtn.arrow:SetSize(14, 14)
 mainFrame.modeBtn.arrow:SetPoint("RIGHT", mainFrame.modeBtn, "RIGHT", -4, 0)
 mainFrame.modeBtn.arrow:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
 
-mainFrame.modeBtn:SetText("Mode")
+mainFrame.modeBtn:SetText(L["Mode"])
 LayoutSingleLineButtonText(mainFrame.modeBtn, mainFrame.modeBtn, "LEFT", 8, mainFrame.modeBtn.arrow, "LEFT", -3)
 
 -- Click backdrop to close open dropdowns
@@ -310,7 +312,7 @@ specAutoItem:SetPoint("TOP", 0, -4)
 specAutoItem:SetFrameLevel(510)
 specAutoItem:EnableMouse(true)
 specAutoItem:RegisterForClicks("LeftButtonUp", "RightButtonUp")
-SkinButton(specAutoItem, "Auto", "SECONDARY")
+SkinButton(specAutoItem, L["Auto"], "SECONDARY")
 specAutoItem.icon = specAutoItem:CreateTexture(nil, "ARTWORK")
 specAutoItem.icon:SetSize(16, 16)
 specAutoItem.icon:SetPoint("LEFT", specAutoItem, "LEFT", 6, 0)
@@ -330,9 +332,9 @@ specAutoItem:SetScript("OnClick", function()
 end)
 specAutoItem:SetScript("OnEnter", function(selfBtn)
     GameTooltip:SetOwner(selfBtn, "ANCHOR_LEFT")
-    GameTooltip:AddLine("Auto: current specialization", 1, 0.82, 0)
-    GameTooltip:AddLine("Scores follow the talent tree you have the most points in and switch by themselves when you respec. Picking a spec below pins it instead.", 1, 1, 1, true)
-    GameTooltip:AddLine("Feral druids: Cat or Bear below sets your feral role and stays on Auto.", 0.7, 0.9, 1, true)
+    GameTooltip:AddLine(L["Auto: current specialization"], 1, 0.82, 0)
+    GameTooltip:AddLine(L["Scores follow the talent tree you have the most points in and switch by themselves when you respec. Picking a spec below pins it instead."], 1, 1, 1, true)
+    GameTooltip:AddLine(L["Feral druids: Cat or Bear below sets your feral role and stays on Auto."], 0.7, 0.9, 1, true)
     GameTooltip:Show()
 end)
 specAutoItem:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -382,7 +384,7 @@ function GSI_UI:UpdateSpecButton()
         local specIndex = GSI_StatWeights:GetActiveSpecIndex()
         local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
         local specData = classData and classData.specs and classData.specs[specIndex]
-        local specName = (specData and specData.name) or ("Spec " .. tostring(specIndex))
+        local specName = (specData and specData.name) or string.format("Spec %s", tostring(specIndex))
         local iconID = specData and specData.icon
         if not iconID or iconID == 0 then
             local fallbackIcons = {
@@ -393,7 +395,7 @@ function GSI_UI:UpdateSpecButton()
         end
 
         local isAuto = GSI_StatWeights.IsSpecAuto and GSI_StatWeights:IsSpecAuto()
-        mainFrame.specBtn:SetText(isAuto and ("Auto: " .. specName) or specName)
+        mainFrame.specBtn:SetText(isAuto and string.format(L["Auto: %s"], L[specName]) or L[specName])
         LayoutSingleLineButtonText(mainFrame.specBtn, mainFrame.specBtn.icon, "RIGHT", 5, mainFrame.specBtn.arrow, "LEFT", -3)
         if mainFrame.specBtn.icon then
             mainFrame.specBtn.icon:SetTexture(iconID)
@@ -437,10 +439,10 @@ function GSI_UI:UpdateModeUI()
         local label = ""
         if role == "tank" then
             local tMode = (GearSetImproverDB and GearSetImproverDB.tankMode) or "Survival"
-            label = (tMode == "Survival") and "Survival" or "Threat / DPS"
+            label = (tMode == "Survival") and L["Survival"] or L["Threat / DPS"]
         else
             local wMode = (GearSetImproverDB and GearSetImproverDB.weightMode) or "ST"
-            label = (wMode == "ST") and "Single Target" or "AoE / Trash"
+            label = (wMode == "ST") and L["Single Target"] or L["AoE / Trash"]
         end
         mainFrame.modeBtn:SetText(label)
         LayoutSingleLineButtonText(mainFrame.modeBtn, mainFrame.modeBtn, "LEFT", 8, mainFrame.modeBtn.arrow, "LEFT", -3)
@@ -464,13 +466,13 @@ mainFrame.specBtn:SetScript("OnClick", function()
         local isAuto = GSI_StatWeights.IsSpecAuto and GSI_StatWeights:IsSpecAuto()
         local detected = GSI_StatWeights.DetectCurrentSpec and GSI_StatWeights:DetectCurrentSpec() or currentSpec
         local detData = classData and classData.specs and classData.specs[detected]
-        local autoLabel = "Auto: " .. ((detData and detData.name) or ("Spec " .. tostring(detected)))
+        local autoLabel = string.format(L["Auto: %s"], L[(detData and detData.name) or string.format("Spec %s", tostring(detected))])
         specAutoItem:SetText(isAuto and string.format("|cff00ff00%s|r", autoLabel) or autoLabel)
         LayoutSingleLineButtonText(specAutoItem, specAutoItem.icon, "RIGHT", 6, specAutoItem, "RIGHT", -6)
         for i = 1, 4 do
             if i <= numSpecs then
                 local specData = classData and classData.specs and classData.specs[i]
-                local name = (specData and specData.name) or ("Spec " .. i)
+                local name = L[(specData and specData.name) or string.format("Spec %s", i)]
                 local icon = specData and specData.icon or 134400
                 if i == currentSpec and not isAuto then
                     specMenuItems[i]:SetText(string.format("|cff00ff00%s|r", name))
@@ -493,7 +495,7 @@ mainFrame.specBtn:SetScript("OnClick", function()
         if specMenu.Raise then specMenu:Raise() end
     end)
     if not ok then
-        print("|cffff0000[GSI ERROR]|r Spec dropdown error: " .. tostring(err))
+        print(L["|cffff0000[GSI ERROR]|r Spec dropdown error: "] .. tostring(err))
     end
 end)
 
@@ -529,18 +531,18 @@ mainFrame.modeBtn:SetScript("OnClick", function()
         local role = GSI_StatWeights:GetRole()
         if role == "tank" then
             local currentTankMode = (GearSetImproverDB and GearSetImproverDB.tankMode) or "Survival"
-            ConfigureModeMenuItem(modeMenuItems[1], "Survival", currentTankMode == "Survival", function()
+            ConfigureModeMenuItem(modeMenuItems[1], L["Survival"], currentTankMode == "Survival", function()
                 if GearSetImproverDB then GearSetImproverDB.tankMode = "Survival" end
             end)
-            ConfigureModeMenuItem(modeMenuItems[2], "Threat / DPS", currentTankMode ~= "Survival", function()
+            ConfigureModeMenuItem(modeMenuItems[2], L["Threat / DPS"], currentTankMode ~= "Survival", function()
                 if GearSetImproverDB then GearSetImproverDB.tankMode = "DMG" end
             end)
         else
             local currentWeightMode = (GearSetImproverDB and GearSetImproverDB.weightMode) or "ST"
-            ConfigureModeMenuItem(modeMenuItems[1], "Single Target", currentWeightMode == "ST", function()
+            ConfigureModeMenuItem(modeMenuItems[1], L["Single Target"], currentWeightMode == "ST", function()
                 if GearSetImproverDB then GearSetImproverDB.weightMode = "ST" end
             end)
-            ConfigureModeMenuItem(modeMenuItems[2], "AoE / Trash", currentWeightMode ~= "ST", function()
+            ConfigureModeMenuItem(modeMenuItems[2], L["AoE / Trash"], currentWeightMode ~= "ST", function()
                 if GearSetImproverDB then GearSetImproverDB.weightMode = "AOE" end
             end)
         end
@@ -552,7 +554,7 @@ mainFrame.modeBtn:SetScript("OnClick", function()
         if modeMenu.Raise then modeMenu:Raise() end
     end)
     if not ok then
-        print("|cffff0000[GSI ERROR]|r Mode dropdown error: " .. tostring(err))
+        print(L["|cffff0000[GSI ERROR]|r Mode dropdown error: "] .. tostring(err))
     end
 end)
 
@@ -688,17 +690,17 @@ sDivider:SetPoint("BOTTOMRIGHT", mainFrame.sidebar, "BOTTOMRIGHT", 0, 0)
 sDivider:SetWidth(PP(1))
 sDivider:SetColorTexture(unpack(T.borderSubtle))
 
-local navHeader = CreateText(mainFrame.sidebar, "SECTION", "WORKSPACE", "LEFT")
+local navHeader = CreateText(mainFrame.sidebar, "SECTION", L["WORKSPACE"], "LEFT")
 navHeader:SetPoint("TOPLEFT", 14, -14)
 
 local TAB_DEFINITIONS = {
-    { id = "OVERVIEW", label = "Overview",     sub = "Hero & KPI Analytics", icon = "Interface\\Icons\\INV_Misc_Gem_01" },
-    { id = "GEAR",     label = "Gear Slots",   sub = "17-Slot Delta Engine", icon = "Interface\\Icons\\INV_Chest_Chain_03" },
-    { id = "BIB",      label = "Best Available", sub = "Instant Upgrades",    icon = "Interface\\Icons\\INV_Misc_Bag_CoreFelclothBag" },
-    { id = "WEIGHTS",  label = "Stat Weights", sub = "Scaling & Pawn Values", icon = "Interface\\Icons\\Spell_Holy_MindVision" },
-    { id = "MACROS",   label = "Macros & Sets",sub = "1-Click Equip & Sync",  icon = "Interface\\Icons\\Trade_Engineering" },
-    { id = "JUNK",     label = "Clean-up",     sub = "Outdated & Disenchant", icon = "Interface\\Icons\\INV_Enchant_Disenchant" },
-    { id = "SETTINGS", label = "Settings",     sub = "Addon Configuration",   icon = "Interface\\Icons\\INV_Misc_Gear_01" },
+    { id = "OVERVIEW", label = L["Overview"],     sub = L["Hero & KPI Analytics"], icon = "Interface\\Icons\\INV_Misc_Gem_01" },
+    { id = "GEAR",     label = L["Gear Slots"],   sub = L["17-Slot Delta Engine"], icon = "Interface\\Icons\\INV_Chest_Chain_03" },
+    { id = "BIB",      label = L["Best Available"], sub = L["Instant Upgrades"],    icon = "Interface\\Icons\\INV_Misc_Bag_CoreFelclothBag" },
+    { id = "WEIGHTS",  label = L["Stat Weights"], sub = L["Scaling & Pawn Values"], icon = "Interface\\Icons\\Spell_Holy_MindVision" },
+    { id = "MACROS",   label = L["Macros & Sets"],sub = L["1-Click Equip & Sync"],  icon = "Interface\\Icons\\Trade_Engineering" },
+    { id = "JUNK",     label = L["Clean-up"],     sub = L["Outdated & Disenchant"], icon = "Interface\\Icons\\INV_Enchant_Disenchant" },
+    { id = "SETTINGS", label = L["Settings"],     sub = L["Addon Configuration"],   icon = "Interface\\Icons\\INV_Misc_Gear_01" },
 }
 
 local tabButtons = {}
@@ -763,8 +765,8 @@ end
 local scanBtn = CreateFrame("Button", nil, mainFrame.sidebar, BACKDROP_TEMPLATE)
 scanBtn:SetSize(174, 32)
 scanBtn:SetPoint("BOTTOM", mainFrame.sidebar, "BOTTOM", 0, 14)
-scanBtn:SetText("OPTIMIZE GEAR")
-SkinButton(scanBtn, "OPTIMIZE GEAR", "PRIMARY")
+scanBtn:SetText(L["OPTIMIZE GEAR"])
+SkinButton(scanBtn, L["OPTIMIZE GEAR"], "PRIMARY")
 scanBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 scanBtn:SetScript("OnClick", function(_, mouseBtn)
     pcall(function()
@@ -790,9 +792,9 @@ scanBtn:SetScript("OnClick", function(_, mouseBtn)
 end)
 scanBtn:SetScript("OnEnter", function(selfBtn)
     GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
-    GameTooltip:AddLine("Optimize Gear (Scan Bags)", 1, 0.82, 0)
-    GameTooltip:AddLine("|cff00ff00Left-Click:|r Scan bags & open Best Available", 1, 1, 1)
-    GameTooltip:AddLine("|cff00ff00Right-Click:|r Immediately equip all upgrades", 1, 1, 1)
+    GameTooltip:AddLine(L["Optimize Gear (Scan Bags)"], 1, 0.82, 0)
+    GameTooltip:AddLine(L["|cff00ff00Left-Click:|r Scan bags & open Best Available"], 1, 1, 1)
+    GameTooltip:AddLine(L["|cff00ff00Right-Click:|r Immediately equip all upgrades"], 1, 1, 1)
     GameTooltip:Show()
 end)
 scanBtn:SetScript("OnLeave", function() GameTooltip:Hide() end)
@@ -915,13 +917,13 @@ end
 -- 6. DEBUG LOG EXPORT
 -- ----------------------------------------------------------------------------
 function GSI_UI:DrawDebug(parent)
-    local title = CreateText(parent, "TITLE", "Debug & Optimization Log", "LEFT")
+    local title = CreateText(parent, "TITLE", L["Debug & Optimization Log"], "LEFT")
     title:SetPoint("TOPLEFT", 18, -18)
 
     local btn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
     btn:SetSize(160, 26)
     btn:SetPoint("TOPLEFT", 18, -50)
-    SkinButton(btn, "Export / Copy Log", "SECONDARY")
+    SkinButton(btn, L["Export / Copy Log"], "SECONDARY")
     btn:SetScript("OnClick", function()
         if GSI_Logger and GSI_Logger.ShowExportWindow then
             GSI_Logger:ShowExportWindow()
@@ -932,7 +934,7 @@ end
 function GSI_UI:OpenSettings()
     if InCombatLockdown and InCombatLockdown() then
         if not (GearSetImproverDB and GearSetImproverDB.disableChatOutput) then
-            print("|cff00ff00[GearSetImprover]|r |cffff8800Interface settings cannot be opened during combat.|r")
+            print(L["|cff00ff00[GearSetImprover]|r |cffff8800Interface settings cannot be opened during combat.|r"])
         end
         return
     end
@@ -1049,7 +1051,7 @@ function GSI_UI:HandleSlashCommand(msg)
         local spec = GSI_StatWeights:GetActiveSpecIndex()
         local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[GetPlayerClassKey()]
         local sd = cd and cd.specs and cd.specs[spec]
-        print(string.format("|cffffcc00[GearSetImprover]|r Specialization: |cff00ff00Auto|r (now |cff00ff00%s|r, follows your talents).", (sd and sd.name) or ("Spec " .. spec)))
+        print(string.format(L["|cffffcc00[GearSetImprover]|r Specialization: |cff00ff00Auto|r (now |cff00ff00%s|r, follows your talents)."], L[(sd and sd.name) or string.format("Spec %s", spec)]))
         return
     end
 
@@ -1073,7 +1075,7 @@ function GSI_UI:HandleSlashCommand(msg)
         if targetSpec and GSI_UI.GoToSpec then
             GSI_UI:GoToSpec(targetSpec, targetMode)
         else
-            print("|cffffcc00[GearSetImprover]|r Usage: |cffffcc00/gsi go <spec> [mode]|r, e.g. |cffffcc00/gsi go bear|r or |cffffcc00/gsi go cat aoe|r.")
+            print(L["|cffffcc00[GearSetImprover]|r Usage: |cffffcc00/gsi go <spec> [mode]|r, e.g. |cffffcc00/gsi go bear|r or |cffffcc00/gsi go cat aoe|r."])
         end
         return
     end
@@ -1096,10 +1098,10 @@ function GSI_UI:HandleSlashCommand(msg)
             local class = GetPlayerClassKey()
             local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
             local specData = classData and classData.specs and classData.specs[targetSpec]
-            local specName = (specData and specData.name) or ("Spec " .. targetSpec)
-            print(string.format("|cffffcc00[GearSetImprover]|r Specialization set to |cff00ff00%s|r. Type |cffffcc00/gsi equip|r to equip Best Available Gear.", specName))
+            local specName = L[(specData and specData.name) or string.format("Spec %s", targetSpec)]
+            print(string.format(L["|cffffcc00[GearSetImprover]|r Specialization set to |cff00ff00%s|r. Type |cffffcc00/gsi equip|r to equip Best Available Gear."], specName))
         else
-            print("|cffffcc00[GearSetImprover]|r Specify a valid spec: 1-3 (or 1-4 for Druids) or spec name, or |cffffcc00auto|r. Example: |cffffcc00/gsi spec bear|r, |cffffcc00/gsi spec auto|r")
+            print(L["|cffffcc00[GearSetImprover]|r Specify a valid spec: 1-3 (or 1-4 for Druids) or spec name, or |cffffcc00auto|r. Example: |cffffcc00/gsi spec bear|r, |cffffcc00/gsi spec auto|r"])
         end
         return
     end
@@ -1117,9 +1119,9 @@ function GSI_UI:HandleSlashCommand(msg)
             pcall(function() GSI_UI:UpdateModeUI() end)
             pcall(function() GSI_UI:UpdateTitleScore() end)
             if mainFrame and mainFrame:IsShown() then GSI_UI:RefreshPanel(true) end
-            print(string.format("|cffffcc00[GearSetImprover]|r Mode set to |cff00ff00%s|r. Type |cffffcc00/gsi equip|r to equip Best Available Gear.", targetMode.value))
+            print(string.format(L["|cffffcc00[GearSetImprover]|r Mode set to |cff00ff00%s|r. Type |cffffcc00/gsi equip|r to equip Best Available Gear."], targetMode.value))
         else
-            print("|cffffcc00[GearSetImprover]|r Specify a valid mode: |cff00ff00survival|r, |cff00ff00threat|r, |cff00ff00st|r, or |cff00ff00aoe|r.")
+            print(L["|cffffcc00[GearSetImprover]|r Specify a valid mode: |cff00ff00survival|r, |cff00ff00threat|r, |cff00ff00st|r, or |cff00ff00aoe|r."])
         end
         return
     end
@@ -1145,7 +1147,7 @@ function GSI_UI:DebugDump(arg)
     if not GearSetImproverDB then return end
     if arg == "clear" then
         GearSetImproverDB._dump = nil
-        print("|cffffcc00[GearSetImprover]|r Diagnostics dump removed.")
+        print(L["|cffffcc00[GearSetImprover]|r Diagnostics dump removed."])
         return
     end
 
@@ -1345,7 +1347,7 @@ function GSI_UI:DebugDump(arg)
     end
 
     GearSetImproverDB._dump = d
-    print(string.format("|cffffcc00[GearSetImprover]|r Diagnostics saved (%d items, locale %s). Type |cffffcc00/reload|r to write them to disk.", #d.items, d.locale))
+    print(string.format(L["|cffffcc00[GearSetImprover]|r Diagnostics saved (%d items, locale %s). Type |cffffcc00/reload|r to write them to disk."], #d.items, d.locale))
 end
 
 function GSI_UI:Initialize()

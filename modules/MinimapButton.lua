@@ -3,6 +3,8 @@
 -- Draggable Minimap icon with quick actions and tooltip info
 -- ============================================================
 
+local L = GSI_L
+
 GSI_MinimapButton = {}
 local GSI_MinimapButton = GSI_MinimapButton
 
@@ -149,7 +151,8 @@ button:SetScript("OnEnter", function(self)
     local specIndex = (GSI_StatWeights and GSI_StatWeights.GetActiveSpecIndex and GSI_StatWeights:GetActiveSpecIndex()) or 1
     local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
     local specData = classData and classData.specs and classData.specs[specIndex]
-    local specName = specData and (specData.name or specData.nameDE) or ("Spec " .. tostring(specIndex))
+    local specName = specData and (specData.name or specData.nameDE)
+    specName = specName and L[specName] or string.format(L["Spec %d"], tonumber(specIndex) or 1)
 
     local role = GSI_StatWeights and GSI_StatWeights.GetRole and GSI_StatWeights:GetRole(specIndex)
     local activeModeArg, modeLabel
@@ -158,11 +161,11 @@ button:SetScript("OnEnter", function(self)
             or (GSI_Config and GSI_Config.TankMode) or "Survival"
         if tMode == "Threat" then tMode = "DMG" end
         activeModeArg = tMode
-        modeLabel = (tMode == "Survival") and "Survival" or "Threat / DPS"
+        modeLabel = (tMode == "Survival") and L["Survival"] or L["Threat / DPS"]
     else
         local wMode = (GearSetImproverDB and GearSetImproverDB.weightMode) or "ST"
         activeModeArg = wMode
-        modeLabel = (wMode == "ST") and "Single Target" or "AoE / Trash"
+        modeLabel = (wMode == "ST") and L["Single Target"] or L["AoE / Trash"]
     end
 
     local score = nil
@@ -177,19 +180,19 @@ button:SetScript("OnEnter", function(self)
     local customProfile = (GSI_StatWeights and GSI_StatWeights.GetActiveProfileName and GSI_StatWeights:GetActiveProfileName(specKey, activeModeArg))
         or (GearSetImproverDB and GearSetImproverDB.activeProfile and GearSetImproverDB.activeProfile[specKey])
     if customProfile and customProfile ~= "" then
-        GameTooltip:AddLine(string.format("Profile: |cff00ff00%s|r (%s)", specName, customProfile), 0.9, 0.9, 0.9)
+        GameTooltip:AddLine(string.format(L["Profile: |cff00ff00%s|r (%s)"], specName, customProfile), 0.9, 0.9, 0.9)
     else
-        GameTooltip:AddLine(string.format("Profile: |cff00ff00%s|r (%s)", specName, modeLabel), 0.9, 0.9, 0.9)
+        GameTooltip:AddLine(string.format(L["Profile: |cff00ff00%s|r (%s)"], specName, modeLabel), 0.9, 0.9, 0.9)
     end
     if score and type(score) == "number" then
-        GameTooltip:AddLine(string.format("Current GSI Score: |cff00ff00%.1f|r (%s)", score, modeLabel), 1, 1, 1)
+        GameTooltip:AddLine(string.format(L["Current GSI Score: |cff00ff00%.1f|r (%s)"], score, modeLabel), 1, 1, 1)
     end
 
     GameTooltip:AddLine(" ")
-    GameTooltip:AddLine("|cff00ff00Left-Click:|r Open / Close Menu", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("|cff00ff00Right-Click:|r Equip Best Available Gear", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("|cff00ff00Shift + Left-Click:|r Equip Best Available Gear", 0.8, 0.8, 0.8)
-    GameTooltip:AddLine("|cff00ff00Drag:|r Move Minimap Icon", 0.8, 0.8, 0.8)
+    GameTooltip:AddLine(L["|cff00ff00Left-Click:|r Open / Close Menu"], 0.8, 0.8, 0.8)
+    GameTooltip:AddLine(L["|cff00ff00Right-Click:|r Equip Best Available Gear"], 0.8, 0.8, 0.8)
+    GameTooltip:AddLine(L["|cff00ff00Shift + Left-Click:|r Equip Best Available Gear"], 0.8, 0.8, 0.8)
+    GameTooltip:AddLine(L["|cff00ff00Drag:|r Move Minimap Icon"], 0.8, 0.8, 0.8)
     GameTooltip:Show()
 end)
 
