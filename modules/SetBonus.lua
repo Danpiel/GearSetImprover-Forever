@@ -190,7 +190,7 @@ GSI_SetBonus.Sets = {
         maxEquipped = 1,
         thresholds = {
             [2] = { AttackPower = 20 },
-            [3] = { Crit = 1.0 },
+            [3] = { AttackPower = 15 }, -- Nerfed Nov 2026: 3% chance on melee hit for 18 Energy (was 4%/30 Energy)
             [4] = { AttackPower = 30 }
         }
     },
@@ -313,7 +313,7 @@ GSI_SetBonus.Sets = {
         type = "dungeon",
         thresholds = {
             [2] = { FireResist = 8, NatureResist = 8, FrostResist = 8, ShadowResist = 8, ArcaneResist = 8 },
-            [4] = { MP5 = 10, AttackPower = 15 },
+            [4] = { MP5 = 10, AttackPower = 30 }, -- Fixed Nov 24, 2026: grants 4 Energy/s for 5s (20 Energy proc)
             [6] = { AttackPower = 26, SpellPower = 15, HealingPower = 15 },
             [8] = { Armor = 200 }
         }

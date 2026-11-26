@@ -163,8 +163,15 @@ function GSI_UI:DrawSettings(parent)
     generalHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     if generalHeader.SetWordWrap then generalHeader:SetWordWrap(false) end
 
+    local genDiv = scrollChild:CreateTexture(nil, "ARTWORK")
+    genDiv:SetPoint("TOPLEFT", generalHeader, "BOTTOMLEFT", 0, -4)
+    genDiv:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    genDiv:SetHeight((self.PP and self:PP(1)) or 1)
+    genDiv:SetColorTexture(1, 1, 1, 0.08)
+
     local cbDisableChat = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
-    cbDisableChat:SetPoint("TOPLEFT", generalHeader, "BOTTOMLEFT", 0, -8)
+    cbDisableChat:SetPoint("TOPLEFT", generalHeader, "BOTTOMLEFT", 0, -10)
+    if self.SkinCheckbox then self:SkinCheckbox(cbDisableChat) end
     cbDisableChat.text = self:CreateText(cbDisableChat, "BODY", "Disable Chat Output (Silent Mode)")
     cbDisableChat.text:SetPoint("LEFT", cbDisableChat, "RIGHT", 6, 0)
     cbDisableChat.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -189,6 +196,7 @@ function GSI_UI:DrawSettings(parent)
 
     local cbMerchantOverlay = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbMerchantOverlay:SetPoint("TOPLEFT", cbDisableChat, "BOTTOMLEFT", 0, -6)
+    if self.SkinCheckbox then self:SkinCheckbox(cbMerchantOverlay) end
     cbMerchantOverlay.text = self:CreateText(cbMerchantOverlay, "BODY", "Show Clean-up sell window at merchant")
     cbMerchantOverlay.text:SetPoint("LEFT", cbMerchantOverlay, "RIGHT", 6, 0)
     cbMerchantOverlay.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -233,8 +241,14 @@ function GSI_UI:DrawSettings(parent)
     specHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     if specHeader.SetWordWrap then specHeader:SetWordWrap(true) end
 
+    local specDiv = scrollChild:CreateTexture(nil, "ARTWORK")
+    specDiv:SetPoint("TOPLEFT", specHeader, "BOTTOMLEFT", 0, -4)
+    specDiv:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    specDiv:SetHeight((self.PP and self:PP(1)) or 1)
+    specDiv:SetColorTexture(1, 1, 1, 0.08)
+
     local specDesc = self:CreateText(scrollChild, "BODY", "Select which orientations display a GSI Score in tooltips (e.g. Bear Survival, Cat ST & AoE):")
-    specDesc:SetPoint("TOPLEFT", specHeader, "BOTTOMLEFT", 0, -8)
+    specDesc:SetPoint("TOPLEFT", specHeader, "BOTTOMLEFT", 0, -10)
     specDesc:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     specDesc:SetJustifyH("LEFT")
     if specDesc.SetWordWrap then specDesc:SetWordWrap(true) end
@@ -248,6 +262,7 @@ function GSI_UI:DrawSettings(parent)
     for _, pInfo in ipairs(profiles) do
         local cb = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
         cb:SetPoint("TOPLEFT", lastElem, "BOTTOMLEFT", 0, -6)
+        if self.SkinCheckbox then self:SkinCheckbox(cb) end
         cb.text = self:CreateText(cb, "BODY", pInfo.label)
         cb.text:SetPoint("LEFT", cb, "RIGHT", 6, 0)
         cb.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -283,8 +298,15 @@ function GSI_UI:DrawSettings(parent)
     setHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     if setHeader.SetWordWrap then setHeader:SetWordWrap(true) end
 
+    local setDiv = scrollChild:CreateTexture(nil, "ARTWORK")
+    setDiv:SetPoint("TOPLEFT", setHeader, "BOTTOMLEFT", 0, -4)
+    setDiv:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    setDiv:SetHeight((self.PP and self:PP(1)) or 1)
+    setDiv:SetColorTexture(1, 1, 1, 0.08)
+
     local cbSpecAuto = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
-    cbSpecAuto:SetPoint("TOPLEFT", setHeader, "BOTTOMLEFT", 0, -8)
+    cbSpecAuto:SetPoint("TOPLEFT", setHeader, "BOTTOMLEFT", 0, -10)
+    if self.SkinCheckbox then self:SkinCheckbox(cbSpecAuto) end
     cbSpecAuto.text = self:CreateText(cbSpecAuto, "BODY", "Detect the specialization from your talents (follows respecs)")
     cbSpecAuto.text:SetPoint("LEFT", cbSpecAuto, "RIGHT", 6, 0)
     cbSpecAuto.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -305,6 +327,7 @@ function GSI_UI:DrawSettings(parent)
 
     local cbSetAuto = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbSetAuto:SetPoint("TOPLEFT", cbSpecAuto, "BOTTOMLEFT", 0, -6)
+    if self.SkinCheckbox then self:SkinCheckbox(cbSetAuto) end
     cbSetAuto.text = self:CreateText(cbSetAuto, "BODY", "Equip the chosen set when your spec changes")
     cbSetAuto.text:SetPoint("LEFT", cbSetAuto, "RIGHT", 6, 0)
     cbSetAuto.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -323,6 +346,7 @@ function GSI_UI:DrawSettings(parent)
 
     local cbCompareSets = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbCompareSets:SetPoint("TOPLEFT", cbSetAuto, "BOTTOMLEFT", 0, -6)
+    if self.SkinCheckbox then self:SkinCheckbox(cbCompareSets) end
     cbCompareSets.text = self:CreateText(cbCompareSets, "BODY", "Tooltips: a line for every Equipment Set of every spec (\"vs <set>\")")
     cbCompareSets.text:SetPoint("LEFT", cbCompareSets, "RIGHT", 6, 0)
     cbCompareSets.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -367,8 +391,18 @@ function GSI_UI:DrawSettings(parent)
         catcher:SetScript("OnClick", function() picker:Hide() end)
         catcher:Hide()
         picker.catcher = catcher
-        picker:SetScript("OnShow", function() catcher:Show() end)
-        picker:SetScript("OnHide", function() catcher:Hide() end)
+        picker:SetScript("OnShow", function()
+            catcher:Show()
+            if picker._activeAnchor and picker._activeAnchor.pickArrow and picker._activeAnchor.pickArrow.SetExpanded then
+                picker._activeAnchor.pickArrow:SetExpanded(true)
+            end
+        end)
+        picker:SetScript("OnHide", function()
+            catcher:Hide()
+            if picker._activeAnchor and picker._activeAnchor.pickArrow and picker._activeAnchor.pickArrow.SetExpanded then
+                picker._activeAnchor.pickArrow:SetExpanded(false)
+            end
+        end)
         GSI_UI.specSetPicker = picker
     end
 
@@ -423,6 +457,7 @@ function GSI_UI:DrawSettings(parent)
             b:Show()
         end
         for i = #entries + 1, #picker.items do picker.items[i]:Hide() end
+        picker._activeAnchor = anchor
         picker:SetSize(220, (#entries * 26) + 8)
         picker:ClearAllPoints()
         picker:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
@@ -456,6 +491,10 @@ function GSI_UI:DrawSettings(parent)
         row.pick:SetPoint("LEFT", row, "LEFT", 164, 0)
         row.pick:SetText(" ")
         SkinButton(row.pick, nil, false)
+        if self.CreateChevron then
+            row.pickArrow = self:CreateChevron(row.pick, 12)
+            row.pickArrow:SetPoint("RIGHT", row.pick, "RIGHT", -6, 0)
+        end
         local specIdx = i
         row.pick:SetScript("OnClick", function(selfBtn)
             if picker:IsShown() then picker:Hide() return end
@@ -541,6 +580,16 @@ function GSI_UI:DrawSettings(parent)
                 text = NONE_LABEL
             end
             row.pick:SetText(text)
+            if row.pickArrow then
+                local fs = row.pick:GetFontString()
+                if fs then
+                    fs:ClearAllPoints()
+                    fs:SetPoint("LEFT", row.pick, "LEFT", 8, 0)
+                    fs:SetPoint("RIGHT", row.pickArrow, "LEFT", -4, 0)
+                    fs:SetJustifyH("LEFT")
+                    if fs.SetWordWrap then fs:SetWordWrap(false) end
+                end
+            end
             row.equip:SetEnabled(anyExists)
             local specData = classData and classData.specs and classData.specs[i]
             local label = (specData and specData.name) or ("Spec " .. i)

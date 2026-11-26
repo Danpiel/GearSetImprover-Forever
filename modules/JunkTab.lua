@@ -222,17 +222,7 @@ local ARMOR_SLOTS = {
     INVTYPE_FEET     = true,
 }
 
-local GSI_CLASS_ALLOWED_WEAPONS = {
-    WARRIOR = { [0]=true, [1]=true, [2]=true, [3]=true, [4]=true, [5]=true, [6]=true, [7]=true, [8]=true, [10]=true, [13]=true, [14]=true, [15]=true, [16]=true, [18]=true, [20]=true },
-    PALADIN = { [0]=true, [1]=true, [4]=true, [5]=true, [6]=true, [7]=true, [8]=true, [14]=true, [20]=true },
-    HUNTER  = { [0]=true, [1]=true, [2]=true, [3]=true, [6]=true, [7]=true, [8]=true, [10]=true, [13]=true, [14]=true, [15]=true, [16]=true, [18]=true, [20]=true },
-    ROGUE   = { [2]=true, [3]=true, [4]=true, [7]=true, [13]=true, [14]=true, [15]=true, [16]=true, [18]=true, [20]=true },
-    PRIEST  = { [4]=true, [10]=true, [14]=true, [15]=true, [19]=true, [20]=true },
-    SHAMAN  = { [0]=true, [1]=true, [4]=true, [5]=true, [10]=true, [13]=true, [14]=true, [15]=true, [20]=true },
-    MAGE    = { [7]=true, [10]=true, [14]=true, [15]=true, [19]=true, [20]=true },
-    WARLOCK = { [7]=true, [10]=true, [14]=true, [15]=true, [19]=true, [20]=true },
-    DRUID   = { [4]=true, [5]=true, [6]=true, [10]=true, [13]=true, [14]=true, [15]=true, [20]=true },
-}
+-- Weapon usability centralized in GSI_ClassicData:IsWeaponUsable
 
 local GSI_CLASS_MAX_ARMOR = {
     MAGE    = 1, -- Cloth
@@ -257,7 +247,7 @@ local function IsItemUnusableForPlayer(link, bagID, slotID)
     end
     if not equipLoc or equipLoc == "" or equipLoc == "INVTYPE_NON_EQUIP" then return false end
 
-    local playerClass = select(2, UnitClass("player")) or "WARRIOR"
+    local playerClass = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or select(2, UnitClass("player")) or "WARRIOR"
     local playerLevel = UnitLevel("player") or 60
 
     -- 1. Weapons (classID == 2)
@@ -283,7 +273,7 @@ local function IsItemUnusableForPlayer(link, bagID, slotID)
             end
         end
 
-        local allowed = GSI_CLASS_ALLOWED_WEAPONS[playerClass]
+        local allowed = GSI_ClassicData and GSI_ClassicData.ClassAllowedWeapons and GSI_ClassicData.ClassAllowedWeapons[playerClass]
         if allowed and subClassID and not allowed[subClassID] then
             return true, "Weapon"
         end
@@ -363,7 +353,7 @@ local function IsOtherArmorClass(link)
     end
     if not equipLoc or equipLoc == "" or equipLoc == "INVTYPE_NON_EQUIP" then return false end
 
-    local playerClass = select(2, UnitClass("player")) or "WARRIOR"
+    local playerClass = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or select(2, UnitClass("player")) or "WARRIOR"
     local playerLevel = UnitLevel("player") or 60
 
     if equipLoc == "INVTYPE_SHIELD" then
@@ -489,7 +479,7 @@ local function ScanBagsForJunk()
     local minQuality = includeWhiteGear and 1 or 2
     local junkItems = {}
     local equipSetItems = GetAllEquipmentSetItemIDs()
-    local playerClass = UnitClass and select(2, UnitClass("player"))
+    local playerClass = UnitClass and (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or select(2, UnitClass("player"))
     local activeSpec = (GSI_StatWeights and GSI_StatWeights.GetActiveSpecIndex and GSI_StatWeights:GetActiveSpecIndex()) or 1
     local isShieldTank = (playerClass == "WARRIOR" and activeSpec == 3) or (playerClass == "PALADIN" and activeSpec == 2)
     local isFeralDruid = (playerClass == "DRUID" and (activeSpec == 2 or activeSpec == 3))
@@ -1060,9 +1050,16 @@ function GSI_UI:RefreshLockedCleanUpList(f)
     for i, item in ipairs(list) do
         local row = rows[i]
         if not row then
-            row = CreateFrame("Frame", nil, child, _BACKDROP_TEMPLATE)
+            row = CreateFrame("Frame", nil, child)
             row:SetSize(360, 26)
-            _SkinFrame(row)
+            row:EnableMouse(true)
+
+            local div = row:CreateTexture(nil, "ARTWORK")
+            div:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 2, 0)
+            div:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -2, 0)
+            div:SetHeight(1)
+            div:SetColorTexture(1, 1, 1, 0.08)
+            row.divider = div
 
             row._icon = row:CreateTexture(nil, "OVERLAY")
             row._icon:SetSize(20, 20)
@@ -1192,26 +1189,19 @@ function GSI_UI:DrawJunk(parent)
     parent._junkSliderLabel = sliderLabel
 
     local sliderBg = CreateFrame("Frame", nil, parent, _BACKDROP_TEMPLATE)
-    sliderBg:SetSize(240, 6)
     sliderBg:SetPoint("TOPLEFT", 15, -80)
-    if sliderBg.SetBackdrop then
-        sliderBg:SetBackdrop({ bgFile="Interface\\Buttons\\WHITE8x8", edgeFile="Interface\\Buttons\\WHITE8x8", edgeSize=1 })
-        sliderBg:SetBackdropColor(0.2, 0.2, 0.2, 1)
-        sliderBg:SetBackdropBorderColor(0.4, 0.4, 0.4, 1)
-    end
 
     local slider = CreateFrame("Slider", "GSI_JunkSlider", parent)
-    slider:SetSize(240, 16)
-    slider:SetPoint("TOPLEFT", 15, -76)
+    slider:SetPoint("TOPLEFT", 15, -75)
+    if GSI_UI and GSI_UI.SkinSlider then
+        GSI_UI:SkinSlider(slider, sliderBg, 240, 6)
+    else
+        slider:SetSize(240, 16)
+        slider:SetOrientation("HORIZONTAL")
+    end
     slider:SetMinMaxValues(1, 50)
     slider:SetValue(currentThreshold)
     slider:SetValueStep(1)
-    slider:SetOrientation("HORIZONTAL")
-    slider:SetThumbTexture("Interface\\Buttons\\UI-SliderBar-Button-Horizontal")
-    local thumb = slider:GetThumbTexture()
-    if thumb and type(thumb) == "table" and thumb.SetSize then
-        thumb:SetSize(16, 16)
-    end
 
     slider:SetScript("OnValueChanged", function(self, val)
         local v = math.floor(val)
@@ -1237,6 +1227,7 @@ function GSI_UI:DrawJunk(parent)
     local merchantOverlayCheck = CreateFrame("CheckButton", "GSI_JunkMerchantOverlayCheck", parent, "UICheckButtonTemplate")
     merchantOverlayCheck:SetSize(22, 22)
     merchantOverlayCheck:SetPoint("TOPLEFT", 288, -74)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(merchantOverlayCheck) end
     merchantOverlayCheck.text = GSI_UI:CreateText(merchantOverlayCheck, "BODY", "Show Clean-up sell window at merchant")
     merchantOverlayCheck.text:SetPoint("LEFT", merchantOverlayCheck, "RIGHT", 4, 0)
     merchantOverlayCheck.text:SetWordWrap(false)
@@ -1263,6 +1254,7 @@ function GSI_UI:DrawJunk(parent)
     local armorCheck = CreateFrame("CheckButton", "GSI_JunkArmorCheck", parent, "UICheckButtonTemplate")
     armorCheck:SetSize(22, 22)
     armorCheck:SetPoint("TOPLEFT", 13, -114)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(armorCheck) end
     armorCheck.text = GSI_UI:CreateText(armorCheck, "BODY", "Include other armor classes")
     armorCheck.text:SetPoint("LEFT", armorCheck, "RIGHT", 4, 0)
     armorCheck:SetChecked((GearSetImproverDB and GearSetImproverDB.junkIncludeOtherArmor) or false)
@@ -1281,6 +1273,7 @@ function GSI_UI:DrawJunk(parent)
     local whiteCheck = CreateFrame("CheckButton", "GSI_JunkWhiteGearCheck", parent, "UICheckButtonTemplate")
     whiteCheck:SetSize(22, 22)
     whiteCheck:SetPoint("TOPLEFT", 225, -114)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(whiteCheck) end
     whiteCheck.text = GSI_UI:CreateText(whiteCheck, "BODY", "Include Common (White) gear")
     whiteCheck.text:SetPoint("LEFT", whiteCheck, "RIGHT", 4, 0)
     whiteCheck:SetChecked((GearSetImproverDB and GearSetImproverDB.junkIncludeWhiteGear ~= false))
@@ -1299,6 +1292,7 @@ function GSI_UI:DrawJunk(parent)
     local unusableCheck = CreateFrame("CheckButton", "GSI_JunkUnusableCheck", parent, "UICheckButtonTemplate")
     unusableCheck:SetSize(22, 22)
     unusableCheck:SetPoint("TOPLEFT", 440, -114)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(unusableCheck) end
     unusableCheck.text = GSI_UI:CreateText(unusableCheck, "BODY", "Include unusable gear")
     unusableCheck.text:SetPoint("LEFT", unusableCheck, "RIGHT", 4, 0)
     unusableCheck:SetChecked((GearSetImproverDB and GearSetImproverDB.junkIncludeUnusableGear ~= false))
@@ -1315,8 +1309,14 @@ function GSI_UI:DrawJunk(parent)
     parent._unusableCheck = unusableCheck
 
     local status = GSI_UI:CreateText(parent, "SMALL", "")
-    status:SetPoint("TOPLEFT", 15, -142)
+    status:SetPoint("TOPLEFT", 15, -140)
     parent._junkStatus = status
+
+    local listDivider = parent:CreateTexture(nil, "ARTWORK")
+    listDivider:SetPoint("TOPLEFT", 15, -156)
+    listDivider:SetPoint("TOPRIGHT", -28, -156)
+    listDivider:SetHeight((GSI_UI.PP and GSI_UI:PP(1)) or 1)
+    listDivider:SetColorTexture(1, 1, 1, 0.08)
 
     local scroll = CreateFrame("ScrollFrame", "GSI_JunkScroll", parent, "UIPanelScrollFrameTemplate")
     scroll:SetPoint("TOPLEFT", 10, -162)
@@ -1429,9 +1429,16 @@ function GSI_UI:UpdateJunkList(parent)
     for i, item in ipairs(items) do
         local row = rows[i]
         if not row then
-            row = CreateFrame("Button", nil, scrollChild, _BACKDROP_TEMPLATE)
-            row:SetSize(700, 28)
-            _SkinButton(row)
+            row = CreateFrame("Frame", nil, scrollChild)
+            row:SetSize(700, 30)
+            row:EnableMouse(true)
+
+            local div = row:CreateTexture(nil, "ARTWORK")
+            div:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 4, 0)
+            div:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -4, 0)
+            div:SetHeight((GSI_UI.PP and GSI_UI:PP(1)) or 1)
+            div:SetColorTexture(1, 1, 1, 0.08)
+            row.divider = div
 
             row._ilvlText = GSI_UI:CreateText(row, "SMALL", "")
             row._ilvlText:SetPoint("LEFT", 8, 0)
@@ -1517,7 +1524,7 @@ function GSI_UI:UpdateJunkList(parent)
         else
             row._ilvlText:SetText(string.format("%s%.0f|r |cffff4444(-%.0f)|r", hex, item.score, item.delta))
         end
-        row._link:SetText(item.link)
+        row._link:SetText((GSI_UI and GSI_UI.ResolveItemDisplayText and GSI_UI:ResolveItemDisplayText(item.link, nil, item.bagID, item.slotID)) or item.link)
         row._icon:SetTexture(GetItemIcon(item.link))
         if GSI_UI and GSI_UI.SkinItemIcon then
             GSI_UI:SkinItemIcon(row._icon, row, item.quality)
@@ -1527,15 +1534,13 @@ function GSI_UI:UpdateJunkList(parent)
         row:Show()
 
         row:SetScript("OnEnter", function(self)
-            self:SetBackdropColor(0.11, 0.11, 0.14, 0.95)
-            self:SetBackdropBorderColor(0.24, 0.24, 0.32, 1.0)
+            if self.divider then self.divider:SetColorTexture(1, 1, 1, 0.20) end
             GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink(item.link)
             GameTooltip:Show()
         end)
         row:SetScript("OnLeave", function(self)
-            self:SetBackdropColor(0.078, 0.078, 0.098, 0.85)
-            self:SetBackdropBorderColor(0.11, 0.11, 0.14, 1.0)
+            if self.divider then self.divider:SetColorTexture(1, 1, 1, 0.08) end
             GameTooltip:Hide()
         end)
 

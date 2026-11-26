@@ -23,7 +23,7 @@ local function GetAddonVersion()
     elseif GetAddOnMetadata then
         ver = GetAddOnMetadata("GearSetImprover", "Version")
     end
-    return (ver and ver ~= "") and ver or "1.4.4"
+    return (ver and ver ~= "") and ver or "1.5.0"
 end
 
 -- CREDITS & ACKNOWLEDGMENTS MODAL
@@ -72,62 +72,70 @@ function GSI_UI:OpenCreditsModal()
         sub:SetPoint("RIGHT", f, "RIGHT", -16, 0)
         if sub.SetWordWrap then sub:SetWordWrap(false) end
 
-        -- Card 1: Community Supporters
-        local card1 = CreateFrame("Frame", nil, f, BACKDROP_TEMPLATE)
-        card1:SetHeight(145)
+        -- Section 1: Community Supporters
+        local card1 = CreateFrame("Frame", nil, f)
+        card1:SetHeight(140)
         card1:SetPoint("TOPLEFT", 16, -65)
         card1:SetPoint("RIGHT", f, "RIGHT", -16, 0)
-        SkinFrame(card1, "card")
+
+        local div1 = card1:CreateTexture(nil, "ARTWORK")
+        div1:SetPoint("BOTTOMLEFT", card1, "BOTTOMLEFT", 0, 0)
+        div1:SetPoint("BOTTOMRIGHT", card1, "BOTTOMRIGHT", 0, 0)
+        div1:SetHeight(1)
+        div1:SetColorTexture(1, 1, 1, 0.08)
 
         local t1 = GSI_UI:CreateText(card1, "CARD_TITLE", "|cffffcc00Community Supporters & Special Thanks|r")
-        t1:SetPoint("TOPLEFT", 12, -10)
-        t1:SetPoint("RIGHT", card1, "RIGHT", -12, 0)
+        t1:SetPoint("TOPLEFT", 4, -6)
+        t1:SetPoint("RIGHT", card1, "RIGHT", -4, 0)
         if t1.SetWordWrap then t1.SetWordWrap(false) end
 
         local d1 = GSI_UI:CreateText(card1, "BODY", "")
-        d1:SetPoint("TOPLEFT", 12, -32)
-        d1:SetPoint("BOTTOMRIGHT", -12, 10)
+        d1:SetPoint("TOPLEFT", 4, -28)
+        d1:SetPoint("BOTTOMRIGHT", -4, 8)
         d1:SetJustifyH("LEFT")
         d1:SetJustifyV("TOP")
         if d1.SetWordWrap then d1:SetWordWrap(true) end
         d1:SetText("A huge thank you to everyone testing, submitting bug reports, and providing invaluable feedback!\n\nSpecial thanks to:\n• |cff00ff00stroke1611|r (|cff33ccffhttps://www.twitch.tv/stroke1611|r)\n• |cff00ff00followpawl|r (|cff33ccffhttps://www.twitch.tv/followpawl|r)\n• The entire WoW Forever community for your fantastic support!")
 
-        -- Card 2: Stat Theory
-        local card2 = CreateFrame("Frame", nil, f, BACKDROP_TEMPLATE)
+        -- Section 2: Stat Theory
+        local card2 = CreateFrame("Frame", nil, f)
         card2:SetHeight(105)
         card2:SetPoint("TOPLEFT", card1, "BOTTOMLEFT", 0, -10)
         card2:SetPoint("RIGHT", f, "RIGHT", -16, 0)
-        SkinFrame(card2, "card")
+
+        local div2 = card2:CreateTexture(nil, "ARTWORK")
+        div2:SetPoint("BOTTOMLEFT", card2, "BOTTOMLEFT", 0, 0)
+        div2:SetPoint("BOTTOMRIGHT", card2, "BOTTOMRIGHT", 0, 0)
+        div2:SetHeight(1)
+        div2:SetColorTexture(1, 1, 1, 0.08)
 
         local t2 = GSI_UI:CreateText(card2, "CARD_TITLE", "|cffffcc00Stat Theory & Calculations|r")
-        t2:SetPoint("TOPLEFT", 12, -10)
-        t2:SetPoint("RIGHT", card2, "RIGHT", -12, 0)
+        t2:SetPoint("TOPLEFT", 4, -6)
+        t2:SetPoint("RIGHT", card2, "RIGHT", -4, 0)
         if t2.SetWordWrap then t2.SetWordWrap(false) end
 
         local d2 = GSI_UI:CreateText(card2, "BODY", "")
-        d2:SetPoint("TOPLEFT", 12, -32)
-        d2:SetPoint("BOTTOMRIGHT", -12, 10)
+        d2:SetPoint("TOPLEFT", 4, -28)
+        d2:SetPoint("BOTTOMRIGHT", -4, 8)
         d2:SetJustifyH("LEFT")
         d2:SetJustifyV("TOP")
         if d2.SetWordWrap then d2.SetWordWrap(true) end
         f.d2 = d2
 
-        -- Card 3: Feedback
-        local card3 = CreateFrame("Frame", nil, f, BACKDROP_TEMPLATE)
+        -- Section 3: Feedback
+        local card3 = CreateFrame("Frame", nil, f)
         card3:SetHeight(105)
         card3:SetPoint("TOPLEFT", card2, "BOTTOMLEFT", 0, -10)
         card3:SetPoint("RIGHT", f, "RIGHT", -16, 0)
-        SkinFrame(card3)
-        card3:SetBackdropColor(0.12, 0.12, 0.12, 0.95)
 
         local t3 = GSI_UI:CreateText(card3, "CARD_TITLE", "|cffffcc00Feedback & Bug Reports|r")
-        t3:SetPoint("TOPLEFT", 12, -10)
-        t3:SetPoint("RIGHT", card3, "RIGHT", -12, 0)
+        t3:SetPoint("TOPLEFT", 4, -6)
+        t3:SetPoint("RIGHT", card3, "RIGHT", -4, 0)
         if t3.SetWordWrap then t3.SetWordWrap(false) end
 
         local d3 = GSI_UI:CreateText(card3, "BODY", "")
-        d3:SetPoint("TOPLEFT", 12, -32)
-        d3:SetPoint("BOTTOMRIGHT", -12, 10)
+        d3:SetPoint("TOPLEFT", 4, -28)
+        d3:SetPoint("BOTTOMRIGHT", -4, 8)
         d3:SetJustifyH("LEFT")
         d3:SetJustifyV("TOP")
         if d3.SetWordWrap then d3.SetWordWrap(true) end
@@ -393,6 +401,13 @@ function GSI_UI:OpenChangelog()
     end
 
     local logText = [[
+|cffffcc00Version 1.5.0 (Build 1.60.1.71091 Stat Audit, C_Traits Fix & Modularization)|r
+--------------------------------------------------
+|cff00ff00Updated:|r Recalibrated Balance Druid (|cffffffffMoonkin Form +10%|r, |cffffffffDreamstate|r, |cffffffffEclipse|r, |cffffffffStarlight Wrath|r, |cffffffffHurricane/Genesis|r), BM Hunter (Pet Crit & Hawks fix), Paladin (|cffffffffExorcism|r crits), Shadow Priest (|cffffffffDark Inspiration|r), Resto Shaman (|cffffffffRiptide|r), and |cffffffffFeralheart|r / |cffffffffStormshroud|r set bonuses.
+|cff00ff00Fix:|r Rewrote |cffffffffTalentIntegration.lua|r for live |cffffffffC_ClassTalents|r / |cffffffffC_Traits|r node & spell IDs with event-cached snapshots, prevented off-spec talent bleed in |cffffffffStatWeights.lua|r, fixed Rogue 1H Axes in Clean-up, and switched Spec Sets to |cffffffffUnitGUID("player")|r.
+|cff00ff00UI Redesign:|r Modern Flat Material UI with frameless Hero header, class-colored liquid-animated stat bars, 2-column Character-Window Gear Slots with empty-slot silhouettes, hairline dividers, vector dropdown chevrons & checkboxes, and async item name/score resolution.
+|cff00ff00Modular:|r Split |cffffffffProfiles_v2_2|r into |cffffffffmodules/profiles/|r and extracted |cffffffffTooltipScanner|r, |cffffffffCapMath|r, |cffffffffEquipManager|r, |cffffffffSpecSets|r, and |cffffffffMacroPresets|r.
+
 |cffffcc00Version 1.4.4 (Forever Auto-Spec, Per-Spec Gear Sets, Live Rescoring & ruRU Support)|r
 --------------------------------------------------
 |cff00ff00New:|r Automatic WoW Forever talent-tree spec detection via |cffffffffC_ClassTalents|r / |cffffffffC_Traits|r trait groups, plus |cffffcc00Auto|r mode in the spec dropdown and |cffffffff/gsi spec auto|r (Feral Druid Cat/Bear role keeps Auto enabled; login/talent-reload states guarded). Thanks to |cffffffffDanpiel|r for the community contributions.

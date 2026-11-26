@@ -274,7 +274,7 @@ function GSI_Overrides:GetOverride(itemIdentifier, classOrSpec, currentMode, inc
         return 0, entry.reason, entry.version, isSituational, context, true
     end
 
-    local playerClass = classOrSpec or select(2, UnitClass("player")) or "WARRIOR"
+    local playerClass = classOrSpec or (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or select(2, UnitClass("player")) or "WARRIOR"
     local activeSpec = specIndex or (GSI_StatWeights and GSI_StatWeights.GetActiveSpecIndex and GSI_StatWeights:GetActiveSpecIndex()) or 1
 
     local isCasterOrHealer = (playerClass == "MAGE" or playerClass == "WARLOCK" or playerClass == "PRIEST")

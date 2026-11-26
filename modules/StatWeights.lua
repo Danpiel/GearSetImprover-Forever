@@ -591,13 +591,47 @@ function GSI_StatWeights:_LookupCustomWeights(scopedKey, baseSpecKey, activeMode
     return nil, activeProf, false
 end
 
--- Returns final stat weights for the specified or current specialization and mode
-function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
+GSI_StatWeights._weightsCache = {}
+GSI_StatWeights._cacheRev = 1
+
+function GSI_StatWeights:InvalidateCache()
+    self._weightsCache = {}
+    self._cacheRev = (self._cacheRev or 1) + 1
+end
+
+local function ResolveEvalConfigForSpec(specIndex, activeSpecIndex)
+    if specIndex == activeSpecIndex then
+        return true, nil
+    end
+    if GSI_SpecSets and GSI_SpecSets.GetSpecBoundTalentGroup
+       and C_SpecializationInfo and C_SpecializationInfo.GetCombatConfigIDForSpecGroup then
+        local group = GSI_SpecSets:GetSpecBoundTalentGroup(specIndex)
+        if group then
+            local ok, cfg = pcall(C_SpecializationInfo.GetCombatConfigIDForSpecGroup, group)
+            if ok and cfg and cfg > 0 then
+                return true, cfg
+            end
+        end
+    end
+    return false, nil
+end
+
+-- Returns a read-only cached weight table for hot scoring loops (do NOT mutate!)
+function GSI_StatWeights:GetWeightsReadOnly(overrideSpecIndex, overrideMode)
     local class = GetPlayerClass()
-    local specIndex = overrideSpecIndex or self:GetActiveSpecIndex()
+    local activeSpecIndex = self:GetActiveSpecIndex()
+    local specIndex = overrideSpecIndex or activeSpecIndex
     local specKey = class .. "-" .. specIndex
     local activeMode = self:ResolveActiveMode(class, specIndex, overrideMode)
     local scopedKey = specKey .. ":" .. activeMode
+
+    local talentRev = (GSI_TalentIntegration and GSI_TalentIntegration.GetRevision and GSI_TalentIntegration:GetRevision()) or 0
+    local cacheKey = scopedKey .. "|" .. tostring(activeSpecIndex) .. "|" .. tostring(talentRev) .. "|" .. tostring(self._cacheRev or 1)
+
+    local cached = self._weightsCache[cacheKey]
+    if cached and not (GearSetImproverDB and GearSetImproverDB.customWeights and (GearSetImproverDB.customWeights[scopedKey] or GearSetImproverDB.customWeights[specKey])) then
+        return cached
+    end
 
     local finalWeights = nil
     local isDedicatedAoE = false
@@ -657,9 +691,10 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
             end
         end
 
-        -- 5. Apply Talent Modifiers
-        if GSI_TalentIntegration and GSI_TalentIntegration.GetStatModifiers then
-            local talentMods = GSI_TalentIntegration:GetStatModifiers()
+        -- 5. Apply Talent Modifiers (only when evaluating active spec or a Dual-Spec bound configID)
+        local canApplyTalents, evalConfigID = ResolveEvalConfigForSpec(specIndex, activeSpecIndex)
+        if canApplyTalents and GSI_TalentIntegration and GSI_TalentIntegration.GetStatModifiers then
+            local talentMods = GSI_TalentIntegration:GetStatModifiers(evalConfigID)
             for stat, mod in pairs(talentMods) do
                 if finalWeights[stat] then
                     finalWeights[stat] = finalWeights[stat] * mod
@@ -667,9 +702,9 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
             end
 
             -- v2.2 Class/Spec Talent Dynamic Scaling:
-            -- Enhancement Shaman (Spec 2): Intellect 0.20..0.87 via Mental Dexterity (33/66/100% AP) & Mental Quickness (15/30% SP/Heal)
+            -- Enhancement Shaman (Spec 2): Intellect 0.20..0.90 via Mental Dexterity & Mental Quickness
             if class == "SHAMAN" and specIndex == 2 and GSI_TalentIntegration.GetShamanEnhancementIntWeight then
-                local dynamicInt = GSI_TalentIntegration:GetShamanEnhancementIntWeight()
+                local dynamicInt = GSI_TalentIntegration:GetShamanEnhancementIntWeight(evalConfigID)
                 if dynamicInt then
                     finalWeights.Intellect = dynamicInt
                 end
@@ -677,7 +712,7 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
 
             -- Marksmanship Hunter (Spec 2): Intellect 0.15..0.56 via Careful Aim (20..100% INT -> AP)
             if class == "HUNTER" and specIndex == 2 and GSI_TalentIntegration.GetHunterMMIntWeight then
-                local dynamicInt = GSI_TalentIntegration:GetHunterMMIntWeight()
+                local dynamicInt = GSI_TalentIntegration:GetHunterMMIntWeight(evalConfigID)
                 if dynamicInt then
                     finalWeights.Intellect = dynamicInt
                 end
@@ -685,7 +720,7 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
 
             -- Survival Hunter (Spec 3): Intellect 0.20..0.70 via Careful Aim
             if class == "HUNTER" and specIndex == 3 and GSI_TalentIntegration.GetHunterSurvivalIntWeight then
-                local dynamicInt = GSI_TalentIntegration:GetHunterSurvivalIntWeight()
+                local dynamicInt = GSI_TalentIntegration:GetHunterSurvivalIntWeight(evalConfigID)
                 if dynamicInt then
                     finalWeights.Intellect = dynamicInt
                 end
@@ -693,7 +728,7 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
 
             -- Holy Paladin (Spec 1): Spirit 0.15..0.60 via Reverence (15/30% FSR mana regen)
             if class == "PALADIN" and specIndex == 1 and GSI_TalentIntegration.GetPaladinHolySpiritWeight then
-                local dynamicSpi = GSI_TalentIntegration:GetPaladinHolySpiritWeight()
+                local dynamicSpi = GSI_TalentIntegration:GetPaladinHolySpiritWeight(evalConfigID)
                 if dynamicSpi then
                     finalWeights.Spirit = dynamicSpi
                 end
@@ -701,7 +736,7 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
 
             -- Retribution Paladin (Spec 3): Intellect via Champion of the Light (12/24/36/48/60% INT -> SP)
             if class == "PALADIN" and specIndex == 3 and GSI_TalentIntegration.GetPaladinRetIntWeight then
-                local dynamicInt = GSI_TalentIntegration:GetPaladinRetIntWeight()
+                local dynamicInt = GSI_TalentIntegration:GetPaladinRetIntWeight(evalConfigID)
                 if dynamicInt then
                     finalWeights.Intellect = dynamicInt
                 end
@@ -710,39 +745,51 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
             -- Arcane Mage (Spec 1): Intellect & Mana via Arcane Blast & Arcane Wrath
             if class == "MAGE" and specIndex == 1 then
                 if GSI_TalentIntegration.GetMageArcaneIntWeight then
-                    local dynamicInt = GSI_TalentIntegration:GetMageArcaneIntWeight()
+                    local dynamicInt = GSI_TalentIntegration:GetMageArcaneIntWeight(evalConfigID)
                     if dynamicInt then finalWeights.Intellect = dynamicInt end
                 end
                 if GSI_TalentIntegration.GetMageArcaneManaWeight then
-                    local dynamicMana = GSI_TalentIntegration:GetMageArcaneManaWeight()
+                    local dynamicMana = GSI_TalentIntegration:GetMageArcaneManaWeight(evalConfigID)
                     if dynamicMana then finalWeights.Mana = dynamicMana end
                 end
             end
 
-            -- Priest (all specs): Mental Strength (+2/4/6/8/10% Intellect in Discipline Row 2)
-            if class == "PRIEST" and GSI_TalentIntegration.GetPriestMentalStrengthBonus then
-                local msBonus = GSI_TalentIntegration:GetPriestMentalStrengthBonus()
-                if msBonus and msBonus > 0 then
-                    finalWeights.Intellect = (finalWeights.Intellect or 0.3) * (1.0 + msBonus)
+            -- Priest (all specs): Mental Strength (+2/4/6/8/10% Intellect) & Shadow Dark Inspiration (Spirit)
+            if class == "PRIEST" then
+                if GSI_TalentIntegration.GetPriestMentalStrengthBonus then
+                    local msBonus = GSI_TalentIntegration:GetPriestMentalStrengthBonus(evalConfigID)
+                    if msBonus and msBonus > 0 then
+                        finalWeights.Intellect = (finalWeights.Intellect or 0.3) * (1.0 + msBonus)
+                    end
+                end
+                if specIndex == 3 and GSI_TalentIntegration.GetPriestDarkInspirationSpiritBonus then
+                    local diBonus = GSI_TalentIntegration:GetPriestDarkInspirationSpiritBonus(evalConfigID)
+                    if diBonus and diBonus > 0 then
+                        finalWeights.Spirit = (finalWeights.Spirit or 0.26) + diBonus
+                    end
                 end
             end
 
-            -- Druid Natural Instinct (Feral Row 5):
-            -- +10/20% melee ability crit damage (Bear/Cat) & +12/25% INT -> HealingPower (Resto/hybrid)
+            -- Druid Balance Dreamstate & Natural Instinct (Feral/Resto)
             if class == "DRUID" then
-                if (specIndex == 2 or specIndex == 3) and GSI_TalentIntegration.GetDruidNaturalInstinctFeralCritMod then
-                    local feralCritMod = GSI_TalentIntegration:GetDruidNaturalInstinctFeralCritMod()
+                if specIndex == 1 and GSI_TalentIntegration.GetDruidBalanceSpiritWeight then
+                    local dynamicSpi = GSI_TalentIntegration:GetDruidBalanceSpiritWeight(evalConfigID)
+                    if dynamicSpi then
+                        finalWeights.Spirit = dynamicSpi
+                    end
+                elseif (specIndex == 2 or specIndex == 3) and GSI_TalentIntegration.GetDruidNaturalInstinctFeralCritMod then
+                    local feralCritMod = GSI_TalentIntegration:GetDruidNaturalInstinctFeralCritMod(evalConfigID)
                     if feralCritMod and feralCritMod > 1.0 and finalWeights.Crit then
                         finalWeights.Crit = finalWeights.Crit * feralCritMod
                     end
                     if GSI_TalentIntegration.GetDruidRestoIntBonus and finalWeights.HealingPower and finalWeights.HealingPower > 0 then
-                        local hybridInt = GSI_TalentIntegration:GetDruidRestoIntBonus()
+                        local hybridInt = GSI_TalentIntegration:GetDruidRestoIntBonus(evalConfigID)
                         if hybridInt and hybridInt > 0 then
                             finalWeights.Intellect = (finalWeights.Intellect or 0) + (hybridInt * 0.25)
                         end
                     end
                 elseif specIndex == 4 and GSI_TalentIntegration.GetDruidRestoIntBonus then
-                    local bonusInt = GSI_TalentIntegration:GetDruidRestoIntBonus()
+                    local bonusInt = GSI_TalentIntegration:GetDruidRestoIntBonus(evalConfigID)
                     if bonusInt and bonusInt > 0 then
                         finalWeights.Intellect = (finalWeights.Intellect or 0.6) + bonusInt
                     end
@@ -853,7 +900,15 @@ function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
         end
     end
 
+    if not customWeights then
+        self._weightsCache[cacheKey] = finalWeights
+    end
     return finalWeights
+end
+
+-- Returns a mutable copy of final stat weights for the specified or current specialization and mode
+function GSI_StatWeights:GetWeights(overrideSpecIndex, overrideMode)
+    return SafeCopyTable(self:GetWeightsReadOnly(overrideSpecIndex, overrideMode))
 end
 
 -- Returns the configured weight of a resistance stat (default: 5.0)

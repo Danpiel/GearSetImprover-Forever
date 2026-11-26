@@ -111,13 +111,14 @@ function GSI_UI:CreateMerchantOverlay()
         self:SkinFrame(header, "header")
     end
 
-    -- Close Button
-    local closeBtn = CreateFrame("Button", nil, header)
+    -- Close Button (Flat GSI X)
+    local closeBtn = CreateFrame("Button", nil, header, self.BACKDROP_TEMPLATE)
     closeBtn:SetSize(20, 20)
     closeBtn:SetPoint("RIGHT", -8, 0)
-    closeBtn:SetNormalTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Up")
-    closeBtn:SetPushedTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Down")
-    closeBtn:SetHighlightTexture("Interface\\Buttons\\UI-Panel-MinimizeButton-Highlight")
+    closeBtn:SetText("X")
+    if self.SkinButton then
+        self:SkinButton(closeBtn, true)
+    end
     closeBtn:SetScript("OnClick", function()
         overlay:Hide()
         overlay._userClosed = true
@@ -137,14 +138,17 @@ function GSI_UI:CreateMerchantOverlay()
     countLabel:SetWordWrap(false)
     overlay.countLabel = countLabel
 
-    -- Safety Notice Card
-    local noticeCard = CreateFrame("Frame", nil, overlay, self.BACKDROP_TEMPLATE)
+    -- Flat Safety Notice Strip (1px bottom hairline, no box border)
+    local noticeCard = CreateFrame("Frame", nil, overlay)
     noticeCard:SetPoint("TOPLEFT", 10, -38)
     noticeCard:SetPoint("TOPRIGHT", -10, -38)
-    noticeCard:SetHeight(50)
-    if self.SkinFrame then
-        self:SkinFrame(noticeCard, "well")
-    end
+    noticeCard:SetHeight(46)
+
+    local ncDiv = noticeCard:CreateTexture(nil, "ARTWORK")
+    ncDiv:SetPoint("BOTTOMLEFT", noticeCard, "BOTTOMLEFT", 0, 0)
+    ncDiv:SetPoint("BOTTOMRIGHT", noticeCard, "BOTTOMRIGHT", 0, 0)
+    ncDiv:SetHeight(1)
+    ncDiv:SetColorTexture(1, 1, 1, 0.08)
 
     local checkIcon = noticeCard:CreateTexture(nil, "ARTWORK")
     checkIcon:SetSize(16, 16)
@@ -186,6 +190,12 @@ function GSI_UI:CreateMerchantOverlay()
     bottomBar:SetHeight(38)
     bottomBar:SetPoint("BOTTOMLEFT", 0, 0)
     bottomBar:SetPoint("BOTTOMRIGHT", 0, 0)
+
+    local bbDiv = bottomBar:CreateTexture(nil, "ARTWORK")
+    bbDiv:SetPoint("TOPLEFT", bottomBar, "TOPLEFT", 8, 0)
+    bbDiv:SetPoint("TOPRIGHT", bottomBar, "TOPRIGHT", -8, 0)
+    bbDiv:SetHeight(1)
+    bbDiv:SetColorTexture(1, 1, 1, 0.08)
 
     local sellAllBtn = CreateFrame("Button", nil, bottomBar, self.BACKDROP_TEMPLATE)
     sellAllBtn:SetSize(84, 24)
@@ -358,11 +368,16 @@ function GSI_UI:UpdateMerchantPanel()
     for i, item in ipairs(items) do
         local row = rows[i]
         if not row then
-            row = CreateFrame("Frame", nil, scrollChild, self.BACKDROP_TEMPLATE)
+            row = CreateFrame("Frame", nil, scrollChild)
             row:SetSize(304, 30)
-            if self.SkinCard then
-                self:SkinCard(row, true)
-            end
+            row:EnableMouse(true)
+
+            local div = row:CreateTexture(nil, "ARTWORK")
+            div:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 2, 0)
+            div:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -2, 0)
+            div:SetHeight(1)
+            div:SetColorTexture(1, 1, 1, 0.08)
+            row.divider = div
 
             local icon = row:CreateTexture(nil, "ARTWORK")
             icon:SetSize(22, 22)
@@ -389,7 +404,7 @@ function GSI_UI:UpdateMerchantPanel()
         end
 
         row.item = item
-        row.linkText:SetText(item.link or "Item")
+        row.linkText:SetText((self.ResolveItemDisplayText and self:ResolveItemDisplayText(item.link, nil, item.bagID, item.slotID)) or item.link or "Item")
         row.icon:SetTexture(GetItemIcon(item.link))
         if self.SkinItemIcon then
             self:SkinItemIcon(row.icon, row, item.quality)
@@ -414,11 +429,13 @@ function GSI_UI:UpdateMerchantPanel()
         end)
 
         row:SetScript("OnEnter", function(selfRow)
+            if selfRow.divider then selfRow.divider:SetColorTexture(1, 1, 1, 0.20) end
             GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
             GameTooltip:SetHyperlink(item.link)
             GameTooltip:Show()
         end)
-        row:SetScript("OnLeave", function()
+        row:SetScript("OnLeave", function(selfRow)
+            if selfRow.divider then selfRow.divider:SetColorTexture(1, 1, 1, 0.08) end
             GameTooltip:Hide()
         end)
 

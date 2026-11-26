@@ -161,12 +161,21 @@ mainFrame.settingsBtn:SetScript("OnClick", function()
     GSI_UI:OpenSettings()
 end)
 
--- Live Score Widget (Header Right - SaaS Metrics Style)
-local scoreWidget = CreateFrame("Frame", nil, mainFrame.header, BACKDROP_TEMPLATE)
+-- Live Score Widget (Header Right - Flat Hairline Metrics)
+local scoreWidget = CreateFrame("Frame", nil, mainFrame.header)
 scoreWidget:SetSize(244, 34)
 scoreWidget:SetPoint("RIGHT", mainFrame.settingsBtn, "LEFT", -12, 0)
-SkinCard(scoreWidget, false)
 mainFrame.scoreWidget = scoreWidget
+
+local swLeftDiv = scoreWidget:CreateTexture(nil, "ARTWORK")
+swLeftDiv:SetSize(PP(1), 20)
+swLeftDiv:SetPoint("LEFT", scoreWidget, "LEFT", 0, 0)
+swLeftDiv:SetColorTexture(1, 1, 1, 0.08)
+
+local swRightDiv = scoreWidget:CreateTexture(nil, "ARTWORK")
+swRightDiv:SetSize(PP(1), 20)
+swRightDiv:SetPoint("RIGHT", scoreWidget, "RIGHT", 0, 0)
+swRightDiv:SetColorTexture(1, 1, 1, 0.08)
 
 scoreWidget.lbl = CreateText(scoreWidget, "SMALL", "GEAR SCORE", "LEFT")
 scoreWidget.lbl:SetPoint("LEFT", 10, 0)
@@ -245,10 +254,8 @@ mainFrame.specBtn.icon:SetSize(16, 16)
 mainFrame.specBtn.icon:SetPoint("LEFT", mainFrame.specBtn, "LEFT", 6, 0)
 mainFrame.specBtn.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
 
-mainFrame.specBtn.arrow = mainFrame.specBtn:CreateTexture(nil, "ARTWORK")
-mainFrame.specBtn.arrow:SetSize(14, 14)
-mainFrame.specBtn.arrow:SetPoint("RIGHT", mainFrame.specBtn, "RIGHT", -4, 0)
-mainFrame.specBtn.arrow:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
+mainFrame.specBtn.arrow = GSI_UI:CreateChevron(mainFrame.specBtn, 14)
+mainFrame.specBtn.arrow:SetPoint("RIGHT", mainFrame.specBtn, "RIGHT", -6, 0)
 
 mainFrame.specBtn:SetText("Specialization")
 LayoutSingleLineButtonText(mainFrame.specBtn, mainFrame.specBtn.icon, "RIGHT", 5, mainFrame.specBtn.arrow, "LEFT", -3)
@@ -263,10 +270,8 @@ mainFrame.modeBtn:EnableMouse(true)
 mainFrame.modeBtn:RegisterForClicks("LeftButtonUp", "RightButtonUp")
 SkinButton(mainFrame.modeBtn, "Mode", "SECONDARY")
 
-mainFrame.modeBtn.arrow = mainFrame.modeBtn:CreateTexture(nil, "ARTWORK")
-mainFrame.modeBtn.arrow:SetSize(14, 14)
-mainFrame.modeBtn.arrow:SetPoint("RIGHT", mainFrame.modeBtn, "RIGHT", -4, 0)
-mainFrame.modeBtn.arrow:SetTexture("Interface\\ChatFrame\\UI-ChatIcon-ScrollDown-Up")
+mainFrame.modeBtn.arrow = GSI_UI:CreateChevron(mainFrame.modeBtn, 14)
+mainFrame.modeBtn.arrow:SetPoint("RIGHT", mainFrame.modeBtn, "RIGHT", -6, 0)
 
 mainFrame.modeBtn:SetText("Mode")
 LayoutSingleLineButtonText(mainFrame.modeBtn, mainFrame.modeBtn, "LEFT", 8, mainFrame.modeBtn.arrow, "LEFT", -3)
@@ -295,7 +300,15 @@ specMenu:EnableMouse(true)
 specMenu:Hide()
 SkinFrame(specMenu, T.bgCardBottom, true)
 
+specMenu:HookScript("OnShow", function()
+    if mainFrame.specBtn and mainFrame.specBtn.arrow then
+        mainFrame.specBtn.arrow:SetExpanded(true)
+    end
+end)
 specMenu:HookScript("OnHide", function()
+    if mainFrame.specBtn and mainFrame.specBtn.arrow then
+        mainFrame.specBtn.arrow:SetExpanded(false)
+    end
     if not (modeMenu and modeMenu:IsShown()) then
         closeMenuFrame:Hide()
     end
@@ -411,7 +424,15 @@ modeMenu:EnableMouse(true)
 modeMenu:Hide()
 SkinFrame(modeMenu, T.bgCardBottom, true)
 
+modeMenu:HookScript("OnShow", function()
+    if mainFrame.modeBtn and mainFrame.modeBtn.arrow then
+        mainFrame.modeBtn.arrow:SetExpanded(true)
+    end
+end)
 modeMenu:HookScript("OnHide", function()
+    if mainFrame.modeBtn and mainFrame.modeBtn.arrow then
+        mainFrame.modeBtn.arrow:SetExpanded(false)
+    end
     if not (specMenu and specMenu:IsShown()) then
         closeMenuFrame:Hide()
     end
@@ -818,6 +839,9 @@ local function UpdateTabButtonsVisual(activeId)
 end
 
 function GSI_UI:SelectTab(tabId)
+    if tabId == "OVERVIEW" and (not mainFrame:IsShown() or GSI_UI.activeTab ~= "OVERVIEW") then
+        GSI_UI._triggerOverviewFill = true
+    end
     if not mainFrame:IsShown() then
         mainFrame:Show()
     end
@@ -836,6 +860,7 @@ mainFrame.content:SetFrameStrata("HIGH")
 mainFrame.content:SetFrameLevel(105)
 
 mainFrame:HookScript("OnShow", function()
+    GSI_UI._triggerOverviewFill = true
     UpdateTabButtonsVisual(GSI_UI.activeTab or "OVERVIEW")
     pcall(function() GSI_UI:UpdateTitleScore() end)
     pcall(function() GSI_UI:UpdateSpecButton() end)

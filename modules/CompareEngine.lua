@@ -404,7 +404,7 @@ function GSI_CompareEngine:Compare(itemLink, currentSetupObjs, baseFullScore, ov
         end
     elseif equipLoc == "INVTYPE_WEAPON" then
         TestReplacement(INVSLOT_MAINHAND)
-        local playerClass = UnitClass and select(2, UnitClass("player"))
+        local playerClass = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or (UnitClass and select(2, UnitClass("player")))
         local isShieldTank = (playerClass == "WARRIOR" and specIndex == 3) or (playerClass == "PALADIN" and specIndex == 2)
         local canDW = GSI_ClassicData and GSI_ClassicData.CanDualWield and GSI_ClassicData:CanDualWield()
         if canDW and not isShieldTank then
@@ -421,7 +421,7 @@ function GSI_CompareEngine:Compare(itemLink, currentSetupObjs, baseFullScore, ov
             end
         end
     elseif equipLoc == "INVTYPE_WEAPONOFFHAND" then
-        local playerClass = UnitClass and select(2, UnitClass("player"))
+        local playerClass = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or (UnitClass and select(2, UnitClass("player")))
         local isShieldTank = (playerClass == "WARRIOR" and specIndex == 3) or (playerClass == "PALADIN" and specIndex == 2)
         local canDW = GSI_ClassicData and GSI_ClassicData.CanDualWield and GSI_ClassicData:CanDualWield()
         if canDW and not isShieldTank then
@@ -430,7 +430,7 @@ function GSI_CompareEngine:Compare(itemLink, currentSetupObjs, baseFullScore, ov
             return nil, nil, nil, nil, nil
         end
     elseif equipLoc == "INVTYPE_2HWEAPON" then
-        local playerClass = UnitClass and select(2, UnitClass("player"))
+        local playerClass = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or (UnitClass and select(2, UnitClass("player")))
         local isShieldTank = (playerClass == "WARRIOR" and specIndex == 3) or (playerClass == "PALADIN" and specIndex == 2)
         if isShieldTank then
             return nil, nil, nil, nil, nil
