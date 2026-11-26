@@ -268,7 +268,9 @@ local function SetBold(tip, fs, bold)
         boldLines[tip] = list
     end
     list[fs] = true
-    fs:SetFont(base.font, base.size + 1, "OUTLINE")
+    -- EllesmereUI's outline when it is installed (none: only one point larger)
+    local flags = (GSI_UI and GSI_UI.GetOutlineFlag and GSI_UI:GetOutlineFlag("OUTLINE")) or "OUTLINE"
+    fs:SetFont(base.font, base.size + 1, flags)
 end
 
 -- Adds a line to the tooltip; with right, a two-column line (the score on
@@ -742,7 +744,12 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                     .. ((sData and sData.name and L[sData.name]) or string.format(L["Spec %s"], tostring(r.spec))) .. COLOR_END
                     .. (isActive and " |cffe6e6e6" or " |cff8c8c8c") .. L[ModeShort(r.mode)] .. COLOR_END
                 if r.setName then
-                    local isOwnSet = not r.setName:find("^GSI: ")
+                    local isOwnSet
+                    if GSI_UI and GSI_UI.IsGSISetName then
+                        isOwnSet = not GSI_UI:IsGSISetName(r.spec, r.setName)
+                    else
+                        isOwnSet = not r.setName:find("^GSI: ")
+                    end
                     if isOwnSet or (perMode[tostring(r.spec) .. "|" .. ModeShort(r.mode)] or 0) > 1 then
                         local shownSet = (r.setName:gsub("^GSI: ", ""))
                         left = left .. " |cff707070" .. shownSet .. COLOR_END

@@ -6,6 +6,17 @@ GSI_UI = GSI_UI or {}
 
 local L = GSI_L
 
+-- A spec key ("DRUID-3") as players read it: "Druid: Feral Cat", translated
+local function SpecKeyLabel(specKey)
+    local class, idx = tostring(specKey or ""):match("^(%u+)%-(%d+)")
+    local cd = class and GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
+    if not cd then return tostring(specKey) end
+    local sd = cd.specs and cd.specs[tonumber(idx)]
+    local className = L[cd.name or class]
+    if not (sd and sd.name) then return className end
+    return className .. ": " .. L[sd.name]
+end
+
 local GetItemInfo = (C_Item and C_Item.GetItemInfo) or _G.GetItemInfo or function() return nil end
 local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemInfoInstant or function() return nil end
 local BackdropTemplateMixin = _G.BackdropTemplateMixin
@@ -602,7 +613,7 @@ function GSI_UI:DrawWeights(parent)
 
         local collected = CollectEditBoxWeights(parent)
         GSI_StatWeights:SaveProfile(specKey, activeProf, collected)
-        print(string.format(L["|cff00ff00[GearSetImprover]|r Stat weights for |cffffcc00%s (%s)|r saved successfully!"], specKey, activeProf))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Stat weights for |cffffcc00%s (%s)|r saved successfully!"], SpecKeyLabel(specKey), activeProf))
         GSI_ItemScore:ResetCache()
         GSI_UI:UpdateWeights(parent)
         GSI_UI:RefreshPanel(true)
@@ -625,7 +636,7 @@ function GSI_UI:DrawWeights(parent)
         GSI_UI:UpdateWeights(parent)
         GSI_ItemScore:ResetCache()
         GSI_UI:RefreshPanel(true)
-        print(string.format(L["|cff00ff00[GearSetImprover]|r Default weights for |cffffcc00%s|r restored!"], specKey))
+        print(string.format(L["|cff00ff00[GearSetImprover]|r Default weights for |cffffcc00%s|r restored!"], SpecKeyLabel(specKey)))
     end)
 
     local exportBtn = CreateFrame("Button", nil, parent, BACKDROP_TEMPLATE)
@@ -984,7 +995,7 @@ function GSI_UI:PromptImportProfileChoice(parent, specKey, parsedWeights, count,
     local activeProf = GSI_StatWeights:GetActiveProfileName(specKey)
     local activeLabel = L[activeProf or "Default (Baseline)"]
 
-    f.subText:SetText(string.format(L["|cff00ff00%d stat weights detected|r for |cffffcc00%s|r.\nWould you like to overwrite the active profile or create a new one?"], count, specKey))
+    f.subText:SetText(string.format(L["|cff00ff00%d stat weights detected|r for |cffffcc00%s|r.\nWould you like to overwrite the active profile or create a new one?"], count, SpecKeyLabel(specKey)))
     f.rbOverwrite.text:SetText(string.format(L["Overwrite active profile: |cffffcc00%s|r"], activeLabel))
 
     local defaultNewName = suggestedName
@@ -1204,7 +1215,7 @@ function GSI_UI:OpenWeightsIOModal(parent, mode)
 
     if mode == "EXPORT" then
         f.header:SetText(L["Export Stat Weights"])
-        f.subText:SetText(string.format(L["Copy string using Ctrl+C (Profile: |cffffcc00%s|r):"], tostring(specKey)))
+        f.subText:SetText(string.format(L["Copy string using Ctrl+C (Profile: |cffffcc00%s|r):"], SpecKeyLabel(specKey)))
         if f.placeholder then f.placeholder:Hide() end
         local exportStr = GSI_UI:GetWeightsExportString(specKey)
         eb:SetText(exportStr)
@@ -1221,7 +1232,7 @@ function GSI_UI:OpenWeightsIOModal(parent, mode)
         f.cancelBtn:Hide()
     else -- IMPORT
         f.header:SetText(L["Import Stat Weights"])
-        f.subText:SetText(string.format(L["Paste string here using Ctrl+V (Target Profile: |cffffcc00%s|r):\n|cffaaaaaaSupports GSI format and Pawn strings.|r"], tostring(specKey)))
+        f.subText:SetText(string.format(L["Paste string here using Ctrl+V (Target Profile: |cffffcc00%s|r):\n|cffaaaaaaSupports GSI format and Pawn strings.|r"], SpecKeyLabel(specKey)))
         eb:SetText("")
         if f.placeholder then f.placeholder:Show() end
         if f.UpdateEditBoxState then f.UpdateEditBoxState() end

@@ -822,7 +822,7 @@ function GSI_UI:UpdateMacros(parent)
                 self:SetBackdropBorderColor(0.24, 0.24, 0.32, 1)
                 if self.def then
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                    GameTooltip:AddLine(self.def.name, 1, 0.82, 0)
+                    GameTooltip:AddLine(GSI_UI:GetPresetTitle(self.def), 1, 0.82, 0)
                     GameTooltip:AddLine(self.def.command, 0.4, 0.8, 1)
                     if self.def.desc then
                         GameTooltip:AddLine(L[self.def.desc], 0.85, 0.85, 0.85, true)
@@ -859,7 +859,7 @@ function GSI_UI:UpdateMacros(parent)
             btn:SetScript("OnEnter", function(self)
                 if self.def then
                     GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
-                    GameTooltip:AddLine(self.def.name, 1, 0.82, 0)
+                    GameTooltip:AddLine(GSI_UI:GetPresetTitle(self.def), 1, 0.82, 0)
                     GameTooltip:AddLine(L["Left-Click or Drag to place on Action Bar"], 0, 1, 0)
                     GameTooltip:AddLine(self.def.command, 0.4, 0.8, 1)
                     GameTooltip:AddLine(L[self.def.desc], 0.8, 0.8, 0.8, true)
@@ -997,7 +997,7 @@ function GSI_UI:UpdateMacros(parent)
         end
 
         row.macroBtn.icon:SetTexture(def.icon or 134400)
-        row.nameText:SetText(def.name)
+        row.nameText:SetText(GSI_UI:GetPresetTitle(def))
         row.cmdText:SetText(string.format("|cffffcc00%s|r  |cffaaaaaa- %s|r", def.command, L[def.desc]))
 
         row:ClearAllPoints()
@@ -1210,11 +1210,80 @@ function GSI_UI:PrintSlashHelp()
     print(L["  |cff00ff00/gsi help|r - Show this command list"])
 end
 
+-- ---------------------------------------------------------------
+-- The names of the Equipment Sets GSI saves. A preset's set is named after
+-- the preset without GSI's "GSI: " prefix, in the client's language
+-- ("GSI: Cat ST" -> "Cat ST", on a Russian client "Кошка"; GSI_SET_NAMES,
+-- Locales\ruRU_Macros.lua). Sets saved under the older "GSI: ..." names
+-- stay GSI's and are renamed when they can be (MigratePresetSetNames).
+-- Macros keep their "GSI: ..." names.
+-- ---------------------------------------------------------------
+
+-- At most 16 characters (Equipment Set and macro names), whole UTF-8 letters
+local function Trim16(name)
+    if type(name) ~= "string" then return name end
+    local count = 0
+    for pos in name:gmatch("()[%z\1-\127\194-\244][\128-\191]*") do
+        count = count + 1
+        if count > 16 then return name:sub(1, pos - 1) end
+    end
+    return name
+end
+
+local function SetNameExists(name)
+    return name ~= nil and C_EquipmentSet ~= nil and C_EquipmentSet.GetEquipmentSetID ~= nil
+        and C_EquipmentSet.GetEquipmentSetID(name) ~= nil
+end
+
+-- A set name for an English short name ("Cat ST", or a spec name): the set
+-- name table first (short enough for a set name), then the texts
+local function LocalSetName(short)
+    return Trim16((GSI_SET_NAMES and GSI_SET_NAMES[short]) or L[short])
+end
+
+local function OldPresetSetName(p)
+    return Trim16(p.name)
+end
+
+local function NewPresetSetName(p)
+    return LocalSetName((p.name:gsub("^GSI: ", "")))
+end
+
+-- The set GSI uses for a preset now: the older "GSI: ..." one while a set by
+-- that name is still there, else the new name.
+local function PresetSetName(p)
+    local old = OldPresetSetName(p)
+    if SetNameExists(old) then return old end
+    return NewPresetSetName(p)
+end
+
+local function IsPresetSetName(p, name)
+    return name ~= nil and (name == OldPresetSetName(p) or name == NewPresetSetName(p))
+end
+
+-- What the Macros tab calls a preset: the name of its set ("Кошка"), or for
+-- a macro without a set its name without "GSI" ("Dual Spec"). The macros
+-- themselves keep their "GSI: ..." names, by which GSI finds them.
+function GSI_UI:GetPresetTitle(def)
+    if not (def and def.name) then return "" end
+    if def.noSet then return L[(def.name:gsub("^GSI:? ", ""))] end
+    return NewPresetSetName(def)
+end
+
+-- The set of a spec that has no preset: old "GSI: <spec>", new "<spec>"
+local function OldSpecSetName(specName)
+    return Trim16("GSI: " .. specName)
+end
+
+local function SpecSetNameNow(specName)
+    local old = OldSpecSetName(specName)
+    if SetNameExists(old) then return old end
+    return LocalSetName(specName)
+end
+
 function GSI_UI:GetEquipmentSetNameAndIcon(specIndex, targetMode, explicitPreset)
     if explicitPreset and explicitPreset.name and not explicitPreset.noSet then
-        local name = explicitPreset.name
-        if string.len(name) > 16 then name = string.sub(name, 1, 16) end
-        return name, explicitPreset.icon or 134400
+        return PresetSetName(explicitPreset), explicitPreset.icon or 134400
     end
 
     local playerClass = select(2, UnitClass("player")) or "WARRIOR"
@@ -1237,27 +1306,21 @@ function GSI_UI:GetEquipmentSetNameAndIcon(specIndex, targetMode, explicitPreset
         -- 1. Try exact match on both spec and mode
         for _, p in ipairs(presets) do
             if p.specIndex == activeSpec and p.mode and modeVal and (p.mode:upper() == modeVal:upper()) then
-                local name = p.name
-                if string.len(name) > 16 then name = string.sub(name, 1, 16) end
-                return name, p.icon or 134400
+                return PresetSetName(p), p.icon or 134400
             end
         end
 
         -- 2. Try match on specIndex where preset has no specific mode restriction
         for _, p in ipairs(presets) do
             if p.specIndex == activeSpec and not p.mode then
-                local name = p.name
-                if string.len(name) > 16 then name = string.sub(name, 1, 16) end
-                return name, p.icon or 134400
+                return PresetSetName(p), p.icon or 134400
             end
         end
 
         -- 3. Try match on mode only (e.g. AoE presets)
         for _, p in ipairs(presets) do
             if not p.specIndex and p.mode and modeVal and (p.mode:upper() == modeVal:upper()) then
-                local name = p.name
-                if string.len(name) > 16 then name = string.sub(name, 1, 16) end
-                return name, p.icon or 134400
+                return PresetSetName(p), p.icon or 134400
             end
         end
     end
@@ -1266,12 +1329,8 @@ function GSI_UI:GetEquipmentSetNameAndIcon(specIndex, targetMode, explicitPreset
     local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[playerClass]
     local specData = classData and classData.specs and classData.specs[activeSpec]
     local rawSpec = specData and (specData.name or specData.nameDE) or ("Spec " .. tostring(activeSpec))
-    local setName = "GSI: " .. rawSpec
-    if string.len(setName) > 16 then
-        setName = string.sub(setName, 1, 16)
-    end
     local icon = specData and specData.icon or 134400
-    return setName, icon
+    return SpecSetNameNow(rawSpec), icon
 end
 
 function GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, explicitPreset)
@@ -1291,9 +1350,7 @@ function GSI_UI:SaveEquipmentSetForProfile(specIndex, targetMode, explicitPreset
     if not setName or string.len(setName) == 0 then
         return false, "invalid_name"
     end
-    if string.len(setName) > 16 then
-        setName = string.sub(setName, 1, 16)
-    end
+    setName = Trim16(setName)
     icon = icon or 134400
 
     local ok, res = pcall(function()
@@ -1548,11 +1605,6 @@ local function SetExists(name)
         and C_EquipmentSet.GetEquipmentSetID(name) ~= nil
 end
 
-local function Trim16(name)
-    if name and #name > 16 then return name:sub(1, 16) end
-    return name
-end
-
 -- The mode a spec is scored in now (tank specs: tankMode, others: weightMode).
 local function CurrentModeFor(specIndex)
     local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[PlayerClassKey()]
@@ -1594,14 +1646,14 @@ local function ModeSetName(specIndex, modeVal)
     if not presets or not modeVal then return nil end
     for _, p in ipairs(presets) do
         if p.specIndex == specIndex and p.mode and NormMode(p.mode) == NormMode(modeVal) then
-            return Trim16(p.name)
+            return PresetSetName(p)
         end
     end
     return nil
 end
 
--- The sets GSI has saved for a spec ("GSI: Cat ST", "GSI: Resto AoE", ...),
--- those that exist, the one for modeVal first.
+-- The sets GSI has saved for a spec ("Cat ST", "Resto AoE", ...; older
+-- "GSI: ..." names too), those that exist, the one for modeVal first.
 function GSI_UI:GetAutoSpecSets(specIndex, modeVal)
     specIndex = tonumber(specIndex)
     local list, seen = {}, {}
@@ -1616,11 +1668,26 @@ function GSI_UI:GetAutoSpecSets(specIndex, modeVal)
     local presets = GSI_MACRO_PRESETS[PlayerClassKey()]
     if presets then
         for _, p in ipairs(presets) do
-            if p.specIndex == specIndex then Add(p.name) end
+            if p.specIndex == specIndex and not p.noSet then Add(PresetSetName(p)) end
         end
     end
-    Add("GSI: " .. SpecDisplayName(specIndex)) -- the name without a preset
+    Add(SpecSetNameNow(SpecDisplayName(specIndex))) -- the name without a preset
     return list
+end
+
+-- One of GSI's own sets of the spec (a preset's, old or new name, or the
+-- spec's set without a preset), not one of the player's.
+function GSI_UI:IsGSISetName(specIndex, setName)
+    specIndex = tonumber(specIndex)
+    if not setName then return false end
+    local presets = GSI_MACRO_PRESETS[PlayerClassKey()]
+    if presets then
+        for _, p in ipairs(presets) do
+            if p.specIndex == specIndex and not p.noSet and IsPresetSetName(p, setName) then return true end
+        end
+    end
+    local specName = SpecDisplayName(specIndex)
+    return setName == OldSpecSetName(specName) or setName == LocalSetName(specName)
 end
 
 -- The sets of a spec: the ones chosen in Settings, else the ones GSI saved
@@ -1705,7 +1772,7 @@ local function PresetModeOf(specIndex, setName)
     local presets = GSI_MACRO_PRESETS[PlayerClassKey()]
     if not presets then return nil end
     for _, p in ipairs(presets) do
-        if p.specIndex == specIndex and p.mode and Trim16(p.name) == setName then
+        if p.specIndex == specIndex and p.mode and IsPresetSetName(p, setName) then
             return CanonMode(p.mode)
         end
     end
@@ -1778,6 +1845,94 @@ function GSI_UI:CycleSetMode(specIndex, setName)
     end
     self:SetSetMode(specIndex, setName, nextMode)
     return nextMode
+end
+
+-- Sets GSI saved under the older "GSI: ..." names get their new names
+-- ("GSI: Cat ST" -> "Кошка" on a Russian client), unless a set by the new
+-- name is already there (a set of the player's own: the old one then keeps
+-- its name and stays GSI's). The spec set lists and set modes of this
+-- character follow the rename. Out of combat only; runs again later.
+local function MigratePresetSetNames()
+    if not (C_EquipmentSet and C_EquipmentSet.ModifyEquipmentSet and C_EquipmentSet.GetEquipmentSetID) then return end
+    if InCombatLockdown and InCombatLockdown() then return end
+    local pairsToRename = {}
+    for _, list in ipairs({ GSI_MACRO_PRESETS.UNIVERSAL or {}, GSI_MACRO_PRESETS[PlayerClassKey()] or {} }) do
+        for _, p in ipairs(list) do
+            if not p.noSet then
+                pairsToRename[#pairsToRename + 1] = { old = OldPresetSetName(p), new = NewPresetSetName(p), spec = p.specIndex }
+            end
+        end
+    end
+    local numSpecs = (PlayerClassKey() == "DRUID") and 4 or 3
+    for s = 1, numSpecs do
+        local specName = SpecDisplayName(s)
+        pairsToRename[#pairsToRename + 1] = { old = OldSpecSetName(specName), new = LocalSetName(specName), spec = s }
+    end
+
+    local renamed = {}
+    for _, r in ipairs(pairsToRename) do
+        if r.old ~= r.new and not renamed[r.old] and SetNameExists(r.old) and not SetNameExists(r.new) then
+            local setID = C_EquipmentSet.GetEquipmentSetID(r.old)
+            local okI, _, icon = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
+            local ok = pcall(C_EquipmentSet.ModifyEquipmentSet, setID, r.new, (okI and icon) or nil)
+            if ok and SetNameExists(r.new) then renamed[r.old] = r.new end
+        end
+    end
+    if not next(renamed) then return end
+
+    -- This character's spec set lists and set modes use the new names
+    local db = GearSetImproverDB
+    local key = SpecSetCharKey()
+    local lists = db and db.specSets and db.specSets[key]
+    if type(lists) == "table" then
+        for s, list in pairs(lists) do
+            if type(list) == "string" then
+                lists[s] = renamed[list] or list
+            elseif type(list) == "table" then
+                for i, n in ipairs(list) do list[i] = renamed[n] or n end
+            end
+        end
+    end
+    local modes = db and db.specSetModes and db.specSetModes[key]
+    if type(modes) == "table" then
+        for _, t in pairs(modes) do
+            if type(t) == "table" then
+                for old, new in pairs(renamed) do
+                    if t[old] ~= nil and t[new] == nil then t[new] = t[old] end
+                    t[old] = nil
+                end
+            end
+        end
+    end
+
+    local shown = {}
+    for old, new in pairs(renamed) do shown[#shown + 1] = old .. " -> " .. new end
+    table.sort(shown)
+    print(string.format(L["|cffffcc00[GearSetImprover]|r Equipment Sets renamed: %s."], table.concat(shown, ", ")))
+    if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then
+        pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook)
+    end
+    if GSI_UI.RefreshSpecSetRows then pcall(GSI_UI.RefreshSpecSetRows) end
+end
+
+do
+    local renameFrame = CreateFrame and CreateFrame("Frame")
+    if renameFrame then
+        local queued = false
+        local function Run()
+            queued = false
+            pcall(MigratePresetSetNames)
+        end
+        renameFrame:SetScript("OnEvent", function(_, event)
+            if queued then return end
+            queued = true
+            -- The sets are known a moment after login
+            C_Timer.After(event == "PLAYER_ENTERING_WORLD" and 3 or 1, Run)
+        end)
+        for _, ev in ipairs({ "PLAYER_ENTERING_WORLD", "EQUIPMENT_SETS_CHANGED", "PLAYER_REGEN_ENABLED" }) do
+            pcall(renameFrame.RegisterEvent, renameFrame, ev)
+        end
+    end
 end
 
 -- The set's mode as tooltip lines name it ("ST", "AOE", "Survival", "Threat").

@@ -15,6 +15,19 @@ GSI_L = setmetatable({}, {
     __call = function(t, key) return t[key] end,
 })
 
+-- Names of the Equipment Sets GSI saves, English short name -> name in the
+-- client's language, at most 16 characters ("Cat ST" -> "Кошка").
+GSI_SET_NAMES = {}
+
+function GSI_AddSetNames(locale, names)
+    if locale ~= GSI_LOCALE or type(names) ~= "table" then return end
+    for short, name in pairs(names) do
+        if type(short) == "string" and type(name) == "string" and name ~= "" then
+            GSI_SET_NAMES[short] = name
+        end
+    end
+end
+
 function GSI_AddTranslations(locale, entries)
     if locale ~= GSI_LOCALE or type(entries) ~= "table" then return end
     for key, text in pairs(entries) do

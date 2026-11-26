@@ -145,7 +145,7 @@ local function BuildGeneral(pageName, parent, yOffset)
         _, h = W:Toggle(parent, L["Save Equipment Sets when GSI equips gear"], y,
             function() return Flag("autoSaveEquipmentSet", true) end,
             function(v) DB().autoSaveEquipmentSet = v and true or false end,
-            L["/gsi equip saves what it put on as the spec's set (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...)."]); y = y - h
+            L["/gsi equip saves what it put on as the spec's set (\"Cat ST\", \"Resto AoE\", ...)."]); y = y - h
         _, h = W:Toggle(parent, L["Debug: stat weights in tooltips"], y,
             function() return Flag("debug", false) end,
             function(v) DB().debug = v and true or false; RefreshTooltips() end); y = y - h
@@ -297,7 +297,7 @@ local function BuildSpecPage(specIndex, parent, y)
     local names, isManual = GSI_UI:GetSpecSets(specIndex, modeNow)
     _, h = W:SectionHeader(parent, isManual and L["EQUIPMENT SETS"] or L["EQUIPMENT SETS (AUTO)"], y,
         isManual and L["Your own list of sets for this spec."]
-        or L["Auto: the sets GSI saved for the spec (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...), also those it saves later. Adding or removing one makes the list your own."]); y = y - h
+        or L["Auto: the sets GSI saved for the spec (\"Cat ST\", \"Resto AoE\", ...), also those it saves later. Adding or removing one makes the list your own."]); y = y - h
 
     local modes = GSI_UI:GetSpecModes(specIndex)
     for _, setName in ipairs(names) do

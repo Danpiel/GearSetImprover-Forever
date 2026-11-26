@@ -159,7 +159,34 @@ local function IsValidFont(fontPath)
     return actual ~= nil and actual ~= ""
 end
 
+-- With EllesmereUI, GSI's text looks like the rest of the UI: EllesmereUI's
+-- global font (EllesmereUI picks one with the client's letters) and outline.
+local function EllesmereFontPath()
+    local EUI = _G.EllesmereUI
+    if not (EUI and EUI.GetFontPath) then return nil end
+    local ok, path = pcall(EUI.GetFontPath)
+    if ok and type(path) == "string" and path ~= "" then return path end
+    return nil
+end
+
+-- The outline GSI's own texts get: EllesmereUI's ("" for none or shadow)
+-- when it is installed, else `default`.
+function GSI_UI:GetOutlineFlag(default)
+    local EUI = _G.EllesmereUI
+    if EUI and EUI.GetFontOutlineFlag then
+        local ok, flag = pcall(EUI.GetFontOutlineFlag)
+        if ok and type(flag) == "string" then return flag end
+    end
+    return default
+end
+
 local function ResolveExpresswayFont()
+    -- EllesmereUI's font when it is there
+    local euiFont = EllesmereFontPath()
+    if euiFont and IsValidFont(euiFont) then
+        return euiFont
+    end
+
     -- 0. Russian client: GSI's own Expressway has the Cyrillic letters, an
     -- Expressway another addon registered may not
     local bundled = "Interface\\AddOns\\GearSetImprover\\Fonts\\Expressway.ttf"
@@ -311,7 +338,7 @@ function GSI_UI:CreateText(parent, style, text, justifyH)
     local s = type(style) == "string" and string.upper(style) or style
 
     if s == "HERO_SCORE" then
-        fs:SetFont(font, 24, "OUTLINE")
+        fs:SetFont(font, 24, self:GetOutlineFlag("OUTLINE"))
         fs:SetTextColor(unpack(T.textPrimary))
         fs:SetShadowOffset(1, -1)
         fs:SetShadowColor(0, 0, 0, 0.95)
@@ -401,7 +428,7 @@ function GSI_UI:ApplyFont(fontString, styleOrSize, flags, color)
             fontString:SetTextColor(unpack(color))
         end
     elseif s == "HERO_SCORE" then
-        fontString:SetFont(font, 24, flags or "OUTLINE")
+        fontString:SetFont(font, 24, flags or self:GetOutlineFlag("OUTLINE"))
         fontString:SetTextColor(unpack(color or T.textPrimary))
         fontString:SetShadowOffset(1, -1)
         fontString:SetShadowColor(0, 0, 0, 0.95)

@@ -16,6 +16,7 @@ if not GSI_L then
     })
     GSI_AddTranslations = GSI_AddTranslations or function() end
 end
+GSI_SET_NAMES = GSI_SET_NAMES or {}
 
 -- ============================================================
 -- Client API Compatibility Layer (Modern Engine)

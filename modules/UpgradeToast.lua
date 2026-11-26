@@ -473,16 +473,23 @@ end
 -- ------------------------------------------------------------
 local function ApplyFont(fontString, size, flags, shadow)
     local fontPath = (GSI_UI and GSI_UI:GetFontPath()) or FONT_FILE or "Interface\\AddOns\\GearSetImprover\\Fonts\\Expressway.ttf"
+    flags = flags or "OUTLINE"
+    -- EllesmereUI's outline (or none) instead of GSI's own; text without an
+    -- outline keeps a shadow, as EllesmereUI's does
+    if flags:find("OUTLINE") and GSI_UI and GSI_UI.GetOutlineFlag then
+        flags = GSI_UI:GetOutlineFlag(flags)
+        if not flags:find("OUTLINE") then shadow = true end
+    end
     local loaded = false
     if fontPath then
         loaded = pcall(function()
-            fontString:SetFont(fontPath, size, flags or "OUTLINE")
+            fontString:SetFont(fontPath, size, flags)
         end)
     end
     if not loaded or not fontString:GetFont() then
         local base = (size >= 14) and GameFontNormalLarge or ((size >= 12) and GameFontNormal or GameFontNormalSmall)
-        local fName, _, fFlags = base:GetFont()
-        fontString:SetFont(fName, size, flags or fFlags or "OUTLINE")
+        local fName = base:GetFont()
+        fontString:SetFont(fName, size, flags)
     end
     if shadow ~= false then
         fontString:SetShadowOffset(1, -1)
