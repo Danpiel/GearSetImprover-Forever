@@ -25,7 +25,7 @@ local function GetAddonVersion()
     elseif GetAddOnMetadata then
         ver = GetAddOnMetadata("GearSetImprover", "Version")
     end
-    return (ver and ver ~= "") and ver or "1.5.0"
+    return (ver and ver ~= "") and ver or "1.5.1"
 end
 
 -- CREDITS & ACKNOWLEDGMENTS MODAL
@@ -403,6 +403,13 @@ function GSI_UI:OpenChangelog()
     end
 
     local logText = table.concat({
+        L["|cffffcc00Version 1.5.1 (Russian Translation, Spec Cards, Sets & Weights in Sync, EllesmereUI)|r"],
+        "--------------------------------------------------",
+        L["|cff00ff00New:|r Russian translation of everything you see; GSI's Equipment Sets get names in your language without the |cffffffffGSI:|r prefix, older ones are renamed by themselves."],
+        L["|cff00ff00New:|r One card per spec in Settings: its sets, the weights each set turns on, its tooltip lines and its talent group."],
+        L["|cff00ff00New:|r A set you put on turns its spec and weights on, and weights picked in GSI put on their set (both on by default, Settings)."],
+        L["|cff00ff00Improved:|r Two-column tooltip lines with the spec you play first, the set prompt in the toast's look, toasts wait 3 s after a spec change, an interrupted dual spec switch can be retried, and a GearSetImprover section in the EllesmereUI panel with its font."],
+        "",
         L["|cffffcc00Version 1.5.0 (Build 1.60.1.71091 Stat Audit, C_Traits Fix & Modularization)|r"],
         "--------------------------------------------------",
         L["|cff00ff00Updated:|r Recalibrated Balance Druid (|cffffffffMoonkin Form +10%|r, |cffffffffDreamstate|r, |cffffffffEclipse|r, |cffffffffStarlight Wrath|r, |cffffffffHurricane/Genesis|r), BM Hunter (Pet Crit & Hawks fix), Paladin (|cffffffffExorcism|r crits), Shadow Priest (|cffffffffDark Inspiration|r), Resto Shaman (|cffffffffRiptide|r), and |cffffffffFeralheart|r / |cffffffffStormshroud|r set bonuses."],

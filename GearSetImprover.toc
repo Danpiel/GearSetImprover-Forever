@@ -3,7 +3,7 @@
 ## Notes: Stat-Weight Engine, Best-in-Bag Optimizer, Upgrade Toast, Macro Manager & Clean-up for WoW: Forever 1.60.1
 ## Notes-ruRU: Веса характеристик, лучшее в сумках, уведомления об улучшениях, макросы и очистка для WoW: Forever 1.60.1
 ## Author: GSI Team
-## Version: 1.5.0
+## Version: 1.5.1
 ## X-Curse-Project-ID: 1711424
 ## SavedVariables: GearSetImproverDB, GearSetImproverLog
 ## IconTexture: Interface\AddOns\GearSetImprover\Textures\icon.png

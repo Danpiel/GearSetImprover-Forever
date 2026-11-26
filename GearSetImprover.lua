@@ -8,7 +8,7 @@ local L = GSI_L
 local ADDON_NAME = "GearSetImprover"
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version"))
     or (GetAddOnMetadata and GetAddOnMetadata(ADDON_NAME, "Version"))
-    or "1.5.0"
+    or "1.5.1"
 
 local print = function(...)
     if GSI_Print then

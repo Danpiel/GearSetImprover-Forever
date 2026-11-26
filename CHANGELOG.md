@@ -1,3 +1,24 @@
+# GearSetImprover Forever v1.5.1
+
+### Russian Translation, Spec Cards, Sets & Weights in Sync, EllesmereUI
+
+Built on v1.5.0: everything in it is included.
+
+* **Russian translation (`Locales/`):** windows, tabs, tooltips, upgrade toasts, settings and chat lines are in Russian on Russian clients.
+  - The Equipment Sets GSI saves get names in the client's language without the `GSI:` prefix (`Кошка`, `Исцеление АоЕ`); sets with the older `GSI: ...` names are renamed by themselves, with their spec links and weights.
+  - Further languages can be added as a folder in `Locales/`.
+* **Specs, Equipment Sets & Weights (Settings tab):** one card per spec with its tooltip lines, its sets and the weights each set turns on (Single Target / AoE, Survival / Threat, or keep), adding and removing sets, back to Auto, and its talent group.
+* **Sets and weights follow each other (on by default, both can be turned off):**
+  - Putting on a set (GSI, the Equipment Manager, other addons) makes its spec the one scored and turns its weights on.
+  - Picking a mode or a spec in GSI's header (or `/gsi mode`, `/gsi spec`) puts on that spec's set for those weights.
+* **"Which set?" prompt** in the upgrade toast's look, with each set's weights.
+* **Tooltips:** one two-column line per score (spec and mode left, score right), the spec you play first in its class colour, the other specs after an empty line, a spec icon on every line.
+* **Upgrade toasts** wait 3 seconds after a spec change, and while the set prompt is open, then are scored against the gear you wear.
+* **Dual spec:** an interrupted talent group switch no longer blocks the next press of the macro.
+* **EllesmereUI:** a GearSetImprover section in the EllesmereUI options panel; GSI's text uses EllesmereUI's font and outline.
+
+---
+
 # GearSetImprover Forever v1.5.0
 
 ### Build 1.60.1.71091 Stat Audit, Live `C_Traits` Talent Integration & Modularization
