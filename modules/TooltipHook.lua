@@ -290,11 +290,17 @@ local function AddOwnLine(tip, text, r, g, b, wrap, bold, right)
     if fsRight then SetBold(tip, fsRight, right and bold) end
 end
 
--- A thin line across the tooltip between the spec played and the others
-local function DividerText(tip)
-    local w = (tip.GetWidth and tip:GetWidth()) or 0
-    w = math.floor(math.max(120, math.min(360, w - 24)))
-    return "|TInterface\\Buttons\\WHITE8x8:2:" .. w .. ":0:0:8:8:0:8:0:8:72:76:88|t"
+-- An empty line between the spec played and the others. Not one of the
+-- duplicate guard's lines: tooltips have blank lines of their own.
+local function AddBlankLine(tip)
+    tip:AddLine(" ")
+    local name = tip.GetName and tip:GetName()
+    local n = name and tip.NumLines and tip:NumLines()
+    local fs = n and _G[name .. "TextLeft" .. n]
+    if fs then
+        ownLines[fs] = nil
+        SetBold(tip, fs, false)
+    end
 end
 
 local MODE_SHORT = { ST = "ST", AOE = "AoE", SURVIVAL = "Survival", THREAT = "Threat", DMG = "Threat" }
@@ -356,8 +362,8 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 end
                 for i = 1, #hitLines do
                     local l = hitLines[i]
-                    if l.divider then
-                        AddOwnLine(tooltip, DividerText(tooltip))
+                    if l.blank then
+                        AddBlankLine(tooltip)
                     else
                         AddOwnLine(tooltip, l.text, l.r, l.g, l.b, l.wrap, l.bold, l.right)
                     end
@@ -485,12 +491,11 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             end
         end
 
-        -- Drawn to the tooltip's width each time (also from the cache)
-        local function AddTipDivider()
-            AddOwnLine(tooltip, DividerText(tooltip))
+        local function AddTipBlank()
+            AddBlankLine(tooltip)
             if cachedLines and GSI_TooltipCache and GSI_TooltipCache.AcquireLine then
-                local l = GSI_TooltipCache:AcquireLine("", nil, nil, nil, nil)
-                l.divider = true
+                local l = GSI_TooltipCache:AcquireLine(" ", nil, nil, nil, nil)
+                l.blank = true
                 cachedLines[#cachedLines + 1] = l
             end
         end
@@ -580,7 +585,7 @@ local function AppendScoreToTooltip(tooltip, itemLink)
         local statsFetched = false
         local shownHints = nil
         -- Scored lines and talent notes, drawn once all are known: the spec
-        -- played first, a divider, the other specs, then the notes
+        -- played first, an empty line, the other specs, then the notes
         local rows = {}
         local hintLines = {}
 
@@ -713,7 +718,7 @@ local function AppendScoreToTooltip(tooltip, itemLink)
 
         -- One two-column line per score: "[icon] Restoration AoE" on the left,
         -- "11.19 (+4.05)" on the right edge. The spec played comes first, in
-        -- the class colour, larger and outlined; a thin divider; the other
+        -- the class colour, larger and outlined; an empty line; the other
         -- specs in grey. A set's name is shown only when the line does not
         -- say it already: your own sets, or two lines of a spec in one mode.
         if #rows > 0 then
@@ -752,7 +757,7 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             for _, r in ipairs(rows) do
                 if r.spec == activeSpecIndex then RenderRow(r, true) end
             end
-            if anyActive and anyOther then AddTipDivider() end
+            if anyActive and anyOther then AddTipBlank() end
             for _, r in ipairs(rows) do
                 if r.spec ~= activeSpecIndex then RenderRow(r, false) end
             end
