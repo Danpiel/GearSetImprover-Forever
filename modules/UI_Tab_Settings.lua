@@ -113,7 +113,7 @@ function GSI_UI:DrawSettings(parent)
         end
     end)
 
-    local desc = self:CreateText(scrollChild, "BODY", "All addon settings are integrated into the official WoW Interface Options.")
+    local desc = self:CreateText(scrollChild, "BODY", "All addon settings are in the WoW Interface Options, and with EllesmereUI in its options panel (GearSetImprover section).")
     desc:SetPoint("TOPLEFT", 16, -4)
     desc:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     desc:SetJustifyH("LEFT")
@@ -122,7 +122,7 @@ function GSI_UI:DrawSettings(parent)
     local openBtn = CreateFrame("Button", nil, scrollChild, BACKDROP_TEMPLATE)
     openBtn:SetSize(200, 28)
     openBtn:SetPoint("TOPLEFT", desc, "BOTTOMLEFT", 0, -14)
-    openBtn:SetText("Open Interface Options")
+    openBtn:SetText("Open Settings")
     SkinButton(openBtn, nil, true)
     openBtn:SetScript("OnClick", function()
         if GSI_UI.OpenSettings then

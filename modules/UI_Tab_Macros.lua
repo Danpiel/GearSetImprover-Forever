@@ -1739,6 +1739,27 @@ function GSI_UI:GetSetMode(specIndex, setName)
     return PresetModeOf(specIndex, setName)
 end
 
+-- Gives the set a mode ("ST", "AOE", "Survival", "DMG"), or none (nil: it
+-- leaves the weights as they are).
+function GSI_UI:SetSetMode(specIndex, setName, mode)
+    specIndex = tonumber(specIndex)
+    if not (specIndex and setName) then return end
+    mode = CanonMode(mode)
+    local preset = PresetModeOf(specIndex, setName)
+    local t = StoredSetModes(specIndex, true)
+    if mode == preset then
+        t[setName] = nil
+    elseif mode == nil then
+        t[setName] = false
+    else
+        t[setName] = mode
+    end
+    -- Tooltip lines of other specs are scored in the set's mode
+    if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then
+        pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook)
+    end
+end
+
 -- Next mode for the set: the spec's first mode, its second, none, again.
 function GSI_UI:CycleSetMode(specIndex, setName)
     specIndex = tonumber(specIndex)
@@ -1753,19 +1774,7 @@ function GSI_UI:CycleSetMode(specIndex, setName)
     else
         nextMode = nil
     end
-    local preset = PresetModeOf(specIndex, setName)
-    local t = StoredSetModes(specIndex, true)
-    if nextMode == preset then
-        t[setName] = nil
-    elseif nextMode == nil then
-        t[setName] = false
-    else
-        t[setName] = nextMode
-    end
-    -- Tooltip lines of other specs are scored in the set's mode
-    if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then
-        pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook)
-    end
+    self:SetSetMode(specIndex, setName, nextMode)
     return nextMode
 end
 

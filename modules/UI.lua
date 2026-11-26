@@ -937,6 +937,10 @@ function GSI_UI:OpenSettings()
         return
     end
 
+    -- With EllesmereUI the settings are GearSetImprover's section of its panel
+    -- (Options > AddOns still has them too)
+    if GSI_EllesmereUI and GSI_EllesmereUI.Open and GSI_EllesmereUI:Open() then return end
+
     local ok = false
     if Settings and Settings.OpenToCategory then
         local catID = self.blizzardCategory and self.blizzardCategory.GetID and self.blizzardCategory:GetID()
