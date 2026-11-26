@@ -282,8 +282,36 @@ function GSI_UI:DrawSettings(parent)
     end)
     cbSetAuto:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
+    -- A set put on -> its spec and weights; weights picked in GSI -> their set
+    local function AddSyncCheck(anchor, label, key, title, tip)
+        local cb = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
+        cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -6)
+        cb.text = self:CreateText(cb, "BODY", label)
+        cb.text:SetPoint("LEFT", cb, "RIGHT", 6, 0)
+        cb.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+        cb.text:SetJustifyH("LEFT")
+        cb:SetScript("OnClick", function(selfBtn)
+            if not GearSetImproverDB then GearSetImproverDB = {} end
+            GearSetImproverDB[key] = selfBtn:GetChecked() and true or false
+        end)
+        cb:SetScript("OnEnter", function(selfBtn)
+            GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+            GameTooltip:AddLine(title, 1, 0.82, 0)
+            GameTooltip:AddLine(tip, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        return cb
+    end
+    local cbSetWeights = AddSyncCheck(cbSetAuto, L["A set you put on turns its spec and weights on"], "setChangesWeights",
+        L["Set changes the weights"],
+        L["Putting on one of the sets on the cards below (here, with the Equipment Manager or another addon) makes its spec the one scored and turns its weights on. The spec your talents play goes back to Auto."])
+    local cbWeightsSet = AddSyncCheck(cbSetWeights, L["Weights picked in GSI put on their set"], "weightsEquipSet",
+        L["Weights put on their set"],
+        L["Picking a mode or a spec in the GSI window's header (or /gsi mode, /gsi spec) puts on that spec's set for those weights, after combat if you are fighting. A spec without a set for them: its only set, or you choose one."])
+
     local cbCompareSets = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
-    cbCompareSets:SetPoint("TOPLEFT", cbSetAuto, "BOTTOMLEFT", 0, -6)
+    cbCompareSets:SetPoint("TOPLEFT", cbWeightsSet, "BOTTOMLEFT", 0, -6)
     cbCompareSets.text = self:CreateText(cbCompareSets, "BODY", L["Tooltips: a line for every Equipment Set of every spec"])
     cbCompareSets.text:SetPoint("LEFT", cbCompareSets, "RIGHT", 6, 0)
     cbCompareSets.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -700,6 +728,8 @@ function GSI_UI:DrawSettings(parent)
         end
         cbSpecAuto:SetChecked(not GSI_StatWeights or not GSI_StatWeights.IsSpecAuto or GSI_StatWeights:IsSpecAuto())
         cbSetAuto:SetChecked(not GSI_UI.IsSpecSetAutoEquip or GSI_UI:IsSpecSetAutoEquip())
+        cbSetWeights:SetChecked(not GSI_UI.IsSetChangesWeights or GSI_UI:IsSetChangesWeights())
+        cbWeightsSet:SetChecked(not GSI_UI.IsWeightsEquipSet or GSI_UI:IsWeightsEquipSet())
         cbCompareSets:SetChecked(not GSI_UI.IsCompareSpecSets or GSI_UI:IsCompareSpecSets())
     end
     GSI_UI.RefreshSpecSetRows = function()

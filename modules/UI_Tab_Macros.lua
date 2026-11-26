@@ -2119,6 +2119,18 @@ function GSI_UI:IsSpecSetAutoEquip()
     return not (GearSetImproverDB and GearSetImproverDB.specSetAutoEquip == false)
 end
 
+-- A set put on turns its weights on (GearSetImproverDB.setChangesWeights,
+-- default on).
+function GSI_UI:IsSetChangesWeights()
+    return not (GearSetImproverDB and GearSetImproverDB.setChangesWeights == false)
+end
+
+-- Weights picked in GSI (the header's mode, /gsi mode) put on the spec's set
+-- for them (GearSetImproverDB.weightsEquipSet, default on).
+function GSI_UI:IsWeightsEquipSet()
+    return not (GearSetImproverDB and GearSetImproverDB.weightsEquipSet == false)
+end
+
 -- The character's Equipment Manager sets: { {id=, name=, icon=, equipped=}, ... }
 function GSI_UI:GetEquipmentSetList()
     local list = {}
@@ -2161,6 +2173,7 @@ end
 -- does, when it belongs to the spec played: the modes are shared by all the
 -- specs, so a set of another spec leaves them. Sets without a mode leave it.
 local function ApplySetWeightMode(specIndex, setName)
+    if not GSI_UI:IsSetChangesWeights() then return end
     specIndex = tonumber(specIndex)
     local m = GSI_UI:GetSetMode(specIndex, setName)
     if not m then return end
@@ -2181,6 +2194,27 @@ local function ApplySetWeightMode(specIndex, setName)
     if GSI_StatWeights and GSI_StatWeights.RefreshScores then GSI_StatWeights:RefreshScores() end
     print(string.format(L["|cffffcc00[GearSetImprover]|r Weights: |cff00ff00%s|r (set '|cffffcc00%s|r')."],
         L[MODE_LABELS[value] or value], setName))
+end
+
+-- After the weights were changed in GSI (the header's mode or spec, /gsi
+-- mode, /gsi spec): the spec's set for the mode now on goes on (the first
+-- one with that mode; after combat when fighting). anySet (a spec picked):
+-- without a set for the mode, the spec's set as on a spec change (its only
+-- one, or the "which set?" prompt). specIndex: the spec played by default.
+function GSI_UI:EquipSetForCurrentMode(specIndex, anySet)
+    if not self:IsWeightsEquipSet() then return end
+    local SW = GSI_StatWeights
+    local spec = tonumber(specIndex) or (SW and SW.GetActiveSpecIndex and SW:GetActiveSpecIndex())
+    if not spec then return end
+    local modeNow = CurrentModeFor(spec)
+    local want = CanonMode(modeNow)
+    for _, name in ipairs((self:GetSpecSets(spec, modeNow))) do
+        if SetExists(name) and self:GetSetMode(spec, name) == want then
+            self:EquipNamedSet(name, spec, false)
+            return
+        end
+    end
+    if anySet then self:EquipSpecSet(spec, true, false) end
 end
 
 -- Puts on one Equipment Manager set (after combat when fighting) and turns
@@ -2491,30 +2525,54 @@ function GSI_UI:EquipSpecSet(specIndex, quiet, verbose, withTreeMates)
     return true, "asked"
 end
 
--- A set put on any other way (the character pane's Equipment Manager,
--- another addon) turns its weights on too, when it is one of the sets of the
--- spec played; a set of Bear or Cat while the other is played makes that the
--- feral role first, as the "which set?" prompt does.
+-- Any set put on (the character pane's Equipment Manager, another addon,
+-- GSI itself) turns its weights on (Settings: a set turns its weights on):
+-- the spec the set belongs to (the spec played first, then Bear/Cat, then
+-- the other specs) becomes the spec scored, and the set's mode goes on.
+-- That spec is the one your talents play: back to Auto; otherwise it is
+-- picked as in the header dropdown.
+local function SpecOfSet(setName, active)
+    for _, c in ipairs(SpecSetChoices(active, true)) do
+        if c.name == setName then return c.spec end
+    end
+    local numSpecs = (PlayerClassKey() == "DRUID") and 4 or 3
+    for s = 1, numSpecs do
+        if s ~= active then
+            for _, n in ipairs((GSI_UI:GetSpecSets(s, CurrentModeFor(s)))) do
+                if n == setName then return s end
+            end
+        end
+    end
+    return nil
+end
+
 do
     local swapFrame = CreateFrame and CreateFrame("Frame")
     if swapFrame then
         swapFrame:SetScript("OnEvent", function(_, _, result, setID)
+            if not GSI_UI:IsSetChangesWeights() then return end
             if not (result and setID and C_EquipmentSet and C_EquipmentSet.GetEquipmentSetInfo) then return end
             local okI, name = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
             if not okI or not name then return end
             local SW = GSI_StatWeights
             local active = SW and SW.GetActiveSpecIndex and SW:GetActiveSpecIndex()
             if not active then return end
-            for _, c in ipairs(SpecSetChoices(active, true)) do
-                if c.name == name then
-                    if c.spec ~= active then
-                        SW:ChooseSpec(c.spec)
-                        pcall(function() GSI_UI:UpdateSpecButton() end)
-                    end
-                    ApplySetWeightMode(c.spec, name)
-                    return
+            local spec = SpecOfSet(name, active)
+            if not spec then return end
+            if spec ~= active then
+                SW:InvalidateSpecCache()
+                local detected, fromTalents = SW:DetectCurrentSpec()
+                if fromTalents and detected == spec and not SW:IsSpecAuto() then
+                    SW:SetSpecAuto(true)
+                else
+                    SW:ChooseSpec(spec)
                 end
+                pcall(function() GSI_UI:UpdateSpecButton() end)
+                pcall(function() GSI_UI:UpdateModeUI() end)
+                print(string.format(L["|cffffcc00[GearSetImprover]|r Specialization: |cff00ff00%s|r (set '|cffffcc00%s|r')."],
+                    L[SpecDisplayName(spec)], name))
             end
+            ApplySetWeightMode(spec, name)
         end)
         pcall(swapFrame.RegisterEvent, swapFrame, "EQUIPMENT_SWAP_FINISHED")
     end

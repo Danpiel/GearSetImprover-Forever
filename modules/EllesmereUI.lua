@@ -250,6 +250,14 @@ local function BuildSpecOptions(parent, y)
         function() return not GSI_UI.IsSpecSetAutoEquip or GSI_UI:IsSpecSetAutoEquip() end,
         function(v) DB().specSetAutoEquip = v and true or false end,
         L["After a spec change the spec's set goes on (after combat if you are fighting); with several sets you pick one. Its weights go on with it."]); y = y - h
+    _, h = W:Toggle(parent, L["A set you put on turns its spec and weights on"], y,
+        function() return not GSI_UI.IsSetChangesWeights or GSI_UI:IsSetChangesWeights() end,
+        function(v) DB().setChangesWeights = v and true or false end,
+        L["Putting on one of the sets on the spec pages (with the Equipment Manager, another addon or GSI) makes its spec the one scored and turns its weights on. The spec your talents play goes back to Auto."]); y = y - h
+    _, h = W:Toggle(parent, L["Weights picked in GSI put on their set"], y,
+        function() return not GSI_UI.IsWeightsEquipSet or GSI_UI:IsWeightsEquipSet() end,
+        function(v) DB().weightsEquipSet = v and true or false end,
+        L["Picking a mode or a spec in the GSI window's header (or /gsi mode, /gsi spec) puts on that spec's set for those weights, after combat if you are fighting. A spec without a set for them: its only set, or you choose one."]); y = y - h
     _, h = W:Toggle(parent, L["Tooltips: a line for every set of every spec"], y,
         function() return not GSI_UI.IsCompareSpecSets or GSI_UI:IsCompareSpecSets() end,
         function(v) DB().compareSpecSets = v and true or false; RefreshTooltips() end,

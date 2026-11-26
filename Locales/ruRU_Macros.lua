@@ -268,3 +268,8 @@ GSI_AddTranslations("ruRU", {
     ["BiB Equip"] = "Лучшее в сумках",
     ["|cffffcc00[GearSetImprover]|r Equipment Sets renamed: %s."] = "|cffffcc00[GearSetImprover]|r Комплекты экипировки переименованы: %s.",
 })
+
+-- A set put on switches the spec
+GSI_AddTranslations("ruRU", {
+    ["|cffffcc00[GearSetImprover]|r Specialization: |cff00ff00%s|r (set '|cffffcc00%s|r')."] = "|cffffcc00[GearSetImprover]|r Специализация: |cff00ff00%s|r (комплект '|cffffcc00%s|r').",
+})

@@ -329,6 +329,7 @@ specAutoItem:SetScript("OnClick", function()
     GSI_UI:UpdateModeUI()
     pcall(function() GSI_UI:UpdateTitleScore() end)
     GSI_UI:RefreshPanel(true)
+    if GSI_UI.EquipSetForCurrentMode then GSI_UI:EquipSetForCurrentMode(nil, true) end
 end)
 specAutoItem:SetScript("OnEnter", function(selfBtn)
     GameTooltip:SetOwner(selfBtn, "ANCHOR_LEFT")
@@ -373,6 +374,8 @@ for i = 1, 4 do
         if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then GSI_OptimizationEngine:ResetCache() end
         pcall(function() GSI_UI:UpdateTitleScore() end)
         GSI_UI:RefreshPanel(true)
+        -- The picked spec's set goes on (Settings: weights put on their set)
+        if GSI_UI.EquipSetForCurrentMode then GSI_UI:EquipSetForCurrentMode(targetSpec, true) end
     end)
     specMenuItems[i] = btn
 end
@@ -515,6 +518,8 @@ local function ConfigureModeMenuItem(btn, label, isSelected, onApply)
         if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then GSI_OptimizationEngine:ResetCache() end
         pcall(function() GSI_UI:UpdateTitleScore() end)
         GSI_UI:RefreshPanel(true)
+        -- The spec's set for these weights goes on (Settings: weights put on their set)
+        if GSI_UI.EquipSetForCurrentMode then GSI_UI:EquipSetForCurrentMode() end
     end)
     btn:Show()
 end
@@ -1052,6 +1057,7 @@ function GSI_UI:HandleSlashCommand(msg)
         local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[GetPlayerClassKey()]
         local sd = cd and cd.specs and cd.specs[spec]
         print(string.format(L["|cffffcc00[GearSetImprover]|r Specialization: |cff00ff00Auto|r (now |cff00ff00%s|r, follows your talents)."], L[(sd and sd.name) or string.format("Spec %s", spec)]))
+        if GSI_UI.EquipSetForCurrentMode then GSI_UI:EquipSetForCurrentMode(spec, true) end
         return
     end
 
@@ -1100,6 +1106,7 @@ function GSI_UI:HandleSlashCommand(msg)
             local specData = classData and classData.specs and classData.specs[targetSpec]
             local specName = L[(specData and specData.name) or string.format("Spec %s", targetSpec)]
             print(string.format(L["|cffffcc00[GearSetImprover]|r Specialization set to |cff00ff00%s|r. Type |cffffcc00/gsi equip|r to equip Best Available Gear."], specName))
+            if GSI_UI.EquipSetForCurrentMode then GSI_UI:EquipSetForCurrentMode(targetSpec, true) end
         else
             print(L["|cffffcc00[GearSetImprover]|r Specify a valid spec: 1-3 (or 1-4 for Druids) or spec name, or |cffffcc00auto|r. Example: |cffffcc00/gsi spec bear|r, |cffffcc00/gsi spec auto|r"])
         end
@@ -1120,6 +1127,7 @@ function GSI_UI:HandleSlashCommand(msg)
             pcall(function() GSI_UI:UpdateTitleScore() end)
             if mainFrame and mainFrame:IsShown() then GSI_UI:RefreshPanel(true) end
             print(string.format(L["|cffffcc00[GearSetImprover]|r Mode set to |cff00ff00%s|r. Type |cffffcc00/gsi equip|r to equip Best Available Gear."], targetMode.value))
+            if GSI_UI.EquipSetForCurrentMode then GSI_UI:EquipSetForCurrentMode() end
         else
             print(L["|cffffcc00[GearSetImprover]|r Specify a valid mode: |cff00ff00survival|r, |cff00ff00threat|r, |cff00ff00st|r, or |cff00ff00aoe|r."])
         end

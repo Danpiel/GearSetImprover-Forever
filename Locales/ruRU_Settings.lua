@@ -237,3 +237,14 @@ GSI_AddTranslations("ruRU", {
     ["Gear Score: |cffffffff%.1f|r"] = "Оценка экипировки: |cffffffff%.1f|r",
     ["|cff00ff00Left-Click:|r Toggle Addon window"] = "|cff00ff00ЛКМ:|r показать / скрыть окно аддона",
 })
+
+-- Sets and weights follow each other
+GSI_AddTranslations("ruRU", {
+    ["A set you put on turns its spec and weights on"] = "Надетый комплект включает свой спек и веса",
+    ["Set changes the weights"] = "Комплект меняет веса",
+    ["Putting on one of the sets on the cards below (here, with the Equipment Manager or another addon) makes its spec the one scored and turns its weights on. The spec your talents play goes back to Auto."] = "Когда вы надеваете комплект из карточек ниже (здесь, через менеджер экипировки или другой аддон), его специализация становится оцениваемой и включаются его веса. Специализация ваших текущих талантов возвращает режим «Авто».",
+    ["Weights picked in GSI put on their set"] = "Веса, выбранные в GSI, надевают свой комплект",
+    ["Weights put on their set"] = "Веса надевают комплект",
+    ["Picking a mode or a spec in the GSI window's header (or /gsi mode, /gsi spec) puts on that spec's set for those weights, after combat if you are fighting. A spec without a set for them: its only set, or you choose one."] = "Выбор режима или специализации в шапке окна GSI (или /gsi mode, /gsi spec) надевает комплект этой специализации для этих весов, в бою — после боя. Если такого комплекта нет: единственный комплект специализации или выбор из нескольких.",
+    ["Putting on one of the sets on the spec pages (with the Equipment Manager, another addon or GSI) makes its spec the one scored and turns its weights on. The spec your talents play goes back to Auto."] = "Когда вы надеваете комплект со страниц специализаций (через менеджер экипировки, другой аддон или GSI), его специализация становится оцениваемой и включаются его веса. Специализация ваших текущих талантов возвращает режим «Авто».",
+})
