@@ -4,6 +4,19 @@
 -- Includes optimized equivalency-point defaults synced with v2.2 profiles.
 -- ============================================================
 
+-- Texts: Locales\Locales.lua normally defines GSI_L before this file. A
+-- client started before that file existed sees only the files that were
+-- there at its start (/reload does not add new ones): then the English texts
+-- show instead of errors until the game is restarted.
+if not GSI_L then
+    GSI_LOCALE = GSI_LOCALE or (GetLocale and GetLocale()) or "enUS"
+    GSI_L = setmetatable({}, {
+        __index = function(_, key) return key end,
+        __call = function(t, key) return t[key] end,
+    })
+    GSI_AddTranslations = GSI_AddTranslations or function() end
+end
+
 -- ============================================================
 -- Client API Compatibility Layer (Modern Engine)
 -- ============================================================
