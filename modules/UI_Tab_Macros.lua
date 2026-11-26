@@ -1563,17 +1563,17 @@ local function CurrentModeFor(specIndex)
 end
 
 -- Sets chosen in Settings for a spec: GearSetImproverDB.specSets["Name-Realm"]
--- [specIndex] is a list of set names (an older single name still reads).
-local function ManualSpecSets(specIndex)
+-- [specIndex] is a list of set names (an older single name still reads), an
+-- empty list when every set was taken off. nil: Auto, the sets GSI saved.
+local function StoredSpecSets(specIndex)
     local all = GearSetImproverDB and GearSetImproverDB.specSets
     local t = all and all[SpecSetCharKey()]
     local v = t and t[tonumber(specIndex) or 0]
-    if type(v) == "string" and v ~= "" then return { v } end
+    if type(v) == "string" then return (v ~= "") and { v } or nil end
+    if type(v) ~= "table" then return nil end
     local list = {}
-    if type(v) == "table" then
-        for _, n in ipairs(v) do
-            if type(n) == "string" and n ~= "" then list[#list + 1] = n end
-        end
+    for _, n in ipairs(v) do
+        if type(n) == "string" and n ~= "" then list[#list + 1] = n end
     end
     return list
 end
@@ -1624,8 +1624,8 @@ end
 -- The sets of a spec: the ones chosen in Settings, else the ones GSI saved
 -- for it. Second return: true when chosen in Settings.
 function GSI_UI:GetSpecSets(specIndex, modeVal)
-    local manual = ManualSpecSets(specIndex)
-    if #manual > 0 then return manual, true end
+    local stored = StoredSpecSets(specIndex)
+    if stored then return stored, true end
     return self:GetAutoSpecSets(specIndex, modeVal), false
 end
 
@@ -1634,7 +1634,8 @@ function GSI_UI:GetSpecSetName(specIndex)
     return (self:GetSpecSets(specIndex, CurrentModeFor(tonumber(specIndex))))[1]
 end
 
--- nil or an empty list: back to the sets GSI saved for the spec.
+-- nil: back to the sets GSI saved for the spec (Auto). A list, also an
+-- empty one, is the spec's own choice.
 function GSI_UI:SetSpecSets(specIndex, names)
     specIndex = tonumber(specIndex)
     if not specIndex then return end
@@ -1642,45 +1643,144 @@ function GSI_UI:SetSpecSets(specIndex, names)
     GearSetImproverDB.specSets = GearSetImproverDB.specSets or {}
     local key = SpecSetCharKey()
     GearSetImproverDB.specSets[key] = GearSetImproverDB.specSets[key] or {}
-    GearSetImproverDB.specSets[key][specIndex] = (type(names) == "table" and #names > 0) and names or nil
+    local list = nil
+    if type(names) == "table" then
+        list = {}
+        for _, n in ipairs(names) do list[#list + 1] = n end
+    end
+    GearSetImproverDB.specSets[key][specIndex] = list
 end
 
 function GSI_UI:SetSpecSetName(specIndex, setName)
     self:SetSpecSets(specIndex, (setName and setName ~= "") and { setName } or nil)
 end
 
--- Adds a set to the spec's own list, or takes it out.
+-- Adds a set to the spec's list, or takes it out. A spec on Auto starts its
+-- own list from the sets it has now, so the others stay.
 function GSI_UI:ToggleSpecSet(specIndex, setName)
-    local list = ManualSpecSets(specIndex)
-    for i, n in ipairs(list) do
+    local list = (self:GetSpecSets(specIndex, CurrentModeFor(tonumber(specIndex))))
+    local copy = {}
+    for _, n in ipairs(list) do copy[#copy + 1] = n end
+    for i, n in ipairs(copy) do
         if n == setName then
-            table.remove(list, i)
-            self:SetSpecSets(specIndex, list)
+            table.remove(copy, i)
+            self:SetSpecSets(specIndex, copy)
             return false
         end
     end
-    list[#list + 1] = setName
-    self:SetSpecSets(specIndex, list)
+    copy[#copy + 1] = setName
+    self:SetSpecSets(specIndex, copy)
     return true
 end
 
--- The mode a set GSI saved for a spec was made for, as tooltip lines name it
--- ("ST", "AOE", "Survival", "Threat"), or nil for any other set.
-local function SetPresetMode(specIndex, setName)
+-- The weights a set turns on when it goes on (weightMode ST / AOE, tank
+-- specs tankMode Survival / DMG). Chosen in Settings per spec and set:
+-- GearSetImproverDB.specSetModes["Name-Realm"][specIndex][setName] = mode,
+-- false = none (the header's mode stays). Not chosen: the mode GSI saved the
+-- set for ("GSI: Resto AoE" = AOE); your own sets have none.
+local CANON_MODE = { ST = "ST", AOE = "AOE", SURVIVAL = "Survival", DMG = "DMG" }
+local function CanonMode(m)
+    return m and CANON_MODE[NormMode(m)] or nil
+end
+
+local function StoredSetModes(specIndex, create)
+    specIndex = tonumber(specIndex)
+    if not specIndex then return nil end
+    if create and not GearSetImproverDB then GearSetImproverDB = {} end
+    local db = GearSetImproverDB
+    if not db then return nil end
+    local key = SpecSetCharKey()
+    if create then
+        db.specSetModes = db.specSetModes or {}
+        db.specSetModes[key] = db.specSetModes[key] or {}
+        db.specSetModes[key][specIndex] = db.specSetModes[key][specIndex] or {}
+    end
+    local all = db.specSetModes and db.specSetModes[key]
+    return all and all[specIndex]
+end
+
+local function PresetModeOf(specIndex, setName)
     local presets = GSI_MACRO_PRESETS[PlayerClassKey()]
     if not presets then return nil end
     for _, p in ipairs(presets) do
         if p.specIndex == specIndex and p.mode and Trim16(p.name) == setName then
-            return (NormMode(p.mode) == "DMG") and "Threat" or p.mode
+            return CanonMode(p.mode)
         end
     end
     return nil
 end
 
+-- The two modes a spec is scored in: { "ST", "AOE" } or { "Survival", "DMG" }.
+function GSI_UI:GetSpecModes(specIndex)
+    specIndex = tonumber(specIndex)
+    local out = {}
+    if self.GetClassProfiles then
+        for _, p in ipairs(self:GetClassProfiles(PlayerClassKey()) or {}) do
+            if p.specIndex == specIndex then out[#out + 1] = CanonMode(p.mode) end
+        end
+    end
+    if #out == 0 then out = { "ST", "AOE" } end
+    return out
+end
+
+local MODE_LABELS = { ST = "Single Target", AOE = "AoE / Trash", Survival = "Survival", DMG = "Threat / DPS" }
+function GSI_UI:GetModeLabel(mode)
+    return mode and (MODE_LABELS[mode] or mode) or nil
+end
+
+-- The set's mode ("ST", "AOE", "Survival", "DMG"), or nil: it leaves the
+-- mode as it is.
+function GSI_UI:GetSetMode(specIndex, setName)
+    specIndex = tonumber(specIndex)
+    local t = StoredSetModes(specIndex)
+    local m = t and t[setName]
+    if m == false then return nil end
+    if m then return CanonMode(m) end
+    return PresetModeOf(specIndex, setName)
+end
+
+-- Next mode for the set: the spec's first mode, its second, none, again.
+function GSI_UI:CycleSetMode(specIndex, setName)
+    specIndex = tonumber(specIndex)
+    if not (specIndex and setName) then return nil end
+    local modes = self:GetSpecModes(specIndex)
+    local cur = self:GetSetMode(specIndex, setName)
+    local nextMode
+    if cur == nil then
+        nextMode = modes[1]
+    elseif cur == modes[1] then
+        nextMode = modes[2]
+    else
+        nextMode = nil
+    end
+    local preset = PresetModeOf(specIndex, setName)
+    local t = StoredSetModes(specIndex, true)
+    if nextMode == preset then
+        t[setName] = nil
+    elseif nextMode == nil then
+        t[setName] = false
+    else
+        t[setName] = nextMode
+    end
+    -- Tooltip lines of other specs are scored in the set's mode
+    if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then
+        pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook)
+    end
+    return nextMode
+end
+
+-- The set's mode as tooltip lines name it ("ST", "AOE", "Survival", "Threat").
+local function SetLineMode(specIndex, setName)
+    local m = GSI_UI:GetSetMode(specIndex, setName)
+    if m == "DMG" then return "Threat" end
+    return m
+end
+
 -- What a tooltip line of a spec you are not playing compares with: every
--- set of that spec, { { name = , mode = }, ... }. A set GSI saved for a mode
--- is scored in that mode ("GSI: Resto AoE" with the AoE weights); any other
--- set in the line's own mode. equipped: the set is fully on now.
+-- set of that spec, { { name = , mode = }, ... }. A set with a mode (Settings,
+-- or the one GSI saved it for) is scored in that mode ("GSI: Resto AoE" with
+-- the AoE weights); any other set in the line's own mode. equipped: the set
+-- is fully on now.
 function GSI_UI:GetCompareSetsForProfile(specIndex, lineMode)
     local out = {}
     for _, n in ipairs((self:GetSpecSets(specIndex, lineMode))) do
@@ -1689,7 +1789,7 @@ function GSI_UI:GetCompareSetsForProfile(specIndex, lineMode)
             local okI, _, _, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
             out[#out + 1] = {
                 name = n,
-                mode = SetPresetMode(specIndex, n) or lineMode,
+                mode = SetLineMode(specIndex, n) or lineMode,
                 equipped = (okI and isEquipped) and true or false,
             }
         end
@@ -1843,7 +1943,8 @@ function GSI_UI:GetSpecSetSignature()
     if not self:IsCompareSpecSets() then return "off" end
     local parts = { "on" }
     for s = 1, 4 do
-        parts[#parts + 1] = table.concat(ManualSpecSets(s), "+")
+        local stored = StoredSpecSets(s)
+        parts[#parts + 1] = stored and ("=" .. table.concat(stored, "+")) or "auto"
     end
     return table.concat(parts, "/")
 end
@@ -1889,20 +1990,24 @@ local function WaitForCombatEnd(setName, specIndex)
     end
 end
 
--- A set GSI saved for a mode ("GSI: Resto AoE") turns that mode's weights
--- on, as the mode dropdown in the header does. Other sets leave the mode.
-local MODE_LABELS = { ST = "Single Target", AOE = "AoE / Trash", Survival = "Survival", DMG = "Threat / DPS" }
+-- A set with a mode (Settings, or the one GSI saved it for: "GSI: Resto
+-- AoE") turns that mode's weights on, as the mode dropdown in the header
+-- does, when it belongs to the spec played: the modes are shared by all the
+-- specs, so a set of another spec leaves them. Sets without a mode leave it.
 local function ApplySetWeightMode(specIndex, setName)
-    local m = SetPresetMode(tonumber(specIndex), setName)
+    specIndex = tonumber(specIndex)
+    local m = GSI_UI:GetSetMode(specIndex, setName)
     if not m then return end
+    local SW = GSI_StatWeights
+    if SW and SW.GetActiveSpecIndex and SW:GetActiveSpecIndex() ~= specIndex then return end
     if not GearSetImproverDB then GearSetImproverDB = {} end
     local db = GearSetImproverDB
     local key, value, current
-    if m == "Survival" or m == "Threat" then
-        key, value = "tankMode", (m == "Threat") and "DMG" or "Survival"
+    if m == "Survival" or m == "DMG" then
+        key, value = "tankMode", m
         current = db.tankMode or "Survival"
     else
-        key, value = "weightMode", (NormMode(m) == "AOE") and "AOE" or "ST"
+        key, value = "weightMode", m
         current = db.weightMode or "ST"
     end
     if NormMode(current) == NormMode(value) then return end
@@ -2156,7 +2261,10 @@ function GSI_UI:ShowSetChooser(specIndex, choices)
             b.tag:SetText(SpecDisplayName(c.spec))
             b.tag:SetTextColor(0.62, 0.66, 0.74, 1)
         else
-            b.tag:SetText("")
+            -- The weights the set turns on
+            local m = GSI_UI:GetSetMode(c.spec, c.name)
+            b.tag:SetText(m and string.upper(GSI_UI:GetModeLabel(m)) or "")
+            b.tag:SetTextColor(0.62, 0.66, 0.74, 1)
         end
         b:ClearAllPoints()
         b:SetPoint("TOPLEFT", f, "TOPLEFT", 12, y)
@@ -2213,6 +2321,35 @@ function GSI_UI:EquipSpecSet(specIndex, quiet, verbose, withTreeMates)
     end
     self:ShowSetChooser(specIndex, choices)
     return true, "asked"
+end
+
+-- A set put on any other way (the character pane's Equipment Manager,
+-- another addon) turns its weights on too, when it is one of the sets of the
+-- spec played; a set of Bear or Cat while the other is played makes that the
+-- feral role first, as the "which set?" prompt does.
+do
+    local swapFrame = CreateFrame and CreateFrame("Frame")
+    if swapFrame then
+        swapFrame:SetScript("OnEvent", function(_, _, result, setID)
+            if not (result and setID and C_EquipmentSet and C_EquipmentSet.GetEquipmentSetInfo) then return end
+            local okI, name = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
+            if not okI or not name then return end
+            local SW = GSI_StatWeights
+            local active = SW and SW.GetActiveSpecIndex and SW:GetActiveSpecIndex()
+            if not active then return end
+            for _, c in ipairs(SpecSetChoices(active, true)) do
+                if c.name == name then
+                    if c.spec ~= active then
+                        SW:ChooseSpec(c.spec)
+                        pcall(function() GSI_UI:UpdateSpecButton() end)
+                    end
+                    ApplySetWeightMode(c.spec, name)
+                    return
+                end
+            end
+        end)
+        pcall(swapFrame.RegisterEvent, swapFrame, "EQUIPMENT_SWAP_FINISHED")
+    end
 end
 
 -- ---------------------------------------------------------------

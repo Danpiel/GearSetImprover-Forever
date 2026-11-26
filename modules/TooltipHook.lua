@@ -15,7 +15,6 @@ local GetItemInfoInstant = (C_Item and C_Item.GetItemInfoInstant) or _G.GetItemI
 
 local COLOR_BETTER  = "|cff44ff44"
 local COLOR_WORSE   = "|cffff4444"
-local COLOR_LABEL   = "|cffffcc00"
 local COLOR_VALUE   = "|cffffffff"
 local COLOR_SUB     = "|cffaaaaaa"
 local COLOR_END     = "|r"
@@ -239,19 +238,9 @@ local function RestoreFonts(tip)
     for fs in pairs(list) do RestoreFont(fs) end
 end
 
--- Adds a line to the tooltip. bold: the line's own font one point larger
--- with an outline, put back when the tooltip is cleared (OnTooltipCleared)
--- or when GSI writes to the tooltip again.
-local function AddOwnLine(tip, text, r, g, b, wrap, bold)
-    if r then
-        tip:AddLine(text, r, g, b, wrap)
-    else
-        tip:AddLine(text)
-    end
-    local name = tip.GetName and tip:GetName()
-    local fs = name and tip.NumLines and _G[name .. "TextLeft" .. tip:NumLines()]
-    if not fs then return end
-    ownLines[fs] = fs:GetText()
+-- bold: the string's own font one point larger with an outline, put back
+-- when the tooltip is cleared (OnTooltipCleared) or GSI writes to it again.
+local function SetBold(tip, fs, bold)
     local list = boldLines[tip]
     if not bold then
         if list and list[fs] then
@@ -278,6 +267,40 @@ local function AddOwnLine(tip, text, r, g, b, wrap, bold)
     end
     list[fs] = true
     fs:SetFont(base.font, base.size + 1, "OUTLINE")
+end
+
+-- Adds a line to the tooltip; with right, a two-column line (the score on
+-- the right edge). bold: both columns drawn larger with an outline.
+local function AddOwnLine(tip, text, r, g, b, wrap, bold, right)
+    if right then
+        tip:AddDoubleLine(text, right, r or 1, g or 1, b or 1, r or 1, g or 1, b or 1)
+    elseif r then
+        tip:AddLine(text, r, g, b, wrap)
+    else
+        tip:AddLine(text)
+    end
+    local name = tip.GetName and tip:GetName()
+    local n = name and tip.NumLines and tip:NumLines()
+    if not n then return end
+    local fs = _G[name .. "TextLeft" .. n]
+    if not fs then return end
+    ownLines[fs] = fs:GetText()
+    SetBold(tip, fs, bold)
+    local fsRight = _G[name .. "TextRight" .. n]
+    if fsRight then SetBold(tip, fsRight, right and bold) end
+end
+
+-- A thin line across the tooltip between the spec played and the others
+local function DividerText(tip)
+    local w = (tip.GetWidth and tip:GetWidth()) or 0
+    w = math.floor(math.max(120, math.min(360, w - 24)))
+    return "|TInterface\\Buttons\\WHITE8x8:2:" .. w .. ":0:0:8:8:0:8:0:8:72:76:88|t"
+end
+
+local MODE_SHORT = { ST = "ST", AOE = "AoE", SURVIVAL = "Survival", THREAT = "Threat", DMG = "Threat" }
+local function ModeShort(mode)
+    local m = tostring(mode or "")
+    return MODE_SHORT[m:upper()] or m
 end
 
 local function AppendScoreToTooltip(tooltip, itemLink)
@@ -333,7 +356,11 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 end
                 for i = 1, #hitLines do
                     local l = hitLines[i]
-                    AddOwnLine(tooltip, l.text, l.r, l.g, l.b, l.wrap, l.bold)
+                    if l.divider then
+                        AddOwnLine(tooltip, DividerText(tooltip))
+                    else
+                        AddOwnLine(tooltip, l.text, l.r, l.g, l.b, l.wrap, l.bold, l.right)
+                    end
                 end
                 tooltip:Show()
                 return
@@ -448,11 +475,22 @@ local function AppendScoreToTooltip(tooltip, itemLink)
             cachedLines = GSI_TooltipCache:AcquireLinesContainer()
         end
 
-        local function AddTipLine(text, r, g, b, wrap, bold)
-            AddOwnLine(tooltip, text, r, g, b, wrap, bold)
+        local function AddTipLine(text, r, g, b, wrap, bold, right)
+            AddOwnLine(tooltip, text, r, g, b, wrap, bold, right)
             if cachedLines and GSI_TooltipCache and GSI_TooltipCache.AcquireLine then
                 local l = GSI_TooltipCache:AcquireLine(text, r, g, b, wrap)
                 l.bold = bold and true or nil
+                l.right = right
+                cachedLines[#cachedLines + 1] = l
+            end
+        end
+
+        -- Drawn to the tooltip's width each time (also from the cache)
+        local function AddTipDivider()
+            AddOwnLine(tooltip, DividerText(tooltip))
+            if cachedLines and GSI_TooltipCache and GSI_TooltipCache.AcquireLine then
+                local l = GSI_TooltipCache:AcquireLine("", nil, nil, nil, nil)
+                l.divider = true
                 cachedLines[#cachedLines + 1] = l
             end
         end
@@ -541,12 +579,16 @@ local function AppendScoreToTooltip(tooltip, itemLink)
         local itemStats = nil
         local statsFetched = false
         local shownHints = nil
+        -- Scored lines and talent notes, drawn once all are known: the spec
+        -- played first, a divider, the other specs, then the notes
+        local rows = {}
+        local hintLines = {}
 
         local function AddHintOnce(hintKey, text)
             if not shownHints then shownHints = {} end
             if shownHints[hintKey] then return end
             shownHints[hintKey] = true
-            AddTipLine(text, 1, 0.67, 0, true)
+            hintLines[#hintLines + 1] = text
         end
 
         for _, pInfo in ipairs(linesToShow) do
@@ -607,26 +649,13 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                     and string.format("%.2f", newScore)
                     or string.format("%.1f", newScore)
 
-                -- "[icon] Restoration AoE vs Resto AoE: 11.19 (+4.05)": the spec's
-                -- icon, spec and mode, the set without GSI's "GSI: " prefix. The
-                -- spec you play is drawn larger with an outline.
-                local sData = classData and classData.specs and classData.specs[specIdx]
-                local sName = (sData and sData.name) or ("Spec " .. specIdx)
-                local isActive = (specIdx == activeSpecIndex)
-                if sData and sData.icon then
-                    sName = "|T" .. sData.icon .. ":0|t " .. sName
-                end
-                local rawMode = pInfo.modeLabel or modeVal
-                local modeName = (rawMode == "AoE / Raid") and "AoE" or rawMode
-                if vsSetName then
-                    local shownSet = (vsSetName:gsub("^GSI: ", ""))
-                    modeName = modeName .. " |cff999999vs " .. shownSet .. "|r"
-                end
-                AddTipLine(string.format(
-                    "%s%s %s%s: %s%s%s%s%s",
-                    COLOR_LABEL, sName, modeName, COLOR_LABEL,
-                    COLOR_VALUE, scoreFormatted, deltaPart, levelNotice, COLOR_END
-                ), nil, nil, nil, nil, isActive)
+                rows[#rows + 1] = {
+                    spec = specIdx,
+                    mode = modeVal,
+                    setName = vsSetName,
+                    score = scoreFormatted,
+                    tail = deltaPart .. levelNotice,
+                }
 
                 -- Talent dependency hints (EN + DE talent pattern detection, strictly English hints)
                 if not statsFetched then
@@ -679,6 +708,56 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                 -- Item info is still loading asynchronously from server; do not cache incomplete result
                 itemLoading = true
                 shouldCache = false
+            end
+        end
+
+        -- One two-column line per score: "[icon] Restoration AoE" on the left,
+        -- "11.19 (+4.05)" on the right edge. The spec played comes first, in
+        -- the class colour, larger and outlined; a thin divider; the other
+        -- specs in grey. A set's name is shown only when the line does not
+        -- say it already: your own sets, or two lines of a spec in one mode.
+        if #rows > 0 then
+            local perMode = {}
+            for _, r in ipairs(rows) do
+                local k = tostring(r.spec) .. "|" .. ModeShort(r.mode)
+                perMode[k] = (perMode[k] or 0) + 1
+            end
+            local classHex = "ffffff"
+            if GSI_UI and GSI_UI.GetClassColor then
+                local okC, _, _, _, hex = pcall(GSI_UI.GetClassColor, GSI_UI)
+                if okC and type(hex) == "string" and #hex == 6 then classHex = hex end
+            end
+
+            local function RenderRow(r, isActive)
+                local sData = classData and classData.specs and classData.specs[r.spec]
+                local left = (sData and sData.icon) and ("|T" .. sData.icon .. ":0|t ") or ""
+                left = left .. (isActive and ("|cff" .. classHex) or "|cffb4b4b4")
+                    .. ((sData and sData.name) or ("Spec " .. r.spec)) .. COLOR_END
+                    .. (isActive and " |cffe6e6e6" or " |cff8c8c8c") .. ModeShort(r.mode) .. COLOR_END
+                if r.setName then
+                    local isOwnSet = not r.setName:find("^GSI: ")
+                    if isOwnSet or (perMode[tostring(r.spec) .. "|" .. ModeShort(r.mode)] or 0) > 1 then
+                        local shownSet = (r.setName:gsub("^GSI: ", ""))
+                        left = left .. " |cff707070" .. shownSet .. COLOR_END
+                    end
+                end
+                local right = (isActive and COLOR_VALUE or "|cffc8c8c8") .. r.score .. COLOR_END .. r.tail
+                AddTipLine(left, 1, 1, 1, nil, isActive, right)
+            end
+
+            local anyActive, anyOther = false, false
+            for _, r in ipairs(rows) do
+                if r.spec == activeSpecIndex then anyActive = true else anyOther = true end
+            end
+            for _, r in ipairs(rows) do
+                if r.spec == activeSpecIndex then RenderRow(r, true) end
+            end
+            if anyActive and anyOther then AddTipDivider() end
+            for _, r in ipairs(rows) do
+                if r.spec ~= activeSpecIndex then RenderRow(r, false) end
+            end
+            for _, h in ipairs(hintLines) do
+                AddTipLine(h, 1, 0.67, 0, true)
             end
         end
 

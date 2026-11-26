@@ -59,6 +59,22 @@ local recentNotified = {}
 local isInitialized = false
 local pendingCombatToast = nil
 local verifyGeneration = 0
+-- After a spec change toasts wait (HoldAfterSpecChange): the new spec's set
+-- goes on first, then they are scored against the gear actually worn.
+local holdActive = false
+local holdStarted = 0
+local holdUntil = 0
+local holdGeneration = 0
+local HOLD_CHOOSER_MAX = 30 -- longest wait for the "which set?" prompt
+
+local function SetChooserOpen()
+    local chooser = GSI_UI and GSI_UI.setChooser
+    return chooser ~= nil and chooser:IsShown()
+end
+
+local function ToastsHeld()
+    return holdActive and (((GetTime and GetTime()) or 0) < holdUntil or SetChooserOpen())
+end
 
 -- ------------------------------------------------------------
 -- CONTAINER, ITEM GUID & EQUIPMENT HELPERS (WoW Forever 12.1 / 16001)
@@ -2048,7 +2064,8 @@ function GSI_UpgradeToast:ShowToast(upgradeData)
         if IsSameToastItem(item, upgradeData) then return end
     end
 
-    if not currentToast and not isDismissing and not (toastFrame and toastFrame:IsShown()) then
+    if not currentToast and not isDismissing and not (toastFrame and toastFrame:IsShown())
+        and (upgradeData.isTestToast or not ToastsHeld()) then
         self:DisplayToast(upgradeData)
     else
         table.insert(toastQueue, upgradeData)
@@ -2056,7 +2073,7 @@ function GSI_UpgradeToast:ShowToast(upgradeData)
 end
 
 function GSI_UpgradeToast:ProcessQueue()
-    if isDismissing then return end
+    if isDismissing or ToastsHeld() then return end
     while #toastQueue > 0 do
         local nextItem = table.remove(toastQueue, 1)
         if nextItem.isTestToast or not IsToastItemEquipped(nextItem) then
@@ -2097,6 +2114,47 @@ function GSI_UpgradeToast:ReevaluatePending()
             self:EvaluateNewItem(t.itemLink, bag, slot, t.itemGUID)
         end
     end
+end
+
+-- A spec change (or a set turning other weights on): no toast for `seconds`
+-- (3 by default), nor while the "which set?" prompt is open and for a moment
+-- after a set was picked there. The toast on screen goes back into the queue;
+-- when the wait is over the queued ones, and whatever came in meanwhile, are
+-- scored again against the gear worn then.
+function GSI_UpgradeToast:HoldAfterSpecChange(seconds)
+    if not (C_Timer and C_Timer.After) then return end
+    local now = (GetTime and GetTime()) or 0
+    if not holdActive then
+        holdActive = true
+        holdStarted = now
+        holdUntil = 0
+    end
+    holdUntil = math.max(holdUntil, now + (seconds or 3))
+    if currentToast and not currentToast.isTestToast and not IsInCombat() then
+        local shown = currentToast
+        self:Dismiss(true)
+        table.insert(toastQueue, 1, shown)
+    end
+    holdGeneration = holdGeneration + 1
+    local myGen = holdGeneration
+    local function Release()
+        if myGen ~= holdGeneration then return end
+        local t = (GetTime and GetTime()) or 0
+        if SetChooserOpen() and t - holdStarted < HOLD_CHOOSER_MAX then
+            -- The set picked there needs a moment to go on
+            holdUntil = math.max(holdUntil, t + 1.5)
+            C_Timer.After(0.5, Release)
+            return
+        end
+        if t < holdUntil and not SetChooserOpen() then
+            C_Timer.After(holdUntil - t + 0.05, Release)
+            return
+        end
+        holdActive = false
+        GSI_UpgradeToast:ReevaluatePending()
+        GSI_UpgradeToast:ProcessQueue()
+    end
+    C_Timer.After((holdUntil - now) + 0.05, Release)
 end
 
 -- ------------------------------------------------------------

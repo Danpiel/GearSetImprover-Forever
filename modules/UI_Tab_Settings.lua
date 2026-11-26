@@ -227,59 +227,19 @@ function GSI_UI:DrawSettings(parent)
     cbMerchantOverlay:SetScript("OnLeave", function() GameTooltip:Hide() end)
     GSI_UI.cbMerchantOverlay = cbMerchantOverlay
 
-    -- Tooltip Orientations (Multi-Profile Selection: ST, AoE, Survival, Threat)
-    local specHeader = self:CreateText(scrollChild, "CARD_TITLE", "Tooltip Orientations & Specs (ST, AoE, Tank)")
-    specHeader:SetPoint("TOPLEFT", cbMerchantOverlay, "BOTTOMLEFT", 0, -20)
-    specHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
-    if specHeader.SetWordWrap then specHeader:SetWordWrap(true) end
-
-    local specDesc = self:CreateText(scrollChild, "BODY", "Select which orientations display a GSI Score in tooltips (e.g. Bear Survival, Cat ST & AoE):")
-    specDesc:SetPoint("TOPLEFT", specHeader, "BOTTOMLEFT", 0, -8)
-    specDesc:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
-    specDesc:SetJustifyH("LEFT")
-    if specDesc.SetWordWrap then specDesc:SetWordWrap(true) end
-
+    -- Specs, Equipment Sets & Weights: one card per spec holds everything
+    -- tied to it: the tooltip lines scored against the gear you wear (the
+    -- "orientations"), the spec's Equipment Sets with the weights each one
+    -- turns on, and its talent group (dual spec).
     local playerClass = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass())
         or select(2, UnitClass("player")) or "WARRIOR"
     local profiles = self:GetClassProfiles(playerClass)
-
     local profileCheckboxes = {}
-    local lastElem = specDesc
-    for _, pInfo in ipairs(profiles) do
-        local cb = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
-        cb:SetPoint("TOPLEFT", lastElem, "BOTTOMLEFT", 0, -6)
-        cb.text = self:CreateText(cb, "BODY", pInfo.label)
-        cb.text:SetPoint("LEFT", cb, "RIGHT", 6, 0)
-        cb.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
-        cb.text:SetJustifyH("LEFT")
-        if cb.text.SetWordWrap then cb.text:SetWordWrap(true) end
-        cb.profileKey = pInfo.key
+    local lastElem
+    local UpdateSettingsLayoutAndSync
 
-        local curChecked = false
-        if GearSetImproverDB and GearSetImproverDB.tooltipProfiles and GearSetImproverDB.tooltipProfiles[playerClass] then
-            curChecked = (GearSetImproverDB.tooltipProfiles[playerClass][pInfo.key] == true)
-        end
-        cb:SetChecked(curChecked)
-
-        cb:SetScript("OnClick", function(selfBtn)
-            if not GearSetImproverDB then GearSetImproverDB = {} end
-            if not GearSetImproverDB.tooltipProfiles then GearSetImproverDB.tooltipProfiles = {} end
-            if not GearSetImproverDB.tooltipProfiles[playerClass] then GearSetImproverDB.tooltipProfiles[playerClass] = {} end
-            GearSetImproverDB.tooltipProfiles[playerClass][selfBtn.profileKey] = selfBtn:GetChecked() and true or false
-            if GSI_TooltipCache and GSI_TooltipCache.Invalidate then
-                GSI_TooltipCache:Invalidate()
-            end
-            if GSI_UI.blizzOptionsPanel and GSI_UI.blizzOptionsPanel.refresh then
-                GSI_UI.blizzOptionsPanel.refresh()
-            end
-        end)
-        table.insert(profileCheckboxes, cb)
-        lastElem = cb
-    end
-
-    -- Specialization detection & Equipment Set per spec
-    local setHeader = self:CreateText(scrollChild, "CARD_TITLE", "Specialization & Equipment Set per Spec")
-    setHeader:SetPoint("TOPLEFT", lastElem, "BOTTOMLEFT", 0, -20)
+    local setHeader = self:CreateText(scrollChild, "CARD_TITLE", "Specs, Equipment Sets & Weights")
+    setHeader:SetPoint("TOPLEFT", cbMerchantOverlay, "BOTTOMLEFT", 0, -20)
     setHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     if setHeader.SetWordWrap then setHeader:SetWordWrap(true) end
 
@@ -305,7 +265,7 @@ function GSI_UI:DrawSettings(parent)
 
     local cbSetAuto = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbSetAuto:SetPoint("TOPLEFT", cbSpecAuto, "BOTTOMLEFT", 0, -6)
-    cbSetAuto.text = self:CreateText(cbSetAuto, "BODY", "Equip the chosen set when your spec changes")
+    cbSetAuto.text = self:CreateText(cbSetAuto, "BODY", "Equip the spec's set when your spec changes")
     cbSetAuto.text:SetPoint("LEFT", cbSetAuto, "RIGHT", 6, 0)
     cbSetAuto.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     cbSetAuto.text:SetJustifyH("LEFT")
@@ -316,14 +276,14 @@ function GSI_UI:DrawSettings(parent)
     cbSetAuto:SetScript("OnEnter", function(selfBtn)
         GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
         GameTooltip:AddLine("Equip set on spec change", 1, 0.82, 0)
-        GameTooltip:AddLine("When the talent-detected spec changes, the Equipment Manager set chosen below for the new spec is put on (after combat if you are fighting). /gsi set equips it by hand.", 1, 1, 1, true)
+        GameTooltip:AddLine("When the talent-detected spec changes, the new spec's set (its card below) is put on, after combat if you are fighting; with several sets you choose one. Its weights go on with it.", 1, 1, 1, true)
         GameTooltip:Show()
     end)
     cbSetAuto:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
     local cbCompareSets = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbCompareSets:SetPoint("TOPLEFT", cbSetAuto, "BOTTOMLEFT", 0, -6)
-    cbCompareSets.text = self:CreateText(cbCompareSets, "BODY", "Tooltips: a line for every Equipment Set of every spec (\"vs <set>\")")
+    cbCompareSets.text = self:CreateText(cbCompareSets, "BODY", "Tooltips: a line for every Equipment Set of every spec")
     cbCompareSets.text:SetPoint("LEFT", cbCompareSets, "RIGHT", 6, 0)
     cbCompareSets.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     cbCompareSets.text:SetJustifyH("LEFT")
@@ -335,20 +295,19 @@ function GSI_UI:DrawSettings(parent)
     cbCompareSets:SetScript("OnEnter", function(selfBtn)
         GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
         GameTooltip:AddLine("Compare with every spec's sets", 1, 0.82, 0)
-        GameTooltip:AddLine("Every spec of your class gets one tooltip line per Equipment Set it has (\"vs <set>\"): the sets GSI saved for it, or the ones chosen below, whether or not the spec is ticked in Tooltip Orientations. A set GSI saved for a mode is scored with that mode's weights (\"GSI: Resto AoE\" with AoE), your own sets with the spec's ticked or current mode.", 1, 1, 1, true)
-        GameTooltip:AddLine("Your active spec keeps its lines against the gear you wear and adds its sets that are not on now. Off: only the ticked orientations, all against the gear you wear.", 0.7, 0.9, 1, true)
+        GameTooltip:AddLine("Every spec of your class gets one tooltip line per set on its card, scored with the set's weights (a set that keeps the weights: the spec's ticked or current mode).", 1, 1, 1, true)
+        GameTooltip:AddLine("Your active spec keeps its lines against the gear you wear and adds its sets that are not on now. Off: only the ticked lines, all against the gear you wear.", 0.7, 0.9, 1, true)
         GameTooltip:Show()
     end)
     cbCompareSets:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-    local setDesc = self:CreateText(scrollChild, "BODY", "Equipment Manager set and talent group (dual spec) for each spec; the set and group belong to this character:")
+    local setDesc = self:CreateText(scrollChild, "BODY", "Each card: the tooltip lines scored against the gear you wear, the spec's Equipment Sets with the weights each one turns on when it goes on, and its talent group. Sets and groups belong to this character.")
     setDesc:SetPoint("TOPLEFT", cbCompareSets, "BOTTOMLEFT", 0, -8)
     setDesc:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     setDesc:SetJustifyH("LEFT")
     if setDesc.SetWordWrap then setDesc:SetWordWrap(true) end
 
     -- Set picker popup (one shared list, re-filled on open)
-    local NONE_LABEL = "|cff888888(none)|r"
     local picker = GSI_UI.specSetPicker
     if not picker then
         picker = CreateFrame("Frame", "GSI_SpecSetPicker", UIParent, BACKDROP_TEMPLATE)
@@ -372,25 +331,37 @@ function GSI_UI:DrawSettings(parent)
         GSI_UI.specSetPicker = picker
     end
 
-    local setRows = {}
+    local cards = {}
     local RefreshSetRows
 
-    -- Several sets per spec: each click adds or removes one (the list stays
-    -- open); the top entry goes back to the sets GSI saved for the spec.
-    local function OpenPicker(anchor, specIndex)
-        local sets = GSI_UI.GetEquipmentSetList and GSI_UI:GetEquipmentSetList() or {}
-        local chosen, isManual = {}, false
-        if GSI_UI.GetSpecSets then chosen, isManual = GSI_UI:GetSpecSets(specIndex) end
-        local selected = {}
-        if isManual then
-            for idx, n in ipairs(chosen) do selected[n] = idx end
+    -- Sets, modes or the list changed: cards, their heights, open tooltips
+    local function SpecSetsChanged()
+        if UpdateSettingsLayoutAndSync then
+            UpdateSettingsLayoutAndSync()
+            if C_Timer and C_Timer.After then C_Timer.After(0, UpdateSettingsLayoutAndSync) end
+        elseif RefreshSetRows then
+            RefreshSetRows()
         end
-        local autoLabel = isManual and "|cff888888Auto: sets GSI saved|r" or "|cff00ff00Auto: sets GSI saved|r"
-        local entries = { { name = nil, label = autoLabel } }
+        if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then
+            pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook)
+        end
+    end
+
+    -- "+ Add set": the character's sets that are not on the card yet
+    local function OpenAddPicker(anchor, specIndex)
+        local sets = GSI_UI.GetEquipmentSetList and GSI_UI:GetEquipmentSetList() or {}
+        local have = {}
+        if GSI_UI.GetSpecSets then
+            for _, n in ipairs((GSI_UI:GetSpecSets(specIndex))) do have[n] = true end
+        end
+        local entries = {}
         for _, s in ipairs(sets) do
-            local label = s.name
-            if selected[s.name] then label = "|cff00ff00" .. selected[s.name] .. ". " .. s.name .. "|r" end
-            entries[#entries + 1] = { name = s.name, label = label, icon = s.icon }
+            if not have[s.name] then
+                entries[#entries + 1] = { name = s.name, label = s.name, icon = s.icon }
+            end
+        end
+        if #entries == 0 then
+            entries[1] = { label = "|cff888888No other Equipment Sets|r" }
         end
         for i, e in ipairs(entries) do
             local b = picker.items[i]
@@ -411,14 +382,11 @@ function GSI_UI:DrawSettings(parent)
             b.icon:SetTexture(e.icon or 134400)
             b.icon:SetShown(e.name ~= nil)
             b:SetScript("OnClick", function()
-                if e.name then
+                picker:Hide()
+                if e.name and GSI_UI.ToggleSpecSet then
                     GSI_UI:ToggleSpecSet(specIndex, e.name)
-                    OpenPicker(anchor, specIndex)
-                else
-                    GSI_UI:SetSpecSets(specIndex, nil)
-                    picker:Hide()
+                    SpecSetsChanged()
                 end
-                if RefreshSetRows then RefreshSetRows() end
             end)
             b:Show()
         end
@@ -430,69 +398,87 @@ function GSI_UI:DrawSettings(parent)
         if picker.Raise then picker:Raise() end
     end
 
+    local function ModeButtonText(mode)
+        if not mode then return "|cff888888Weights: keep|r" end
+        return "Weights: " .. ((GSI_UI.GetModeLabel and GSI_UI:GetModeLabel(mode)) or mode)
+    end
+
+    local function CreateSetRow(card)
+        local r = CreateFrame("Frame", nil, card)
+        r:SetHeight(22)
+
+        r.icon = r:CreateTexture(nil, "ARTWORK")
+        r.icon:SetSize(16, 16)
+        r.icon:SetPoint("LEFT", r, "LEFT", 0, 0)
+        r.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
+        r.remove = CreateFrame("Button", nil, r, BACKDROP_TEMPLATE)
+        r.remove:SetSize(64, 20)
+        r.remove:SetPoint("RIGHT", r, "RIGHT", 0, 0)
+        r.remove:SetText("Remove")
+        SkinButton(r.remove, nil, false)
+
+        r.equip = CreateFrame("Button", nil, r, BACKDROP_TEMPLATE)
+        r.equip:SetSize(58, 20)
+        r.equip:SetPoint("RIGHT", r.remove, "LEFT", -4, 0)
+        r.equip:SetText("Equip")
+        SkinButton(r.equip, nil, false)
+
+        r.mode = CreateFrame("Button", nil, r, BACKDROP_TEMPLATE)
+        r.mode:SetSize(170, 20)
+        r.mode:SetPoint("RIGHT", r.equip, "LEFT", -8, 0)
+        r.mode:SetText(" ")
+        SkinButton(r.mode, nil, false)
+        r.mode:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        r.name = GSI_UI:CreateText(r, "BODY", "")
+        r.name:SetPoint("LEFT", r.icon, "RIGHT", 6, 0)
+        r.name:SetPoint("RIGHT", r.mode, "LEFT", -8, 0)
+        r.name:SetJustifyH("LEFT")
+        if r.name.SetWordWrap then r.name:SetWordWrap(false) end
+        return r
+    end
+
     local numSpecRows = (playerClass == "DRUID") and 4 or 3
     local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[playerClass]
-    local prevRow = setDesc
+    local prevElem = setDesc
     for i = 1, numSpecRows do
         local specData = classData and classData.specs and classData.specs[i]
-        local row = CreateFrame("Frame", nil, scrollChild)
-        row:SetHeight(26)
-        row:SetPoint("TOPLEFT", prevRow, "BOTTOMLEFT", 0, -6)
-        row:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
-
-        row.icon = row:CreateTexture(nil, "ARTWORK")
-        row.icon:SetSize(18, 18)
-        row.icon:SetPoint("LEFT", row, "LEFT", 4, 0)
-        row.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-        row.icon:SetTexture((specData and specData.icon) or 134400)
-
-        row.label = self:CreateText(row, "BODY", (specData and specData.name) or ("Spec " .. i))
-        row.label:SetPoint("LEFT", row.icon, "RIGHT", 6, 0)
-        row.label:SetWidth(130)
-        row.label:SetJustifyH("LEFT")
-
-        row.pick = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
-        row.pick:SetSize(200, 24)
-        row.pick:SetPoint("LEFT", row, "LEFT", 164, 0)
-        row.pick:SetText(" ")
-        SkinButton(row.pick, nil, false)
         local specIdx = i
-        row.pick:SetScript("OnClick", function(selfBtn)
-            if picker:IsShown() then picker:Hide() return end
-            GameTooltip:Hide()
-            OpenPicker(selfBtn, specIdx)
-        end)
-        row.pick:SetScript("OnEnter", function(selfBtn)
-            GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
-            GameTooltip:AddLine("Equipment Sets for this spec", 1, 0.82, 0)
-            GameTooltip:AddLine("Auto: the sets GSI saved for the spec (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...). Or tick one or more of your own sets. When a spec has several, switching to it asks which one to put on; other specs' tooltip lines compare with the set for their mode, else the first.", 1, 1, 1, true)
-            GameTooltip:Show()
-        end)
-        row.pick:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        local card = CreateFrame("Frame", nil, scrollChild, BACKDROP_TEMPLATE)
+        card:SetPoint("TOPLEFT", prevElem, "BOTTOMLEFT", 0, (i == 1) and -10 or -8)
+        card:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+        card:SetHeight(120)
+        SkinFrame(card, "well")
+        card.specIndex = i
+        card.rows = {}
 
-        row.equip = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
-        row.equip:SetSize(70, 24)
-        row.equip:SetPoint("LEFT", row.pick, "RIGHT", 8, 0)
-        row.equip:SetText("Equip")
-        SkinButton(row.equip, nil, false)
-        row.equip:SetScript("OnClick", function()
-            if GSI_UI.EquipSpecSet then GSI_UI:EquipSpecSet(specIdx, false, true) end
-        end)
+        card.icon = card:CreateTexture(nil, "ARTWORK")
+        card.icon:SetSize(20, 20)
+        card.icon:SetPoint("TOPLEFT", card, "TOPLEFT", 10, -8)
+        card.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+        card.icon:SetTexture((specData and specData.icon) or 134400)
+
+        card.title = self:CreateText(card, "CARD_TITLE", (specData and specData.name) or ("Spec " .. i))
+        card.title:SetPoint("LEFT", card.icon, "RIGHT", 8, 0)
+
+        card.playing = self:CreateText(card, "SMALL", "")
+        card.playing:SetPoint("LEFT", card.title, "RIGHT", 8, 0)
 
         -- Talent group (dual spec) for /gsi go: Auto -> 1 -> 2 -> Auto
-        row.group = CreateFrame("Button", nil, row, BACKDROP_TEMPLATE)
-        row.group:SetSize(130, 24)
-        row.group:SetPoint("LEFT", row.equip, "RIGHT", 8, 0)
-        row.group:SetText(" ")
-        SkinButton(row.group, nil, false)
-        row.group:SetScript("OnClick", function()
+        card.group = CreateFrame("Button", nil, card, BACKDROP_TEMPLATE)
+        card.group:SetSize(150, 22)
+        card.group:SetPoint("TOPRIGHT", card, "TOPRIGHT", -10, -7)
+        card.group:SetText(" ")
+        SkinButton(card.group, nil, false)
+        card.group:SetScript("OnClick", function()
             if not GSI_UI.GetSpecTalentGroup then return end
             local cur = GSI_UI:GetSpecTalentGroup(specIdx)
             local nextGroup = (cur == nil and 1) or (cur == 1 and 2) or nil
             GSI_UI:SetSpecTalentGroup(specIdx, nextGroup)
             if RefreshSetRows then RefreshSetRows() end
         end)
-        row.group:SetScript("OnEnter", function(selfBtn)
+        card.group:SetScript("OnEnter", function(selfBtn)
             local SW = GSI_StatWeights
             GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
             GameTooltip:AddLine("Talent group for this spec", 1, 0.82, 0)
@@ -514,49 +500,199 @@ function GSI_UI:DrawSettings(parent)
             GameTooltip:AddLine("Used by /gsi go <spec>. The 'GSI Dual Spec' macro (/gsi toggle) just switches to the other group and puts on the gear of the spec it plays.", 0.85, 0.85, 0.85, true)
             GameTooltip:Show()
         end)
-        row.group:SetScript("OnLeave", function() GameTooltip:Hide() end)
+        card.group:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
-        row.specIndex = i
-        setRows[i] = row
-        prevRow = row
+        -- Tooltip lines against the gear worn, one tick per mode
+        card.tipLabel = self:CreateText(card, "SMALL", "Tooltip vs worn gear:")
+        card.tipLabel:SetPoint("TOPLEFT", card, "TOPLEFT", 38, -40)
+        local prevTick = card.tipLabel
+        for _, pInfo in ipairs(profiles) do
+            if pInfo.specIndex == i then
+                local cb = CreateFrame("CheckButton", nil, card, "UICheckButtonTemplate")
+                cb:SetSize(22, 22)
+                cb:SetPoint("LEFT", prevTick, "RIGHT", (prevTick == card.tipLabel) and 6 or 8, 0)
+                cb.text = self:CreateText(cb, "BODY", pInfo.modeLabel or pInfo.mode)
+                cb.text:SetPoint("LEFT", cb, "RIGHT", 2, 0)
+                cb.profileKey = pInfo.key
+                cb:SetScript("OnClick", function(selfBtn)
+                    if not GearSetImproverDB then GearSetImproverDB = {} end
+                    if not GearSetImproverDB.tooltipProfiles then GearSetImproverDB.tooltipProfiles = {} end
+                    if not GearSetImproverDB.tooltipProfiles[playerClass] then GearSetImproverDB.tooltipProfiles[playerClass] = {} end
+                    GearSetImproverDB.tooltipProfiles[playerClass][selfBtn.profileKey] = selfBtn:GetChecked() and true or false
+                    if GSI_TooltipCache and GSI_TooltipCache.Invalidate then
+                        GSI_TooltipCache:Invalidate()
+                    end
+                    if GSI_UI.blizzOptionsPanel and GSI_UI.blizzOptionsPanel.refresh then
+                        GSI_UI.blizzOptionsPanel.refresh()
+                    end
+                end)
+                cb:SetScript("OnEnter", function(selfBtn)
+                    GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+                    GameTooltip:AddLine(pInfo.label or "", 1, 0.82, 0)
+                    GameTooltip:AddLine("A tooltip line scored with these weights against the gear you wear. A spec you are not playing that has sets compares with its sets instead.", 1, 1, 1, true)
+                    GameTooltip:Show()
+                end)
+                cb:SetScript("OnLeave", function() GameTooltip:Hide() end)
+                profileCheckboxes[#profileCheckboxes + 1] = cb
+                prevTick = cb.text
+            end
+        end
+
+        card.empty = self:CreateText(card, "SMALL", "")
+        card.empty:SetJustifyH("LEFT")
+        if card.empty.SetWordWrap then card.empty:SetWordWrap(true) end
+
+        card.add = CreateFrame("Button", nil, card, BACKDROP_TEMPLATE)
+        card.add:SetSize(110, 20)
+        card.add:SetText("+ Add set")
+        SkinButton(card.add, nil, false)
+        card.add:SetScript("OnClick", function(selfBtn)
+            if picker:IsShown() then picker:Hide() return end
+            GameTooltip:Hide()
+            OpenAddPicker(selfBtn, specIdx)
+        end)
+        card.add:SetScript("OnEnter", function(selfBtn)
+            GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+            GameTooltip:AddLine("Add an Equipment Set to this spec", 1, 0.82, 0)
+            GameTooltip:AddLine("With several sets, switching to the spec asks which one to put on. A set's weights button says which weights it turns on.", 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        card.add:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        card.auto = CreateFrame("Button", nil, card, BACKDROP_TEMPLATE)
+        card.auto:SetSize(120, 20)
+        card.auto:SetPoint("LEFT", card.add, "RIGHT", 6, 0)
+        card.auto:SetText("Back to Auto")
+        SkinButton(card.auto, nil, false)
+        card.auto:SetScript("OnClick", function()
+            if GSI_UI.SetSpecSets then GSI_UI:SetSpecSets(specIdx, nil) end
+            SpecSetsChanged()
+        end)
+        card.auto:SetScript("OnEnter", function(selfBtn)
+            GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+            GameTooltip:AddLine("Back to Auto", 1, 0.82, 0)
+            GameTooltip:AddLine("The card lists the sets GSI saves for the spec again (\"GSI: Cat ST\", \"GSI: Resto AoE\", ...), also those it saves later.", 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        card.auto:SetScript("OnLeave", function() GameTooltip:Hide() end)
+
+        card.note = self:CreateText(card, "SMALL", "")
+        card.note:SetJustifyH("LEFT")
+
+        cards[i] = card
+        prevElem = card
     end
-    lastElem = prevRow
+    lastElem = prevElem
+
+    local SET_ROW_TOP = -66
+    local SET_ROW_STEP = 26
+
+    local function LayoutCard(card, activeSpec)
+        local i = card.specIndex
+        local names, isManual = {}, false
+        if GSI_UI.GetSpecSets then
+            local modeNow = GSI_UI.GetCurrentModeFor and GSI_UI:GetCurrentModeFor(i)
+            names, isManual = GSI_UI:GetSpecSets(i, modeNow)
+        end
+
+        card.title:SetText(i == activeSpec and ("|cff40ff9e" .. ((classData and classData.specs and classData.specs[i] and classData.specs[i].name) or ("Spec " .. i)) .. "|r")
+            or ((classData and classData.specs and classData.specs[i] and classData.specs[i].name) or ("Spec " .. i)))
+        card.playing:SetText(i == activeSpec and "|cff40ff9ePLAYING|r" or "")
+
+        local y = SET_ROW_TOP
+        for idx, n in ipairs(names) do
+            local r = card.rows[idx]
+            if not r then
+                r = CreateSetRow(card)
+                card.rows[idx] = r
+            end
+            r:ClearAllPoints()
+            r:SetPoint("TOPLEFT", card, "TOPLEFT", 38, y)
+            r:SetPoint("RIGHT", card, "RIGHT", -10, 0)
+
+            local setID = C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.GetEquipmentSetID(n)
+            local okI, icon, isEquipped = false, nil, false
+            if setID then
+                local ok, _, ic, _, eq = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
+                okI, icon, isEquipped = ok, ic, eq
+            end
+            r.icon:SetTexture((okI and icon) or 134400)
+            if not setID then
+                r.name:SetText("|cffff4444" .. n .. " (missing)|r")
+            elseif okI and isEquipped then
+                r.name:SetText(n .. "  |cff40ff9eON|r")
+            else
+                r.name:SetText(n)
+            end
+
+            local setName = n
+            local mode = GSI_UI.GetSetMode and GSI_UI:GetSetMode(i, setName)
+            r.mode:SetText(ModeButtonText(mode))
+            r.mode:SetScript("OnClick", function()
+                if GSI_UI.CycleSetMode then GSI_UI:CycleSetMode(i, setName) end
+                if RefreshSetRows then RefreshSetRows() end
+            end)
+            r.mode:SetScript("OnEnter", function(selfBtn)
+                local modes = GSI_UI.GetSpecModes and GSI_UI:GetSpecModes(i) or { "ST", "AOE" }
+                GameTooltip:SetOwner(selfBtn, "ANCHOR_RIGHT")
+                GameTooltip:AddLine("Weights this set turns on", 1, 0.82, 0)
+                GameTooltip:AddLine("When the set goes on while you play this spec (here, the \"which set?\" prompt, /gsi go, the dual spec macro or the character pane's Equipment Manager), GSI switches to these weights as the mode dropdown in the header does. Tooltip lines for this set are scored with them.", 1, 1, 1, true)
+                GameTooltip:AddLine(string.format("Click: %s, %s, keep (the set leaves the weights as they are).",
+                    GSI_UI:GetModeLabel(modes[1]) or "?", GSI_UI:GetModeLabel(modes[2]) or "?"), 0.7, 0.9, 1, true)
+                GameTooltip:Show()
+            end)
+            r.equip:SetEnabled(setID ~= nil)
+            r.equip:SetScript("OnClick", function()
+                if GSI_UI.EquipNamedSet then GSI_UI:EquipNamedSet(setName, i, true) end
+            end)
+            r.remove:SetScript("OnClick", function()
+                if GSI_UI.ToggleSpecSet then GSI_UI:ToggleSpecSet(i, setName) end
+                SpecSetsChanged()
+            end)
+            r:Show()
+            y = y - SET_ROW_STEP
+        end
+        for idx = #names + 1, #card.rows do card.rows[idx]:Hide() end
+
+        if #names == 0 then
+            card.empty:SetText(isManual
+                and "No set: switching to this spec puts on the best gear in your bags (/gsi go)."
+                or "No set yet: GSI saves one when it equips gear for the spec (/gsi equip), or add one of yours.")
+            card.empty:ClearAllPoints()
+            card.empty:SetPoint("TOPLEFT", card, "TOPLEFT", 38, y - 3)
+            card.empty:SetPoint("RIGHT", card, "RIGHT", -10, 0)
+            card.empty:Show()
+            y = y - 22
+        else
+            card.empty:Hide()
+        end
+
+        card.add:ClearAllPoints()
+        card.add:SetPoint("TOPLEFT", card, "TOPLEFT", 38, y - 4)
+        card.auto:SetShown(isManual and true or false)
+        card.note:ClearAllPoints()
+        card.note:SetPoint("LEFT", isManual and card.auto or card.add, "RIGHT", 8, 0)
+        card.note:SetText(isManual and "|cff888888Your own list|r" or "|cff888888Auto: the sets GSI saved for the spec|r")
+        card:SetHeight(-(y - 4) + 20 + 10)
+    end
 
     RefreshSetRows = function()
-        local detected = GSI_StatWeights and GSI_StatWeights.DetectCurrentSpec and GSI_StatWeights:DetectCurrentSpec()
-        for i, row in ipairs(setRows) do
-            local names, isManual = {}, false
-            if GSI_UI.GetSpecSets then names, isManual = GSI_UI:GetSpecSets(i) end
-            local anyExists = false
-            local shown = {}
-            for _, n in ipairs(names) do
-                local exists = C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.GetEquipmentSetID(n)
-                if exists then anyExists = true end
-                shown[#shown + 1] = exists and n or ("|cffff4444" .. n .. " (missing)|r")
-            end
-            local text = table.concat(shown, ", ")
-            if not isManual then
-                text = (#shown > 0) and ("|cff888888Auto:|r " .. text) or "|cff888888Auto: no GSI set yet|r"
-            elseif text == "" then
-                text = NONE_LABEL
-            end
-            row.pick:SetText(text)
-            row.equip:SetEnabled(anyExists)
-            local specData = classData and classData.specs and classData.specs[i]
-            local label = (specData and specData.name) or ("Spec " .. i)
-            row.label:SetText(i == detected and ("|cff00ff00" .. label .. "|r") or label)
+        local SW = GSI_StatWeights
+        local activeSpec = SW and SW.GetActiveSpecIndex and SW:GetActiveSpecIndex()
+        for _, card in ipairs(cards) do
+            LayoutCard(card, activeSpec)
 
-            local SW = GSI_StatWeights
+            local i = card.specIndex
             local numGroups = (SW and SW.GetNumTalentGroups and SW:GetNumTalentGroups()) or 1
             if numGroups < 2 or not GSI_UI.ResolveSpecTalentGroup then
-                row.group:SetText("|cff888888Talents: -|r")
+                card.group:SetText("|cff888888Talents: -|r")
             else
                 local bound = GSI_UI:GetSpecTalentGroup(i)
                 if bound then
-                    row.group:SetText("Talents: Group " .. bound)
+                    card.group:SetText("Talents: Group " .. bound)
                 else
                     local g = GSI_UI:ResolveSpecTalentGroup(i)
-                    row.group:SetText("Talents: Auto |cff888888(" .. (g and tostring(g) or "?") .. ")|r")
+                    card.group:SetText("Talents: Auto |cff888888(" .. (g and tostring(g) or "?") .. ")|r")
                 end
             end
         end
@@ -564,7 +700,9 @@ function GSI_UI:DrawSettings(parent)
         cbSetAuto:SetChecked(not GSI_UI.IsSpecSetAutoEquip or GSI_UI:IsSpecSetAutoEquip())
         cbCompareSets:SetChecked(not GSI_UI.IsCompareSpecSets or GSI_UI:IsCompareSpecSets())
     end
-    GSI_UI.RefreshSpecSetRows = RefreshSetRows
+    GSI_UI.RefreshSpecSetRows = function()
+        if UpdateSettingsLayoutAndSync then UpdateSettingsLayoutAndSync() else RefreshSetRows() end
+    end
 
     if CreateFrame then
         local setsWatcher = CreateFrame("Frame")
@@ -572,12 +710,20 @@ function GSI_UI:DrawSettings(parent)
         pcall(setsWatcher.RegisterEvent, setsWatcher, "PLAYER_EQUIPMENT_CHANGED")
         pcall(setsWatcher.RegisterEvent, setsWatcher, "ACTIVE_TALENT_GROUP_CHANGED")
         pcall(setsWatcher.RegisterEvent, setsWatcher, "PLAYER_TALENT_UPDATE")
+        pcall(setsWatcher.RegisterEvent, setsWatcher, "EQUIPMENT_SWAP_FINISHED")
+        local queued = false
         setsWatcher:SetScript("OnEvent", function()
-            if parent:IsVisible() then RefreshSetRows() end
+            if not parent:IsVisible() or queued then return end
+            queued = true
+            local function Run()
+                queued = false
+                if parent:IsVisible() and UpdateSettingsLayoutAndSync then UpdateSettingsLayoutAndSync() end
+            end
+            if C_Timer and C_Timer.After then C_Timer.After(0.2, Run) else Run() end
         end)
     end
 
-    local function UpdateSettingsLayoutAndSync()
+    UpdateSettingsLayoutAndSync = function()
         local hasDE = GSI_UI.HasDisenchantSpell and GSI_UI:HasDisenchantSpell()
         deMacroBtn:SetShown(hasDE and true or false)
 

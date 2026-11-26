@@ -370,9 +370,11 @@ local function RefreshAfterSpecChange()
     if GSI_TooltipHook and GSI_TooltipHook.ResetCache then pcall(GSI_TooltipHook.ResetCache, GSI_TooltipHook) end
     if GSI_UI and GSI_UI.MarkScanStale then pcall(GSI_UI.MarkScanStale, GSI_UI) end
     if GSI_TooltipHook and GSI_TooltipHook.RefreshShownTooltips then pcall(GSI_TooltipHook.RefreshShownTooltips, GSI_TooltipHook) end
-    if GSI_UpgradeToast and GSI_UpgradeToast.ReevaluatePending then
-        -- After the spec's gear set has been put on (the callbacks run right
-        -- after this), so toasts compare against the gear actually worn.
+    if GSI_UpgradeToast and GSI_UpgradeToast.HoldAfterSpecChange then
+        -- Toasts wait 3 s: the spec's gear set goes on first (the callbacks
+        -- run right after this), then they are scored against the gear worn.
+        pcall(GSI_UpgradeToast.HoldAfterSpecChange, GSI_UpgradeToast, 3)
+    elseif GSI_UpgradeToast and GSI_UpgradeToast.ReevaluatePending then
         local function Reevaluate() pcall(GSI_UpgradeToast.ReevaluatePending, GSI_UpgradeToast) end
         if C_Timer and C_Timer.After then C_Timer.After(1.0, Reevaluate) else Reevaluate() end
     end
@@ -456,6 +458,10 @@ do
             local old = GSI_StatWeights._lastDetectedSpec
             GSI_StatWeights._lastDetectedSpec = spec
             if old == nil or old == spec then return end
+            -- Gear changes now (the spec's set): toasts wait for it either way
+            if GSI_UpgradeToast and GSI_UpgradeToast.HoldAfterSpecChange then
+                pcall(GSI_UpgradeToast.HoldAfterSpecChange, GSI_UpgradeToast, 3)
+            end
             if GSI_StatWeights:IsSpecAuto() then
                 RefreshAfterSpecChange()
             end
