@@ -607,13 +607,13 @@ local function AppendScoreToTooltip(tooltip, itemLink)
                     and string.format("%.2f", newScore)
                     or string.format("%.1f", newScore)
 
-                -- "Restoration AoE vs Resto AoE: 11.19 (+4.05)": spec and mode, the
-                -- set without GSI's "GSI: " prefix. The spec you play gets its
-                -- icon in front and a larger outlined font.
+                -- "[icon] Restoration AoE vs Resto AoE: 11.19 (+4.05)": the spec's
+                -- icon, spec and mode, the set without GSI's "GSI: " prefix. The
+                -- spec you play is drawn larger with an outline.
                 local sData = classData and classData.specs and classData.specs[specIdx]
                 local sName = (sData and sData.name) or ("Spec " .. specIdx)
                 local isActive = (specIdx == activeSpecIndex)
-                if isActive and sData and sData.icon then
+                if sData and sData.icon then
                     sName = "|T" .. sData.icon .. ":0|t " .. sName
                 end
                 local rawMode = pInfo.modeLabel or modeVal
@@ -820,9 +820,33 @@ function GSI_TooltipHook.AppendScoreToTooltip(self_or_tip, tip_or_link, link_may
     end
 end
 
+-- The spec icons drawn inline in score lines. A texture the client has not
+-- loaded yet comes out blank in the tooltip that first shows it, and the
+-- tooltip is not redrawn when it arrives, so they are loaded once up front
+-- and kept by textures on an invisible frame.
+local function PreloadSpecIcons()
+    if GSI_TooltipHook._iconPreload or not CreateFrame then return end
+    local cd = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[GetResolvedPlayerClass()]
+    if not (cd and cd.specs) then return end
+    local holder = CreateFrame("Frame", nil, UIParent)
+    holder:SetSize(16, 16)
+    holder:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", 0, 0)
+    holder:SetAlpha(0)
+    holder:EnableMouse(false)
+    for _, sd in pairs(cd.specs) do
+        if sd.icon then
+            local t = holder:CreateTexture(nil, "ARTWORK")
+            t:SetAllPoints(holder)
+            t:SetTexture(sd.icon)
+        end
+    end
+    GSI_TooltipHook._iconPreload = holder
+end
+
 function GSI_TooltipHook:Initialize()
     if self._initialized then return end
     self._initialized = true
+    pcall(PreloadSpecIcons)
 
     if TooltipDataProcessor and TooltipDataProcessor.AddTooltipPostCall then
         TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
