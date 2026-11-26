@@ -1889,8 +1889,32 @@ local function WaitForCombatEnd(setName, specIndex)
     end
 end
 
--- Puts on one Equipment Manager set (after combat when fighting).
--- Returns true when it is on or was just equipped.
+-- A set GSI saved for a mode ("GSI: Resto AoE") turns that mode's weights
+-- on, as the mode dropdown in the header does. Other sets leave the mode.
+local MODE_LABELS = { ST = "Single Target", AOE = "AoE / Trash", Survival = "Survival", DMG = "Threat / DPS" }
+local function ApplySetWeightMode(specIndex, setName)
+    local m = SetPresetMode(tonumber(specIndex), setName)
+    if not m then return end
+    if not GearSetImproverDB then GearSetImproverDB = {} end
+    local db = GearSetImproverDB
+    local key, value, current
+    if m == "Survival" or m == "Threat" then
+        key, value = "tankMode", (m == "Threat") and "DMG" or "Survival"
+        current = db.tankMode or "Survival"
+    else
+        key, value = "weightMode", (NormMode(m) == "AOE") and "AOE" or "ST"
+        current = db.weightMode or "ST"
+    end
+    if NormMode(current) == NormMode(value) then return end
+    db[key] = value
+    if GSI_StatWeights and GSI_StatWeights.RefreshScores then GSI_StatWeights:RefreshScores() end
+    print(string.format("|cffffcc00[GearSetImprover]|r Weights: |cff00ff00%s|r (set '|cffffcc00%s|r').",
+        MODE_LABELS[value] or value, setName))
+end
+
+-- Puts on one Equipment Manager set (after combat when fighting) and turns
+-- on the weights of the mode it was saved for. Returns true when it is on
+-- or was just equipped.
 function GSI_UI:EquipNamedSet(setName, specIndex, verbose)
     if not (setName and C_EquipmentSet and C_EquipmentSet.GetEquipmentSetID and C_EquipmentSet.UseEquipmentSet) then
         return false
@@ -1900,6 +1924,7 @@ function GSI_UI:EquipNamedSet(setName, specIndex, verbose)
         print(string.format("|cffff4444[GearSetImprover]|r Equipment Set '|cffffcc00%s|r' no longer exists.", setName))
         return false
     end
+    ApplySetWeightMode(specIndex, setName)
     local okI, _, _, _, isEquipped = pcall(C_EquipmentSet.GetEquipmentSetInfo, setID)
     if okI and isEquipped then
         if verbose then
@@ -2198,11 +2223,30 @@ end
 -- The group switch is a cast: the gear waits until the new group is active,
 -- so the swap cannot interrupt it.
 -- ---------------------------------------------------------------
-local pendingGo = nil -- { spec, group, expires }
+local pendingGo = nil -- { spec, group, started, expires, castGUID }
 
 local function PendingGoActive()
     if pendingGo and GetTime and GetTime() > pendingGo.expires then pendingGo = nil end
     return pendingGo ~= nil
+end
+
+local function StartPendingGo(specIndex, group)
+    local now = (GetTime and GetTime()) or 0
+    pendingGo = { spec = specIndex, group = group, started = now, expires = now + 30 }
+end
+
+-- A switch is under way while its cast runs, for a moment after it was asked
+-- for (the cast has not started yet), and once the group is active until its
+-- gear goes on. An interrupted or failed cast is none of these: the pending
+-- switch is dropped, so the next press starts a new one.
+local function SwitchUnderWay()
+    if not PendingGoActive() then return false end
+    if GSI_StatWeights:GetActiveTalentGroup() == pendingGo.group then return true end
+    if type(UnitCastingInfo) == "function" and UnitCastingInfo("player") then return true end
+    if type(UnitChannelInfo) == "function" and UnitChannelInfo("player") then return true end
+    if GetTime and GetTime() - (pendingGo.started or 0) < 1.5 then return true end
+    pendingGo = nil
+    return false
 end
 
 local function FinishGoToSpec(specIndex)
@@ -2249,7 +2293,7 @@ function GSI_UI:ToggleTalentGroup()
         print("|cffff0000[GearSetImprover]|r Cannot change specialization or gear while in combat!")
         return
     end
-    if PendingGoActive() then
+    if SwitchUnderWay() then
         print("|cffffcc00[GearSetImprover]|r A talent group switch is already under way.")
         return
     end
@@ -2263,7 +2307,7 @@ function GSI_UI:ToggleTalentGroup()
         print(string.format("|cffff4444[GearSetImprover]|r Could not switch to talent group %d.", target))
         return
     end
-    pendingGo = { spec = nil, group = target, expires = (GetTime and GetTime() or 0) + 30 }
+    StartPendingGo(nil, target)
     local _, names = SW:GetTalentGroupPoints(target)
     local lead = SW:GetTalentGroupLeadTree(target)
     local label = (lead and names and names[lead]) or ("group " .. target)
@@ -2301,7 +2345,7 @@ function GSI_UI:GoToSpec(specIndex, targetMode)
     local active = SW:GetActiveTalentGroup()
     if group and group ~= active then
         if SW:ActivateTalentGroup(group) then
-            pendingGo = { spec = specIndex, group = group, expires = (GetTime and GetTime() or 0) + 30 }
+            StartPendingGo(specIndex, group)
             print(string.format("|cffffcc00[GearSetImprover]|r Switching to talent group %d for |cff00ff00%s|r; the gear goes on when the switch is done.", group, specName))
             return
         end
@@ -2343,6 +2387,36 @@ do
             pcall(goFrame.RegisterEvent, goFrame, ev)
         end
     end
+
+    -- The switch cast: the first cast the player starts right after the switch
+    -- was asked for. When that cast is interrupted or fails before the group
+    -- changes, the switch is dropped at once (and the next press retries).
+    local castFrame = CreateFrame and CreateFrame("Frame")
+    if castFrame and castFrame.RegisterUnitEvent then
+        castFrame:SetScript("OnEvent", function(_, event, _, castGUID)
+            if not PendingGoActive() then return end
+            if event == "UNIT_SPELLCAST_START" or event == "UNIT_SPELLCAST_CHANNEL_START" then
+                if not pendingGo.castGUID and GetTime and GetTime() - (pendingGo.started or 0) < 1.5 then
+                    pendingGo.castGUID = castGUID or true
+                end
+                return
+            end
+            if not pendingGo.castGUID then return end
+            if pendingGo.castGUID == true then
+                -- No cast GUIDs on this client: another spell failing says nothing
+                if event == "UNIT_SPELLCAST_FAILED" then return end
+            elseif castGUID ~= pendingGo.castGUID then
+                return
+            end
+            if GSI_StatWeights:GetActiveTalentGroup() == pendingGo.group then return end
+            pendingGo = nil
+            print("|cffffcc00[GearSetImprover]|r Talent group switch interrupted; press the macro again to retry.")
+        end)
+        for _, ev in ipairs({ "UNIT_SPELLCAST_START", "UNIT_SPELLCAST_CHANNEL_START",
+                              "UNIT_SPELLCAST_INTERRUPTED", "UNIT_SPELLCAST_FAILED" }) do
+            pcall(castFrame.RegisterUnitEvent, castFrame, ev, "player")
+        end
+    end
 end
 
 if GSI_StatWeights and GSI_StatWeights.RegisterSpecChangeCallback then
@@ -2350,7 +2424,7 @@ if GSI_StatWeights and GSI_StatWeights.RegisterSpecChangeCallback then
         -- The other group may read differently now (e.g. the feral role changed)
         GSI_UI:ScheduleDualSpecIconRefresh()
         -- A /gsi go or /gsi toggle switch puts on its gear once the group is active
-        if PendingGoActive() then return end
+        if SwitchUnderWay() then return end
         if not GSI_UI:IsSpecSetAutoEquip() then return end
         -- A switch made elsewhere (talent window, a dual spec button):
         -- the new spec's set, or a choice when there are several

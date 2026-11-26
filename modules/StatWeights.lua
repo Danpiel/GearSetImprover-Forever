@@ -387,6 +387,11 @@ local function RefreshAfterSpecChange()
     end
 end
 
+-- The same rebuild for other weight changes (a set's mode turned on)
+function GSI_StatWeights:RefreshScores()
+    RefreshAfterSpecChange()
+end
+
 function GSI_StatWeights:SetSpecAuto(enabled)
     if not GearSetImproverDB then GearSetImproverDB = {} end
     self:InvalidateSpecCache()
