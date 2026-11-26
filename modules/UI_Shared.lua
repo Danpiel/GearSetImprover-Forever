@@ -187,11 +187,16 @@ local function ResolveExpresswayFont()
         return euiFont
     end
 
-    -- 0. Russian client: GSI's own Expressway has the Cyrillic letters, an
-    -- Expressway another addon registered may not
+    -- 0. The client's letters (Locales.lua): GSI's own Expressway has the
+    -- Cyrillic ones, an Expressway another addon registered may not; no
+    -- Expressway has Chinese or Korean, the client's own font does
+    local script = (GSI_LocaleScript and GSI_LocaleScript()) or "latin"
     local bundled = "Interface\\AddOns\\GearSetImprover\\Fonts\\Expressway.ttf"
-    if GSI_LOCALE == "ruRU" and IsValidFont(bundled) then
+    if script == "cyrillic" and IsValidFont(bundled) then
         return bundled
+    end
+    if script == "cjk" and STANDARD_TEXT_FONT and IsValidFont(STANDARD_TEXT_FONT) then
+        return STANDARD_TEXT_FONT
     end
 
     -- 1. Check LibSharedMedia-3.0 if available

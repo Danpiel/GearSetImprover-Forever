@@ -1024,7 +1024,7 @@ function GSI_UI:ShowSetChooser(specIndex, choices)
             local m = GSI_UI:GetSetMode(c.spec, c.name)
             local ml = m and GSI_UI:GetModeLabel(m)
             -- string.upper does not upper-case Cyrillic: the Russian label stays as it is
-            b.tag:SetText(ml and ((GSI_LOCALE == "ruRU") and ml or string.upper(ml)) or "")
+            b.tag:SetText(ml and ((GSI_Upper and GSI_Upper(ml)) or string.upper(ml)) or "")
             b.tag:SetTextColor(0.62, 0.66, 0.74, 1)
         end
         b:ClearAllPoints()

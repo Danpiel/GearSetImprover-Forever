@@ -14,7 +14,7 @@
 > - Login error "Module TooltipHook error: bad argument #2" fixed.
 > - `/gsi dump` writes item/tooltip/spec diagnostics to SavedVariables.
 >
-> - Since v1.4.6: one settings card per spec (sets, the weights each set turns on, tooltip lines, talent group); a set put on turns its spec and weights on, weights picked in GSI put on their set; compact two-column tooltip lines; upgrade toasts wait 3 s after a spec change; a GearSetImprover section in the EllesmereUI panel and EllesmereUI's font; Russian translation (Locales).
+> - Since v1.4.6: one settings card per spec (sets, the weights each set turns on, tooltip lines, talent group); a set put on turns its spec and weights on, weights picked in GSI put on their set; compact two-column tooltip lines; upgrade toasts wait 3 s after a spec change; a GearSetImprover section in the EllesmereUI panel and EllesmereUI's font; Russian translation; any language can be added as a folder in `Locales/` (see `Locales/README.md`, `tools/l10n.js`).
 
 ---
 

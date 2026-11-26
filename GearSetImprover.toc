@@ -11,11 +11,11 @@
 ## OptionalDeps: Ace3, EllesmereUI
 
 Locales\Locales.lua
-Locales\ruRU_Macros.lua
-Locales\ruRU_Settings.lua
-Locales\ruRU_Window.lua
-Locales\ruRU_Bags.lua
-Locales\ruRU_Scores.lua
+Locales\ruRU\Macros.lua
+Locales\ruRU\Settings.lua
+Locales\ruRU\Window.lua
+Locales\ruRU\Bags.lua
+Locales\ruRU\Scores.lua
 
 modules\Logger.lua
 modules\Config.lua

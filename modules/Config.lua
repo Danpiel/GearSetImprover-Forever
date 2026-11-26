@@ -17,6 +17,9 @@ if not GSI_L then
     GSI_AddTranslations = GSI_AddTranslations or function() end
 end
 GSI_SET_NAMES = GSI_SET_NAMES or {}
+GSI_AddSetNames = GSI_AddSetNames or function() end
+GSI_LocaleScript = GSI_LocaleScript or function() return "latin" end
+GSI_Upper = GSI_Upper or function(s) return type(s) == "string" and string.upper(s) or s end
 
 -- ============================================================
 -- Client API Compatibility Layer (Modern Engine)

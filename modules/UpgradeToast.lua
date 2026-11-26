@@ -13,13 +13,10 @@ local L = GSI_L
 GSI_UpgradeToast = {}
 local GSI_UpgradeToast = GSI_UpgradeToast
 
--- string.upper leaves Cyrillic alone: map the UTF-8 pairs by hand
+-- Capitals in any language (Locales.lua: string.upper changes only a-z)
 local function UpperText(s)
-    s = string.upper(s)
-    s = s:gsub("\208([\176-\191])", function(c) return "\208" .. string.char(c:byte() - 32) end)
-    s = s:gsub("\209([\128-\143])", function(c) return "\208" .. string.char(c:byte() + 32) end)
-    s = s:gsub("\209\145", "\208\129")
-    return s
+    if GSI_Upper then return GSI_Upper(s) end
+    return string.upper(s)
 end
 
 local TEXTURE_FILE = "Interface\\AddOns\\GearSetImprover\\Textures\\LootUI.png"
