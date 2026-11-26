@@ -164,8 +164,15 @@ function GSI_UI:DrawSettings(parent)
     generalHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     if generalHeader.SetWordWrap then generalHeader:SetWordWrap(false) end
 
+    local genDiv = scrollChild:CreateTexture(nil, "ARTWORK")
+    genDiv:SetPoint("TOPLEFT", generalHeader, "BOTTOMLEFT", 0, -4)
+    genDiv:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    genDiv:SetHeight((self.PP and self:PP(1)) or 1)
+    genDiv:SetColorTexture(1, 1, 1, 0.08)
+
     local cbDisableChat = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
-    cbDisableChat:SetPoint("TOPLEFT", generalHeader, "BOTTOMLEFT", 0, -8)
+    cbDisableChat:SetPoint("TOPLEFT", generalHeader, "BOTTOMLEFT", 0, -10)
+    if self.SkinCheckbox then self:SkinCheckbox(cbDisableChat) end
     cbDisableChat.text = self:CreateText(cbDisableChat, "BODY", L["Disable Chat Output (Silent Mode)"])
     cbDisableChat.text:SetPoint("LEFT", cbDisableChat, "RIGHT", 6, 0)
     cbDisableChat.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -190,6 +197,7 @@ function GSI_UI:DrawSettings(parent)
 
     local cbMerchantOverlay = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbMerchantOverlay:SetPoint("TOPLEFT", cbDisableChat, "BOTTOMLEFT", 0, -6)
+    if self.SkinCheckbox then self:SkinCheckbox(cbMerchantOverlay) end
     cbMerchantOverlay.text = self:CreateText(cbMerchantOverlay, "BODY", L["Show Clean-up sell window at merchant"])
     cbMerchantOverlay.text:SetPoint("LEFT", cbMerchantOverlay, "RIGHT", 6, 0)
     cbMerchantOverlay.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -244,8 +252,15 @@ function GSI_UI:DrawSettings(parent)
     setHeader:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
     if setHeader.SetWordWrap then setHeader:SetWordWrap(true) end
 
+    local setDiv = scrollChild:CreateTexture(nil, "ARTWORK")
+    setDiv:SetPoint("TOPLEFT", setHeader, "BOTTOMLEFT", 0, -4)
+    setDiv:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
+    setDiv:SetHeight((self.PP and self:PP(1)) or 1)
+    setDiv:SetColorTexture(1, 1, 1, 0.08)
+
     local cbSpecAuto = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
-    cbSpecAuto:SetPoint("TOPLEFT", setHeader, "BOTTOMLEFT", 0, -8)
+    cbSpecAuto:SetPoint("TOPLEFT", setHeader, "BOTTOMLEFT", 0, -10)
+    if self.SkinCheckbox then self:SkinCheckbox(cbSpecAuto) end
     cbSpecAuto.text = self:CreateText(cbSpecAuto, "BODY", L["Detect the specialization from your talents (follows respecs)"])
     cbSpecAuto.text:SetPoint("LEFT", cbSpecAuto, "RIGHT", 6, 0)
     cbSpecAuto.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -266,6 +281,7 @@ function GSI_UI:DrawSettings(parent)
 
     local cbSetAuto = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbSetAuto:SetPoint("TOPLEFT", cbSpecAuto, "BOTTOMLEFT", 0, -6)
+    if self.SkinCheckbox then self:SkinCheckbox(cbSetAuto) end
     cbSetAuto.text = self:CreateText(cbSetAuto, "BODY", L["Equip the spec's set when your spec changes"])
     cbSetAuto.text:SetPoint("LEFT", cbSetAuto, "RIGHT", 6, 0)
     cbSetAuto.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -286,6 +302,7 @@ function GSI_UI:DrawSettings(parent)
     local function AddSyncCheck(anchor, label, key, title, tip)
         local cb = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
         cb:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -6)
+        if self.SkinCheckbox then self:SkinCheckbox(cb) end
         cb.text = self:CreateText(cb, "BODY", label)
         cb.text:SetPoint("LEFT", cb, "RIGHT", 6, 0)
         cb.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -312,6 +329,7 @@ function GSI_UI:DrawSettings(parent)
 
     local cbCompareSets = CreateFrame("CheckButton", nil, scrollChild, "UICheckButtonTemplate")
     cbCompareSets:SetPoint("TOPLEFT", cbWeightsSet, "BOTTOMLEFT", 0, -6)
+    if self.SkinCheckbox then self:SkinCheckbox(cbCompareSets) end
     cbCompareSets.text = self:CreateText(cbCompareSets, "BODY", L["Tooltips: a line for every Equipment Set of every spec"])
     cbCompareSets.text:SetPoint("LEFT", cbCompareSets, "RIGHT", 6, 0)
     cbCompareSets.text:SetPoint("RIGHT", scrollChild, "RIGHT", -16, 0)
@@ -355,8 +373,18 @@ function GSI_UI:DrawSettings(parent)
         catcher:SetScript("OnClick", function() picker:Hide() end)
         catcher:Hide()
         picker.catcher = catcher
-        picker:SetScript("OnShow", function() catcher:Show() end)
-        picker:SetScript("OnHide", function() catcher:Hide() end)
+        picker:SetScript("OnShow", function()
+            catcher:Show()
+            if picker._activeAnchor and picker._activeAnchor.pickArrow and picker._activeAnchor.pickArrow.SetExpanded then
+                picker._activeAnchor.pickArrow:SetExpanded(true)
+            end
+        end)
+        picker:SetScript("OnHide", function()
+            catcher:Hide()
+            if picker._activeAnchor and picker._activeAnchor.pickArrow and picker._activeAnchor.pickArrow.SetExpanded then
+                picker._activeAnchor.pickArrow:SetExpanded(false)
+            end
+        end)
         GSI_UI.specSetPicker = picker
     end
 
@@ -420,6 +448,7 @@ function GSI_UI:DrawSettings(parent)
             b:Show()
         end
         for i = #entries + 1, #picker.items do picker.items[i]:Hide() end
+        picker._activeAnchor = anchor
         picker:SetSize(220, (#entries * 26) + 8)
         picker:ClearAllPoints()
         picker:SetPoint("TOPLEFT", anchor, "BOTTOMLEFT", 0, -2)
@@ -539,6 +568,7 @@ function GSI_UI:DrawSettings(parent)
             if pInfo.specIndex == i then
                 local cb = CreateFrame("CheckButton", nil, card, "UICheckButtonTemplate")
                 cb:SetSize(22, 22)
+                if self.SkinCheckbox then self:SkinCheckbox(cb) end
                 cb:SetPoint("LEFT", prevTick, "RIGHT", (prevTick == card.tipLabel) and 6 or 8, 0)
                 cb.text = self:CreateText(cb, "BODY", pInfo.modeLabel or pInfo.mode)
                 cb.text:SetPoint("LEFT", cb, "RIGHT", 2, 0)

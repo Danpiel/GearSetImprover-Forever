@@ -38,63 +38,170 @@ local T = GSI_UI.THEME
 function GSI_UI:DrawOverview(parent)
     local T = self.THEME
 
-    -- 1. HERO CHARACTER CARD (Height: 165px)
-    local hero = CreateFrame("Frame", nil, parent, BACKDROP_TEMPLATE)
-    hero:SetPoint("TOPLEFT", 16, -16)
-    hero:SetPoint("TOPRIGHT", -20, -16)
-    hero:SetHeight(165)
-    SkinCard(hero, false)
+    local cr, cg, cb = GSI_UI:GetClassColor()
+    local pp1 = (GSI_UI.PP and GSI_UI:PP(1)) or 1
+    local pp2 = (GSI_UI.PP and GSI_UI:PP(2)) or 2
+
+    -- 1. FRAMELESS HERO SECTION (Height: 148px, bottom hairline + class glow)
+    local hero = CreateFrame("Frame", nil, parent)
+    hero:SetPoint("TOPLEFT", 16, -14)
+    hero:SetPoint("TOPRIGHT", -20, -14)
+    hero:SetHeight(148)
     parent.hero = hero
 
-    -- 3D Character Model inside recessed Obsidian Well
+    hero.bottomLine = hero:CreateTexture(nil, "ARTWORK")
+    hero.bottomLine:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", 0, 0)
+    hero.bottomLine:SetPoint("BOTTOMRIGHT", hero, "BOTTOMRIGHT", 0, 0)
+    hero.bottomLine:SetHeight(pp1)
+    hero.bottomLine:SetColorTexture(1, 1, 1, 0.08)
+
+    hero.bottomGlow = hero:CreateTexture(nil, "OVERLAY")
+    hero.bottomGlow:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", 0, 0)
+    hero.bottomGlow:SetSize(220, pp2)
+    hero.bottomGlow:SetTexture("Interface\\Buttons\\WHITE8x8")
+    GSI_UI:SetGradient(hero.bottomGlow, "HORIZONTAL", cr, cg, cb, 0.65, cr, cg, cb, 0.0)
+
+    -- Frameless Floating 3D Character Portrait with subtle class aura
     local modelWell = CreateFrame("PlayerModel", nil, hero)
-    modelWell:SetSize(120, 137)
-    modelWell:SetPoint("LEFT", 14, 0)
-    SkinFrame(modelWell, T.bgInput, false)
+    modelWell:SetSize(112, 134)
+    modelWell:SetPoint("BOTTOMLEFT", hero, "BOTTOMLEFT", 4, 4)
     if modelWell.SetUnit then pcall(function() modelWell:SetUnit("player") end) end
     if modelWell.SetPosition then pcall(function() modelWell:SetPosition(0, 0, 0) end) end
     if modelWell.SetRotation then pcall(function() modelWell:SetRotation(0) end) end
+    modelWell._rot = 0
+    modelWell:EnableMouse(true)
+    modelWell:SetScript("OnMouseDown", function(selfM, btn)
+        if btn == "LeftButton" then
+            selfM._dragging = true
+            selfM._lastX = GetCursorPosition and select(1, GetCursorPosition()) or 0
+        end
+    end)
+    modelWell:SetScript("OnMouseUp", function(selfM)
+        selfM._dragging = false
+    end)
+    modelWell:SetScript("OnUpdate", function(selfM)
+        if selfM._dragging and GetCursorPosition and selfM.SetRotation then
+            local x = select(1, GetCursorPosition())
+            local dx = x - (selfM._lastX or x)
+            selfM._lastX = x
+            selfM._rot = (selfM._rot or 0) + dx * 0.015
+            pcall(selfM.SetRotation, selfM, selfM._rot)
+        end
+    end)
     hero.model = modelWell
 
+    hero.modelGlow = hero:CreateTexture(nil, "BACKGROUND")
+    hero.modelGlow:SetSize(104, 58)
+    hero.modelGlow:SetPoint("BOTTOM", modelWell, "BOTTOM", 0, 2)
+    hero.modelGlow:SetTexture("Interface\\Buttons\\WHITE8x8")
+    GSI_UI:SetGradient(hero.modelGlow, "VERTICAL", cr, cg, cb, 0.16, cr, cg, cb, 0.0)
+
+    hero.modelBase = hero:CreateTexture(nil, "ARTWORK")
+    hero.modelBase:SetSize(72, pp2)
+    hero.modelBase:SetPoint("BOTTOM", modelWell, "BOTTOM", 0, 0)
+    hero.modelBase:SetColorTexture(cr, cg, cb, 0.55)
+
     -- Character Info Header (Name, Level, Race, Class)
-    hero.nameText = CreateText(hero, "TITLE", "", "LEFT")
-    hero.nameText:SetPoint("TOPLEFT", modelWell, "TOPRIGHT", 18, -4)
-    hero.nameText:SetPoint("TOPRIGHT", hero, "TOPRIGHT", -16, -18)
+    hero.nameText = CreateText(hero, "LARGE", "", "LEFT")
+    hero.nameText:SetPoint("TOPLEFT", modelWell, "TOPRIGHT", 22, -4)
+    hero.nameText:SetPoint("TOPRIGHT", hero, "TOPRIGHT", -8, -4)
     hero.nameText:SetWordWrap(false)
 
+    hero.specIcon = hero:CreateTexture(nil, "ARTWORK")
+    hero.specIcon:SetSize(14, 14)
+    hero.specIcon:SetPoint("TOPLEFT", hero.nameText, "BOTTOMLEFT", 0, -5)
+    hero.specIcon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+
     hero.specText = CreateText(hero, "BODY", "", "LEFT")
-    hero.specText:SetPoint("TOPLEFT", hero.nameText, "BOTTOMLEFT", 0, -4)
-    hero.specText:SetPoint("TOPRIGHT", hero.nameText, "BOTTOMRIGHT", 0, -4)
+    hero.specText:SetPoint("LEFT", hero.specIcon, "RIGHT", 6, 0)
+    hero.specText:SetPoint("RIGHT", hero, "RIGHT", -8, 0)
     hero.specText:SetWordWrap(false)
     hero.specText:SetTextColor(unpack(T.textSecondary))
 
-    -- 3 KPI Metric Cards
+    -- 3 Flat Borderless KPI Columns separated by 1px vertical hairlines
     hero.kpiCards = {}
     local kpiDefs = {
-        { id = "SCORE",   label = L["EQUIPPED SCORE"],   defVal = "0.0",   defPill = L["OPTIMAL"],     variant = "ACCENT" },
-        { id = "UPGRADE", label = L["BAG UPGRADES"],     defVal = "+0.0",  defPill = L["UP TO DATE"], variant = "SUCCESS" },
-        { id = "WEAKEST", label = L["WEAKEST SLOT"],     defVal = "-",      defPill = L["BALANCED"],   variant = "WARNING" },
+        { id = "SCORE",   label = L["EQUIPPED SCORE"], defVal = "0.0",  defPill = "ACTIVE PROFILE", variant = "ACCENT",  tip = "Total Equivalency Point (EP) score of your equipped gear." },
+        { id = "UPGRADE", label = L["BAG UPGRADES"],   defVal = "+0.0", defPill = L["UP TO DATE"],     variant = "SUCCESS", tip = "Click to open Best Available and scan your bags." },
+        { id = "WEAKEST", label = L["WEAKEST SLOT"],   defVal = "-",    defPill = L["BALANCED"],       variant = "WARNING", tip = "Click to inspect all 17 equipment slots." },
     }
 
     for i, def in ipairs(kpiDefs) do
-        local box = CreateFrame("Frame", nil, hero, BACKDROP_TEMPLATE)
-        box:SetSize(166, 76)
-        box:SetPoint("BOTTOMLEFT", modelWell, "BOTTOMRIGHT", 18 + ((i - 1) * 176), 0)
-        SkinCard(box, true)
+        local box = CreateFrame("Frame", nil, hero)
+        box:SetSize(172, 68)
+        box:SetPoint("BOTTOMLEFT", modelWell, "BOTTOMRIGHT", 22 + ((i - 1) * 186), 8)
+        box:EnableMouse(true)
+
+        if i > 1 then
+            local vDiv = box:CreateTexture(nil, "ARTWORK")
+            vDiv:SetSize(pp1, 46)
+            vDiv:SetPoint("LEFT", box, "LEFT", -10, 0)
+            vDiv:SetColorTexture(1, 1, 1, 0.08)
+        end
 
         box.lbl = CreateText(box, "SMALL", def.label, "LEFT")
-        box.lbl:SetPoint("TOPLEFT", 12, -8)
-        box.lbl:SetPoint("TOPRIGHT", -10, -8)
+        box.lbl:SetPoint("TOPLEFT", 0, -2)
+        box.lbl:SetPoint("TOPRIGHT", 0, -2)
         box.lbl:SetWordWrap(false)
 
-        box.val = CreateText(box, "TITLE", def.defVal, "LEFT")
-        box.val:SetPoint("TOPLEFT", box.lbl, "BOTTOMLEFT", 0, -3)
-        box.val:SetPoint("TOPRIGHT", box.lbl, "BOTTOMRIGHT", 0, -3)
+        box.val = CreateText(box, "LARGE", def.defVal, "LEFT")
+        box.val:SetPoint("TOPLEFT", box.lbl, "BOTTOMLEFT", 0, -4)
+        box.val:SetPoint("TOPRIGHT", box.lbl, "BOTTOMRIGHT", 0, -4)
         box.val:SetWordWrap(false)
 
-        box.pill = CreatePill(box, def.defPill, def.variant)
-        box.pill:SetPoint("BOTTOMLEFT", 10, 8)
+        box.dot = box:CreateTexture(nil, "ARTWORK")
+        box.dot:SetSize(5, 5)
+        box.dot:SetPoint("TOPLEFT", box.val, "BOTTOMLEFT", 0, -7)
 
+        box.statusText = CreateText(box, "SMALL", def.defPill, "LEFT")
+        box.statusText:SetPoint("LEFT", box.dot, "RIGHT", 6, 0)
+        box.statusText:SetPoint("RIGHT", box, "RIGHT", 0, 0)
+        box.statusText:SetWordWrap(false)
+
+        box.accentLine = box:CreateTexture(nil, "ARTWORK")
+        box.accentLine:SetPoint("BOTTOMLEFT", box, "BOTTOMLEFT", 0, 0)
+        box.accentLine:SetSize(30, pp2)
+
+        function box:SetMetricStyle(statusLabel, variant)
+            local r, g, b = T.textMuted[1], T.textMuted[2], T.textMuted[3]
+            if variant == "ACCENT" then
+                local acr, acg, acb = GSI_UI:GetClassColor()
+                r, g, b = math.min(1, acr + 0.18), math.min(1, acg + 0.18), math.min(1, acb + 0.18)
+            elseif variant == "SUCCESS" then
+                r, g, b = T.success[1], T.success[2], T.success[3]
+            elseif variant == "WARNING" then
+                r, g, b = T.warning[1], T.warning[2], T.warning[3]
+            elseif variant == "DANGER" then
+                r, g, b = T.danger[1], T.danger[2], T.danger[3]
+            end
+            self.dot:SetColorTexture(r, g, b, 1.0)
+            self.statusText:SetText(statusLabel or "")
+            self.statusText:SetTextColor(r, g, b, 1.0)
+            self.accentLine:SetColorTexture(r, g, b, self._hovered and 1.0 or 0.55)
+            self._accentRGB = { r, g, b }
+        end
+
+        box:SetMetricStyle(def.defPill, def.variant)
+
+        box:SetScript("OnEnter", function(selfBox)
+            selfBox._hovered = true
+            selfBox.accentLine:SetWidth(156)
+            if selfBox._accentRGB then
+                selfBox.accentLine:SetColorTexture(selfBox._accentRGB[1], selfBox._accentRGB[2], selfBox._accentRGB[3], 1.0)
+            end
+            GameTooltip:SetOwner(selfBox, "ANCHOR_TOP")
+            GameTooltip:AddLine(def.label, 1, 0.82, 0)
+            GameTooltip:AddLine(def.tip, 1, 1, 1, true)
+            GameTooltip:Show()
+        end)
+        box:SetScript("OnLeave", function(selfBox)
+            selfBox._hovered = false
+            selfBox.accentLine:SetWidth(30)
+            if selfBox._accentRGB then
+                selfBox.accentLine:SetColorTexture(selfBox._accentRGB[1], selfBox._accentRGB[2], selfBox._accentRGB[3], 0.55)
+            end
+            GameTooltip:Hide()
+        end)
         box:SetScript("OnMouseUp", function()
             if PlaySound and SOUNDKIT then PlaySound(SOUNDKIT.IG_MAINMENU_OPTION_CHECKBOX_ON) end
             if def.id == "UPGRADE" then
@@ -118,6 +225,7 @@ function GSI_UI:DrawOverview(parent)
     refreshBtn:SetScript("OnClick", function()
         if GSI_ItemScore and GSI_ItemScore.ResetCache then GSI_ItemScore:ResetCache() end
         if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then GSI_OptimizationEngine:ResetCache() end
+        GSI_UI._triggerOverviewFill = true
         GSI_UI:UpdateOverview(parent)
     end)
     parent.refreshBtn = refreshBtn
@@ -153,20 +261,29 @@ function GSI_UI:UpdateOverview(parent)
 
     pcall(function() GSI_UI:UpdateTitleScore() end)
 
-    -- 1. Refresh Hero Card Data
+    -- 1. Refresh Hero Header Data
     if parent.hero then
         local hero = parent.hero
-        local pName = UnitName("player") or "Player"
+        local firstName, surname = UnitName("player")
+        local pName = (surname and surname ~= "") and (firstName .. " " .. surname) or (firstName or "Player")
         local pLevel = UnitLevel("player") or 60
         local pRace = UnitRace("player") or ""
         local pClass = select(1, UnitClass("player")) or ""
-        hero.nameText:SetText(string.format(L["%s — Level %d %s %s"], pName, pLevel, pRace, pClass))
+        local cr, cg, cb, classHex = GSI_UI:GetClassColor()
+        hero.nameText:SetText(string.format(L["|cff%s%s|r  |cff8a93a6Level %d %s %s|r"], classHex, pName, pLevel, pRace, pClass))
+
+        GSI_UI:SetGradient(hero.bottomGlow, "HORIZONTAL", cr, cg, cb, 0.65, cr, cg, cb, 0.0)
+        GSI_UI:SetGradient(hero.modelGlow, "VERTICAL", cr, cg, cb, 0.16, cr, cg, cb, 0.0)
+        hero.modelBase:SetColorTexture(cr, cg, cb, 0.55)
 
         local specIndex = GSI_StatWeights:GetActiveSpecIndex()
-        local class = select(2, UnitClass("player")) or "WARRIOR"
+        local class = (GSI_ClassicData and GSI_ClassicData.GetPlayerClass and GSI_ClassicData:GetPlayerClass()) or select(2, UnitClass("player")) or "WARRIOR"
         local classData = GSI_ClassicData and GSI_ClassicData.Classes and GSI_ClassicData.Classes[class]
         local specData = classData and classData.specs and classData.specs[specIndex]
-        local specName = specData and (specData.name or specData.nameDE) or string.format(L["Spec %s"], tostring(specIndex))
+        local specName = specData and (specData.name or specData.nameDE) or ("Spec " .. specIndex)
+        if hero.specIcon and specData and specData.icon then
+            hero.specIcon:SetTexture(specData.icon)
+        end
 
         local role = GSI_StatWeights:GetRole()
         local modeLabel = ""
@@ -233,7 +350,7 @@ function GSI_UI:UpdateOverview(parent)
         -- Update KPI 1: SCORE
         if hero.kpiCards and hero.kpiCards.SCORE then
             hero.kpiCards.SCORE.val:SetText(string.format("%.1f", totalScore))
-            hero.kpiCards.SCORE.pill:SetPillStyle(L["ACTIVE PROFILE"], "ACCENT")
+            hero.kpiCards.SCORE:SetMetricStyle(L["ACTIVE PROFILE"], "ACCENT")
         end
 
         -- Update KPI 2: BAG UPGRADES
@@ -245,10 +362,12 @@ function GSI_UI:UpdateOverview(parent)
 
             if upCount > 0 and lastGain > 0.05 then
                 hero.kpiCards.UPGRADE.val:SetText(string.format("+%.1f", lastGain))
-                hero.kpiCards.UPGRADE.pill:SetPillStyle(string.format(L["%d READY"], upCount), "SUCCESS")
+                hero.kpiCards.UPGRADE.val:SetTextColor(unpack(T.success))
+                hero.kpiCards.UPGRADE:SetMetricStyle(string.format(L["%d READY"], upCount), "SUCCESS")
             else
                 hero.kpiCards.UPGRADE.val:SetText("+0.0")
-                hero.kpiCards.UPGRADE.pill:SetPillStyle(L["UP TO DATE"], "ACCENT")
+                hero.kpiCards.UPGRADE.val:SetTextColor(unpack(T.textPrimary))
+                hero.kpiCards.UPGRADE:SetMetricStyle(L["UP TO DATE"], "ACCENT")
             end
         end
 
@@ -256,11 +375,11 @@ function GSI_UI:UpdateOverview(parent)
         if hero.kpiCards and hero.kpiCards.WEAKEST then
             hero.kpiCards.WEAKEST.val:SetText(lowestSlot)
             if lowestIsEmpty then
-                hero.kpiCards.WEAKEST.pill:SetPillStyle(L["EMPTY SLOT"], "DANGER")
+                hero.kpiCards.WEAKEST:SetMetricStyle(L["EMPTY SLOT"], "DANGER")
             elseif lowestScore == nil then
-                hero.kpiCards.WEAKEST.pill:SetPillStyle(L["NONE"], "NEUTRAL")
+                hero.kpiCards.WEAKEST:SetMetricStyle(L["NONE"], "NEUTRAL")
             else
-                hero.kpiCards.WEAKEST.pill:SetPillStyle(string.format("%.0f", lowestScore), "WARNING")
+                hero.kpiCards.WEAKEST:SetMetricStyle(string.format(L["Score: %.0f EP"], lowestScore), "WARNING")
             end
         end
     end
@@ -285,34 +404,107 @@ function GSI_UI:UpdateOverview(parent)
     table.sort(sorted, function(a, b) return (a.weight or 0) > (b.weight or 0) end)
 
     if not parent.statRows then parent.statRows = {} end
-    for _, r in ipairs(parent.statRows) do r:Hide() end
+    for _, r in ipairs(parent.statRows) do
+        r.active = false
+        r:Hide()
+    end
+
+    local BAR_MAX_WIDTH = 363
+    local cr, cg, cb = GSI_UI:GetClassColor()
+    local crestR = math.min(1, cr * 1.20 + 0.16)
+    local crestG = math.min(1, cg * 1.20 + 0.16)
+    local crestB = math.min(1, cb * 1.20 + 0.16)
+
+    local triggerFill = (GSI_UI._triggerOverviewFill == true) or (parent._fillStartTime == nil)
+    if triggerFill then
+        GSI_UI._triggerOverviewFill = false
+        parent._fillStartTime = (GetTime and GetTime()) or 0
+    end
 
     local yOff = 0
     for i, entry in ipairs(sorted) do
         local row = parent.statRows[i]
         if not row then
-            row = CreateFrame("Frame", nil, scrollChild, BACKDROP_TEMPLATE)
-            row:SetSize(696, 32)
-            SkinCard(row, true)
+            row = CreateFrame("Frame", nil, scrollChild)
+            row:SetSize(696, 30)
+            row:EnableMouse(true)
 
             -- Stat Label
             row.label = CreateText(row, "BODY", "", "LEFT")
-            row.label:SetPoint("LEFT", 14, 0)
-            row.label:SetWidth(170)
+            row.label:SetPoint("LEFT", 12, 0)
+            row.label:SetWidth(168)
             row.label:SetWordWrap(false)
 
-            -- Recessed Bar Track
+            -- Recessed Bar Track (Wider 365x14)
             local barTrack = CreateFrame("Frame", nil, row, BACKDROP_TEMPLATE)
-            barTrack:SetPoint("LEFT", row.label, "RIGHT", 8, 0)
-            barTrack:SetSize(280, 10)
+            barTrack:SetPoint("LEFT", row.label, "RIGHT", 10, 0)
+            barTrack:SetSize(365, 14)
             SkinFrame(barTrack, T.bgInput, false)
             row.barTrack = barTrack
 
-            -- Active Fill Bar (Dynamic Class Color)
-            row.bar = barTrack:CreateTexture(nil, "ARTWORK")
-            row.bar:SetPoint("TOPLEFT", barTrack, "TOPLEFT", 1, -1)
-            row.bar:SetPoint("BOTTOMLEFT", barTrack, "BOTTOMLEFT", 1, 1)
-            row.bar:SetColorTexture(unpack(T.accent))
+            -- Clipped Liquid Fill Container
+            local fillClip = CreateFrame("Frame", nil, barTrack)
+            fillClip:SetPoint("TOPLEFT", barTrack, "TOPLEFT", 1, -1)
+            fillClip:SetPoint("BOTTOMLEFT", barTrack, "BOTTOMLEFT", 1, 1)
+            fillClip:SetWidth(1)
+            if fillClip.SetClipsChildren then
+                pcall(fillClip.SetClipsChildren, fillClip, true)
+            end
+            row.fillClip = fillClip
+
+            -- Base Class-Colored Liquid Gradient
+            local barBase = fillClip:CreateTexture(nil, "ARTWORK", nil, 0)
+            barBase:SetAllPoints(fillClip)
+            barBase:SetTexture("Interface\\Buttons\\WHITE8x8")
+            row.barBase = barBase
+
+            -- Subtle Top Glass Highlight
+            local barGloss = fillClip:CreateTexture(nil, "ARTWORK", nil, 1)
+            barGloss:SetPoint("TOPLEFT", fillClip, "TOPLEFT", 0, 0)
+            barGloss:SetPoint("TOPRIGHT", fillClip, "TOPRIGHT", 0, 0)
+            barGloss:SetHeight(5)
+            barGloss:SetTexture("Interface\\Buttons\\WHITE8x8")
+            GSI_UI:SetGradient(barGloss, "VERTICAL", 1, 1, 1, 0.02, 1, 1, 1, 0.22)
+            row.barGloss = barGloss
+
+            -- Flowing Liquid Wave 1 (96px soft crest)
+            local wave1L = fillClip:CreateTexture(nil, "OVERLAY", nil, 2)
+            wave1L:SetSize(48, 12)
+            wave1L:SetPoint("LEFT", fillClip, "LEFT", -96, 0)
+            wave1L:SetTexture("Interface\\Buttons\\WHITE8x8")
+            wave1L:SetBlendMode("ADD")
+            row.wave1L = wave1L
+
+            local wave1R = fillClip:CreateTexture(nil, "OVERLAY", nil, 2)
+            wave1R:SetSize(48, 12)
+            wave1R:SetPoint("LEFT", wave1L, "RIGHT", 0, 0)
+            wave1R:SetTexture("Interface\\Buttons\\WHITE8x8")
+            wave1R:SetBlendMode("ADD")
+            row.wave1R = wave1R
+
+            -- Flowing Liquid Wave 2 (68px secondary ripple)
+            local wave2L = fillClip:CreateTexture(nil, "OVERLAY", nil, 2)
+            wave2L:SetSize(34, 12)
+            wave2L:SetPoint("LEFT", fillClip, "LEFT", -68, 0)
+            wave2L:SetTexture("Interface\\Buttons\\WHITE8x8")
+            wave2L:SetBlendMode("ADD")
+            row.wave2L = wave2L
+
+            local wave2R = fillClip:CreateTexture(nil, "OVERLAY", nil, 2)
+            wave2R:SetSize(34, 12)
+            wave2R:SetPoint("LEFT", wave2L, "RIGHT", 0, 0)
+            wave2R:SetTexture("Interface\\Buttons\\WHITE8x8")
+            wave2R:SetBlendMode("ADD")
+            row.wave2R = wave2R
+
+            -- Bright Leading Meniscus Edge
+            local meniscus = fillClip:CreateTexture(nil, "OVERLAY", nil, 3)
+            meniscus:SetPoint("TOPRIGHT", fillClip, "TOPRIGHT", 0, 0)
+            meniscus:SetPoint("BOTTOMRIGHT", fillClip, "BOTTOMRIGHT", 0, 0)
+            meniscus:SetWidth(2.5)
+            meniscus:SetTexture("Interface\\Buttons\\WHITE8x8")
+            meniscus:SetBlendMode("ADD")
+            row.meniscus = meniscus
 
             -- Current Stat Value Pill (anchored before valStr so valStr stays clear)
             row.currentPill = CreatePill(row, "0", "NEUTRAL")
@@ -320,12 +512,12 @@ function GSI_UI:UpdateOverview(parent)
 
             -- Weight String (Mono-num)
             row.valStr = CreateText(row, "MONO_NUM", "", "LEFT")
-            row.valStr:SetPoint("LEFT", barTrack, "RIGHT", 14, 0)
+            row.valStr:SetPoint("LEFT", barTrack, "RIGHT", 12, 0)
             row.valStr:SetPoint("RIGHT", row.currentPill, "LEFT", -10, 0)
             row.valStr:SetWordWrap(false)
             row.valStr:SetTextColor(unpack(T.textPrimary))
 
-            row:HookScript("OnEnter", function(selfRow)
+            row:SetScript("OnEnter", function(selfRow)
                 if selfRow.tooltipData then
                     GameTooltip:SetOwner(selfRow, "ANCHOR_RIGHT")
                     GameTooltip:AddLine(selfRow.tooltipData.name, T.accent[1], T.accent[2], T.accent[3])
@@ -334,7 +526,7 @@ function GSI_UI:UpdateOverview(parent)
                     GameTooltip:Show()
                 end
             end)
-            row:HookScript("OnLeave", function()
+            row:SetScript("OnLeave", function()
                 GameTooltip:Hide()
             end)
 
@@ -345,11 +537,28 @@ function GSI_UI:UpdateOverview(parent)
         row:SetPoint("TOPLEFT", scrollChild, "TOPLEFT", 0, -yOff)
         local displayName = STAT_DISPLAY_NAMES[entry.stat] or EXTRA_STAT_DISPLAY_NAMES[entry.stat] or entry.stat
         local statVal = currentStats[entry.stat] or 0
-        local barWidth = math.max(2, 276 * (entry.weight / maxWeight))
+        local targetW = math.max(3, BAR_MAX_WIDTH * (entry.weight / maxWeight))
+
+        -- Apply live class-color liquid gradients
+        GSI_UI:SetGradient(row.barBase, "HORIZONTAL", cr * 0.52, cg * 0.52, cb * 0.52, 0.95, cr, cg, cb, 1.0)
+        GSI_UI:SetGradient(row.wave1L, "HORIZONTAL", crestR, crestG, crestB, 0.0, crestR, crestG, crestB, 0.38)
+        GSI_UI:SetGradient(row.wave1R, "HORIZONTAL", crestR, crestG, crestB, 0.38, crestR, crestG, crestB, 0.0)
+        GSI_UI:SetGradient(row.wave2L, "HORIZONTAL", crestR, crestG, crestB, 0.0, crestR, crestG, crestB, 0.24)
+        GSI_UI:SetGradient(row.wave2R, "HORIZONTAL", crestR, crestG, crestB, 0.24, crestR, crestG, crestB, 0.0)
+        row.meniscus:SetVertexColor(crestR, crestG, crestB, 0.65)
+
+        row.active = true
+        row.rowIndex = i
+        row.targetWidth = targetW
+        if triggerFill then
+            row.curWidth = 1
+            row.fillClip:SetWidth(1)
+        elseif not row.curWidth then
+            row.curWidth = targetW
+            row.fillClip:SetWidth(targetW)
+        end
 
         row.label:SetText(displayName)
-        row.bar:SetWidth(barWidth)
-        row.bar:SetColorTexture(unpack(T.accent))
         row.currentPill:SetPillStyle(FormatStatValue(entry.stat, statVal), "NEUTRAL")
         row.valStr:SetText(FormatWeight(entry.weight))
         row.tooltipData = {
@@ -359,7 +568,54 @@ function GSI_UI:UpdateOverview(parent)
         }
         row:Show()
 
-        yOff = yOff + 36
+        yOff = yOff + 32
+    end
+
+    if not parent._liquidDriverHooked then
+        parent._liquidDriverHooked = true
+        parent:SetScript("OnUpdate", function(selfFrame, elapsed)
+            local rows = selfFrame.statRows
+            if not rows then return end
+            local now = (GetTime and GetTime()) or 0
+            local elapsedFill = now - (selfFrame._fillStartTime or 0)
+
+            for _, row in ipairs(rows) do
+                if row.active and row.fillClip then
+                    local idx = row.rowIndex or 1
+                    local targetW = row.targetWidth or 3
+                    local curW = row.curWidth or targetW
+
+                    if elapsedFill < 1.0 then
+                        local delay = math.min(0.16, (idx - 1) * 0.018)
+                        local dur = 1.0 - delay
+                        local p = math.max(0, math.min(1, (elapsedFill - delay) / dur))
+                        local ease = 1 - ((1 - p) * (1 - p) * (1 - p))
+                        curW = math.max(1, targetW * ease)
+                    elseif math.abs(targetW - curW) > 0.2 then
+                        curW = curW + (targetW - curW) * math.min(1, (elapsed or 0.016) * 10)
+                    else
+                        curW = targetW
+                    end
+
+                    row.curWidth = curW
+                    row.fillClip:SetWidth(curW)
+
+                    -- Continuous liquid wave motion
+                    local span1 = curW + 96
+                    local x1 = ((now * 110 + idx * 37) % span1) - 96
+                    row.wave1L:ClearAllPoints()
+                    row.wave1L:SetPoint("LEFT", row.fillClip, "LEFT", x1, 0)
+
+                    local span2 = curW + 68
+                    local x2 = ((now * 68 + idx * 53 + 24) % span2) - 68
+                    row.wave2L:ClearAllPoints()
+                    row.wave2L:SetPoint("LEFT", row.fillClip, "LEFT", x2, 0)
+
+                    local meniscusAlpha = (elapsedFill < 1.0) and 0.90 or (0.45 + 0.25 * math.sin(now * 4.5 + idx * 0.6))
+                    row.meniscus:SetAlpha(meniscusAlpha)
+                end
+            end
+        end)
     end
 
     scrollChild:SetHeight(math.max(yOff + 10, 10))

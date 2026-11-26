@@ -294,3 +294,19 @@ GSI_AddTranslations("ruRU", {
     ["Feral Cat"] = "Кошка",
     ["Restoration"] = "Исцеление",
 })
+
+-- v1.5.0: Gear slots, Overview, what's new
+GSI_AddTranslations("ruRU", {
+    ["Character-window layout with item quality borders, EP scores & bag upgrade status:"] = "Раскладка как в окне персонажа: рамки качества, оценки EP и улучшения из сумок:",
+    ["|cff555562Empty|r"] = "|cff555562Пусто|r",
+    ["EQUIPPED"] = "НАДЕТО",
+    ["|cff666e80(2H Equipped)|r"] = "|cff666e80(надето двуручное)|r",
+    ["2H ACTIVE"] = "ДВУРУЧНОЕ",
+    ["|cff%s%s|r  |cff8a93a6Level %d %s %s|r"] = "|cff%s%s|r  |cff8a93a6Уровень %d, %s %s|r",
+    ["Score: %.0f EP"] = "Оценка: %.0f EP",
+    ["|cffffcc00Version 1.5.0 (Build 1.60.1.71091 Stat Audit, C_Traits Fix & Modularization)|r"] = "|cffffcc00Версия 1.5.0 (сверка характеристик сборки 1.60.1.71091, исправление C_Traits и разделение на модули)|r",
+    ["|cff00ff00Updated:|r Recalibrated Balance Druid (|cffffffffMoonkin Form +10%|r, |cffffffffDreamstate|r, |cffffffffEclipse|r, |cffffffffStarlight Wrath|r, |cffffffffHurricane/Genesis|r), BM Hunter (Pet Crit & Hawks fix), Paladin (|cffffffffExorcism|r crits), Shadow Priest (|cffffffffDark Inspiration|r), Resto Shaman (|cffffffffRiptide|r), and |cffffffffFeralheart|r / |cffffffffStormshroud|r set bonuses."] = "|cff00ff00Обновлено:|r пересчитаны друид «Баланс» (|cffffffffMoonkin Form +10%|r, |cffffffffDreamstate|r, |cffffffffEclipse|r, |cffffffffStarlight Wrath|r, |cffffffffHurricane/Genesis|r), охотник «Повелитель зверей» (криты питомца и исправление ястребов), паладин (криты |cffffffffExorcism|r), жрец «Тьма» (|cffffffffDark Inspiration|r), шаман «Исцеление» (|cffffffffRiptide|r) и бонусы комплектов |cffffffffFeralheart|r / |cffffffffStormshroud|r.",
+    ["|cff00ff00Fix:|r Rewrote |cffffffffTalentIntegration.lua|r for live |cffffffffC_ClassTalents|r / |cffffffffC_Traits|r node & spell IDs with event-cached snapshots, prevented off-spec talent bleed in |cffffffffStatWeights.lua|r, fixed Rogue 1H Axes in Clean-up, and switched Spec Sets to |cffffffffUnitGUID(\"player\")|r."] = "|cff00ff00Исправлено:|r |cffffffffTalentIntegration.lua|r переписан на живые ID узлов и заклинаний |cffffffffC_ClassTalents|r / |cffffffffC_Traits|r со снимками по событиям, таланты активной специализации больше не влияют на другие в |cffffffffStatWeights.lua|r, одноручные топоры разбойника больше не попадают в «Очистку», комплекты по специализациям привязаны к |cffffffffUnitGUID(\"player\")|r.",
+    ["|cff00ff00UI Redesign:|r Modern Flat Material UI with frameless Hero header, class-colored liquid-animated stat bars, 2-column Character-Window Gear Slots with empty-slot silhouettes, hairline dividers, vector dropdown chevrons & checkboxes, and async item name/score resolution."] = "|cff00ff00Новый интерфейс:|r плоский стиль Material: заголовок без рамок, анимированные полосы характеристик в цвете класса, ячейки экипировки в два столбца как в окне персонажа с силуэтами пустых ячеек, тонкие разделители, векторные стрелки и флажки, асинхронная подгрузка названий и оценок предметов.",
+    ["|cff00ff00Modular:|r Split |cffffffffProfiles_v2_2|r into |cffffffffmodules/profiles/|r and extracted |cffffffffTooltipScanner|r, |cffffffffCapMath|r, |cffffffffEquipManager|r, |cffffffffSpecSets|r, and |cffffffffMacroPresets|r."] = "|cff00ff00Модули:|r |cffffffffProfiles_v2_2|r разделён на |cffffffffmodules/profiles/|r, вынесены |cffffffffTooltipScanner|r, |cffffffffCapMath|r, |cffffffffEquipManager|r, |cffffffffSpecSets|r и |cffffffffMacroPresets|r.",
+})

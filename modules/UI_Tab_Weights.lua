@@ -101,7 +101,7 @@ function GSI_UI:OpenProfilePromptModal(parent, mode, currentName)
         eb:SetFont(GSI_UI:GetFontPath(), 11, "")
         eb:SetTextInsets(6, 6, 0, 0)
         SkinFrame(eb)
-        eb:SetBackdropColor(0.15, 0.15, 0.15, 1)
+        eb:SetBackdropColor(unpack(T.bgInput))
         if eb.SetTextColor then eb:SetTextColor(1, 1, 1, 1) end
         eb:SetAutoFocus(true)
         f.editBox = eb
@@ -199,10 +199,8 @@ function GSI_UI:DrawWeights(parent)
     SkinButton(profBtn)
     parent.profileBtn = profBtn
 
-    local profArrow = profBtn:CreateTexture(nil, "ARTWORK")
-    profArrow:SetSize(12, 12)
+    local profArrow = GSI_UI:CreateChevron(profBtn, 14)
     profArrow:SetPoint("RIGHT", profBtn, "RIGHT", -6, 0)
-    profArrow:SetTexture("Interface\\ChatFrame\\ChatFrameExpandArrow")
     parent.profileArrow = profArrow
     FormatProfileBtnText(profBtn, profArrow)
 
@@ -213,6 +211,12 @@ function GSI_UI:DrawWeights(parent)
     profMenu:SetBackdropColor(0.06, 0.06, 0.08, 0.98)
     profMenu:SetBackdropBorderColor(0.18, 0.18, 0.22, 1)
     profMenu:Hide()
+    profMenu:HookScript("OnShow", function()
+        if profArrow and profArrow.SetExpanded then profArrow:SetExpanded(true) end
+    end)
+    profMenu:HookScript("OnHide", function()
+        if profArrow and profArrow.SetExpanded then profArrow:SetExpanded(false) end
+    end)
     parent.profileMenu = profMenu
 
     local function CloseProfileMenu()
@@ -452,8 +456,8 @@ function GSI_UI:DrawWeights(parent)
         local line = hdr:CreateTexture(nil, "ARTWORK")
         line:SetPoint("LEFT", titleFs, "RIGHT", 10, 0)
         line:SetPoint("RIGHT", hdr, "RIGHT", -8, 0)
-        line:SetHeight(1)
-        line:SetColorTexture(0.35, 0.35, 0.35, 0.6)
+        line:SetHeight((GSI_UI.PP and GSI_UI:PP(1)) or 1)
+        line:SetColorTexture(1, 1, 1, 0.10)
         return hdr
     end
 
@@ -463,11 +467,18 @@ function GSI_UI:DrawWeights(parent)
         row:ClearAllPoints()
         row:SetPoint("TOPLEFT", child, "TOPLEFT", 6, -yOffset)
 
+        local rDiv = row:CreateTexture(nil, "ARTWORK")
+        rDiv:SetPoint("BOTTOMLEFT", row, "BOTTOMLEFT", 0, 0)
+        rDiv:SetPoint("BOTTOMRIGHT", row, "BOTTOMRIGHT", -8, 0)
+        rDiv:SetHeight((GSI_UI.PP and GSI_UI:PP(1)) or 1)
+        rDiv:SetColorTexture(1, 1, 1, 0.04)
+
         local cb, lbl
         if checkPrefix then
             cb = CreateFrame("CheckButton", checkPrefix .. item.elem, row, "UICheckButtonTemplate")
             cb:SetSize(20, 20)
             cb:SetPoint("LEFT", 0, 0)
+            if GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(cb) end
 
             lbl = GSI_UI:CreateText(row, "STAT_LABEL", item.name)
             lbl:SetPoint("LEFT", cb, "RIGHT", 6, 0)
@@ -488,7 +499,7 @@ function GSI_UI:DrawWeights(parent)
         eb:SetTextInsets(4, 4, 0, 0)
         eb:SetAutoFocus(false)
         SkinFrame(eb)
-        eb:SetBackdropColor(0.15, 0.15, 0.15, 1)
+        eb:SetBackdropColor(unpack(T.bgInput))
         if eb.SetTextColor then eb:SetTextColor(1, 1, 1, 1) end
         eb:SetText(FormatWeight(defaultVal or 0))
 
@@ -524,7 +535,8 @@ function GSI_UI:DrawWeights(parent)
         eb:SetScript("OnEscapePressed", function(self) self:ClearFocus() end)
         eb:SetScript("OnEnterPressed", function(self) self:ClearFocus() end)
         eb:SetScript("OnEditFocusGained", function(self)
-            self:SetBackdropBorderColor(1, 0.82, 0, 1)
+            local cr, cg, cbCol = GSI_UI:GetClassColor()
+            self:SetBackdropBorderColor(cr, cg, cbCol, 0.9)
             self:HighlightText()
         end)
         eb:SetScript("OnEditFocusLost", function(self)

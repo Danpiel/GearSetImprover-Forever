@@ -8,7 +8,7 @@ local L = GSI_L
 local ADDON_NAME = "GearSetImprover"
 local VERSION = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata(ADDON_NAME, "Version"))
     or (GetAddOnMetadata and GetAddOnMetadata(ADDON_NAME, "Version"))
-    or "1.4.1"
+    or "1.5.0"
 
 local print = function(...)
     if GSI_Print then
@@ -171,6 +171,10 @@ eventFrame:RegisterEvent("ADDON_LOADED")
 eventFrame:RegisterEvent("PLAYER_LOGIN")
 eventFrame:RegisterEvent("CHARACTER_POINTS_CHANGED")
 eventFrame:RegisterEvent("PLAYER_TALENT_UPDATE")
+pcall(function() eventFrame:RegisterEvent("TRAIT_NODE_CHANGED") end)
+pcall(function() eventFrame:RegisterEvent("TRAIT_CONFIG_UPDATED") end)
+pcall(function() eventFrame:RegisterEvent("TRAIT_TREE_CURRENCY_INFO_UPDATED") end)
+pcall(function() eventFrame:RegisterEvent("ACTIVE_TALENT_GROUP_CHANGED") end)
 eventFrame:RegisterEvent("PLAYER_ENTERING_WORLD")
 eventFrame:RegisterEvent("PLAYER_EQUIPMENT_CHANGED")
 pcall(function() eventFrame:RegisterEvent("EQUIPMENT_SWAP_FINISHED") end)
@@ -230,12 +234,20 @@ eventFrame:SetScript("OnEvent", function(self, event, arg1)
     end
 
     -- ===== TALENT UPDATE =====
-    if event == "CHARACTER_POINTS_CHANGED" or event == "PLAYER_TALENT_UPDATE" then
+    if event == "CHARACTER_POINTS_CHANGED" or event == "PLAYER_TALENT_UPDATE"
+       or event == "TRAIT_NODE_CHANGED" or event == "TRAIT_CONFIG_UPDATED"
+       or event == "TRAIT_TREE_CURRENCY_INFO_UPDATED" or event == "ACTIVE_TALENT_GROUP_CHANGED" then
+        if GSI_TalentIntegration and GSI_TalentIntegration.Invalidate then
+            pcall(GSI_TalentIntegration.Invalidate, GSI_TalentIntegration)
+        end
+        if GSI_StatWeights and GSI_StatWeights.InvalidateCache then
+            pcall(GSI_StatWeights.InvalidateCache, GSI_StatWeights)
+        end
         if GSI_ItemScore and GSI_ItemScore.ResetCache then
             pcall(GSI_ItemScore.ResetCache, GSI_ItemScore)
         end
-        if GSI_TalentIntegration and GSI_TalentIntegration.Invalidate then
-            pcall(GSI_TalentIntegration.Invalidate, GSI_TalentIntegration)
+        if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then
+            pcall(GSI_OptimizationEngine.ResetCache, GSI_OptimizationEngine)
         end
         if C_Timer and C_Timer.After then
             if not talentRefreshPending then

@@ -284,3 +284,96 @@ GSI_ClassicData.Classes = {
         }
     },
 }
+
+-- ============================================================
+-- Canonical Class Usability Tables & Helpers (WoW Forever 1.60.1)
+-- ============================================================
+GSI_ClassicData._cachedPlayerClass = nil
+
+function GSI_ClassicData:GetPlayerClass()
+    if self._cachedPlayerClass then
+        return self._cachedPlayerClass
+    end
+    if type(UnitClass) == "function" then
+        local _, engClass = UnitClass("player")
+        if type(engClass) == "string" and engClass ~= "" then
+            local upper = string.upper(engClass)
+            if self.Classes[upper] then
+                self._cachedPlayerClass = upper
+                return upper
+            end
+        end
+    end
+    return "WARRIOR"
+end
+
+GSI_ClassicData.ClassMaxArmor = {
+    WARRIOR = 4, -- Plate
+    PALADIN = 4, -- Plate
+    HUNTER  = 3, -- Mail
+    SHAMAN  = 3, -- Mail
+    ROGUE   = 2, -- Leather
+    DRUID   = 2, -- Leather
+    PRIEST  = 1, -- Cloth
+    MAGE    = 1, -- Cloth
+    WARLOCK = 1, -- Cloth
+}
+
+GSI_ClassicData.ArmorSlots = {
+    INVTYPE_HEAD     = true,
+    INVTYPE_SHOULDER = true,
+    INVTYPE_CHEST    = true,
+    INVTYPE_ROBE     = true,
+    INVTYPE_WAIST    = true,
+    INVTYPE_LEGS     = true,
+    INVTYPE_FEET     = true,
+    INVTYPE_WRIST    = true,
+    INVTYPE_HAND     = true,
+}
+
+GSI_ClassicData.ClassAllowedWeapons = {
+    WARRIOR = { [0]=true, [1]=true, [2]=true, [3]=true, [4]=true, [5]=true, [6]=true, [7]=true, [8]=true, [10]=true, [13]=true, [15]=true, [16]=true, [18]=true },
+    PALADIN = { [0]=true, [1]=true, [4]=true, [5]=true, [6]=true, [7]=true, [8]=true },
+    HUNTER  = { [0]=true, [1]=true, [2]=true, [3]=true, [6]=true, [7]=true, [8]=true, [10]=true, [13]=true, [15]=true, [16]=true, [18]=true },
+    ROGUE   = { [0]=true, [2]=true, [3]=true, [4]=true, [7]=true, [13]=true, [15]=true, [16]=true, [18]=true }, -- includes [0] 1H Axes
+    PRIEST  = { [4]=true, [10]=true, [15]=true, [19]=true },
+    SHAMAN  = { [0]=true, [1]=true, [4]=true, [5]=true, [10]=true, [13]=true, [15]=true },
+    MAGE    = { [7]=true, [10]=true, [15]=true, [19]=true },
+    WARLOCK = { [7]=true, [10]=true, [15]=true, [19]=true },
+    DRUID   = { [4]=true, [5]=true, [6]=true, [10]=true, [13]=true, [15]=true },
+}
+
+local SHIELD_USERS = { WARRIOR = true, PALADIN = true, SHAMAN = true }
+local RELIC_USERS  = { [7] = "PALADIN", [8] = "DRUID", [9] = "SHAMAN" }
+
+function GSI_ClassicData:IsWeaponUsable(classKey, subClassID)
+    local allowed = self.ClassAllowedWeapons[classKey]
+    if not allowed then return true end
+    return allowed[subClassID] == true
+end
+
+function GSI_ClassicData:IsArmorUsable(classKey, equipLoc, subClassID, strictArmorType)
+    if equipLoc == "INVTYPE_CLOAK" then
+        return true
+    end
+    if equipLoc == "INVTYPE_SHIELD" or subClassID == 6 then
+        return SHIELD_USERS[classKey] == true
+    end
+    if equipLoc == "INVTYPE_RELIC" or RELIC_USERS[subClassID] then
+        return RELIC_USERS[subClassID] == classKey
+    end
+    if equipLoc == "INVTYPE_HOLDABLE" or subClassID == 0 then
+        return true
+    end
+    if not self.ArmorSlots[equipLoc] then
+        return true
+    end
+    local maxArmor = self.ClassMaxArmor[classKey]
+    if not maxArmor or not subClassID or subClassID < 1 or subClassID > 4 then
+        return true
+    end
+    if strictArmorType then
+        return subClassID == maxArmor
+    end
+    return subClassID <= maxArmor
+end

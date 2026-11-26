@@ -70,7 +70,7 @@ function GSI_UI:RegisterBlizzardOptions()
         end)
     end
 
-    local version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("GearSetImprover", "Version")) or (GetAddOnMetadata and GetAddOnMetadata("GearSetImprover", "Version")) or "1.4.4"
+    local version = (C_AddOns and C_AddOns.GetAddOnMetadata and C_AddOns.GetAddOnMetadata("GearSetImprover", "Version")) or (GetAddOnMetadata and GetAddOnMetadata("GearSetImprover", "Version")) or "1.5.0"
     local title = content:CreateFontString(nil, "ARTWORK")
     title:SetPoint("TOPLEFT", 16, -16)
     GSI_UI:ApplyFont(title, "TITLE")
@@ -196,6 +196,7 @@ function GSI_UI:RegisterBlizzardOptions()
     local function AddBlizzCheck(label, key, parentFrame, relativeTo, yOffset, callback, defaultVal)
         local cb = CreateFrame("CheckButton", nil, parentFrame or content, "UICheckButtonTemplate")
         cb:SetPoint("TOPLEFT", relativeTo, "BOTTOMLEFT", 0, yOffset or -6)
+        if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(cb) end
         cb.text = cb:CreateFontString(nil, "OVERLAY")
         GSI_UI:ApplyFont(cb.text, "BODY")
         AnchorBlizzCheckLabel(cb, label)
@@ -260,6 +261,7 @@ function GSI_UI:RegisterBlizzardOptions()
     for idx, pInfo in ipairs(profiles) do
         local cbSpec = CreateFrame("CheckButton", "GSI_BlizzTooltipProfileCheck_" .. idx, content, "UICheckButtonTemplate")
         cbSpec:SetPoint("TOPLEFT", lastSpecElem, "BOTTOMLEFT", 0, -4)
+        if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(cbSpec) end
         cbSpec.text = cbSpec:CreateFontString(nil, "OVERLAY")
         GSI_UI:ApplyFont(cbSpec.text, "BODY")
         AnchorBlizzCheckLabel(cbSpec, pInfo.label)
@@ -356,6 +358,7 @@ function GSI_UI:RegisterBlizzardOptions()
     local curOtherArmor = (GearSetImproverDB and GearSetImproverDB.junkIncludeOtherArmor) or false
     local armorCheck = CreateFrame("CheckButton", "GSI_BlizzArmorCheck", content, "UICheckButtonTemplate")
     armorCheck:SetPoint("TOPLEFT", minLbl, "BOTTOMLEFT", 0, -10)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(armorCheck) end
     armorCheck.text = armorCheck:CreateFontString(nil, "OVERLAY")
     GSI_UI:ApplyFont(armorCheck.text, "BODY")
     AnchorBlizzCheckLabel(armorCheck, L["Include other armor classes (e.g. Leather/Mail on Mage)"])
@@ -378,6 +381,7 @@ function GSI_UI:RegisterBlizzardOptions()
     local curWhiteGear = (GearSetImproverDB and GearSetImproverDB.junkIncludeWhiteGear ~= false)
     local whiteGearCheck = CreateFrame("CheckButton", "GSI_BlizzWhiteGearCheck", content, "UICheckButtonTemplate")
     whiteGearCheck:SetPoint("TOPLEFT", armorCheck, "BOTTOMLEFT", 0, -4)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(whiteGearCheck) end
     whiteGearCheck.text = whiteGearCheck:CreateFontString(nil, "OVERLAY")
     GSI_UI:ApplyFont(whiteGearCheck.text, "BODY")
     AnchorBlizzCheckLabel(whiteGearCheck, L["Include Common (White) obsolete gear"])
@@ -400,6 +404,7 @@ function GSI_UI:RegisterBlizzardOptions()
     local curUnusableGear = (GearSetImproverDB and GearSetImproverDB.junkIncludeUnusableGear ~= false)
     local unusableGearCheck = CreateFrame("CheckButton", "GSI_BlizzUnusableGearCheck", content, "UICheckButtonTemplate")
     unusableGearCheck:SetPoint("TOPLEFT", whiteGearCheck, "BOTTOMLEFT", 0, -4)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(unusableGearCheck) end
     unusableGearCheck.text = unusableGearCheck:CreateFontString(nil, "OVERLAY")
     GSI_UI:ApplyFont(unusableGearCheck.text, "BODY")
     AnchorBlizzCheckLabel(unusableGearCheck, L["Include unusable gear (weapons/armor class cannot equip)"])
@@ -422,6 +427,7 @@ function GSI_UI:RegisterBlizzardOptions()
     local curMerchantOverlay = (GearSetImproverDB and GearSetImproverDB.merchantOverlayEnabled ~= false)
     local merchantOverlayCheck = CreateFrame("CheckButton", "GSI_BlizzMerchantOverlayCheck", content, "UICheckButtonTemplate")
     merchantOverlayCheck:SetPoint("TOPLEFT", unusableGearCheck, "BOTTOMLEFT", 0, -4)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(merchantOverlayCheck) end
     merchantOverlayCheck.text = merchantOverlayCheck:CreateFontString(nil, "OVERLAY")
     GSI_UI:ApplyFont(merchantOverlayCheck.text, "BODY")
     AnchorBlizzCheckLabel(merchantOverlayCheck, L["Show Clean-up sell window at merchant (docked window with 'Sell All')"])
@@ -516,6 +522,7 @@ function GSI_UI:RegisterBlizzardOptions()
     -- Anchor Mode Checkbox
     local cbAnchorMode = CreateFrame("CheckButton", "GSI_BlizzAnchorModeCheck", content, "UICheckButtonTemplate")
     cbAnchorMode:SetPoint("TOPLEFT", anchorHeader, "BOTTOMLEFT", 0, -4)
+    if GSI_UI and GSI_UI.SkinCheckbox then GSI_UI:SkinCheckbox(cbAnchorMode) end
     cbAnchorMode.text = cbAnchorMode:CreateFontString(nil, "OVERLAY")
     GSI_UI:ApplyFont(cbAnchorMode.text, "BODY")
     AnchorBlizzCheckLabel(cbAnchorMode, L["Show movable Anchor on screen (Unlock to reposition)"])

@@ -824,7 +824,7 @@ function GSI_UI:CreatePill(parent, text, variant)
     end
     local T = self.THEME
     local pill = CreateFrame("Frame", nil, parent)
-    pill:SetHeight(20)
+    pill:SetHeight(18)
 
     pill.bg = pill:CreateTexture(nil, "BACKGROUND")
     pill.bg:SetAllPoints()
@@ -838,25 +838,24 @@ function GSI_UI:CreatePill(parent, text, variant)
         local v = newVariant or variant or "NEUTRAL"
         if newText then self.label:SetText(newText) end
 
-        local bgCol, borderCol, textCol
+        local bgCol, textCol
         if v == "ACCENT" then
-            bgCol, borderCol, textCol = T.accentSurface, T.accentGlow, T.accentBright
+            bgCol, textCol = T.accentSurface, T.accentBright
         elseif v == "SUCCESS" then
-            bgCol, borderCol, textCol = T.successSurface, T.successBorder, T.success
+            bgCol, textCol = T.successSurface, T.success
         elseif v == "WARNING" then
-            bgCol, borderCol, textCol = T.warningSurface, T.warning, T.warning
+            bgCol, textCol = T.warningSurface, T.warning
         elseif v == "DANGER" then
-            bgCol, borderCol, textCol = T.dangerSurface, T.danger, T.danger
+            bgCol, textCol = T.dangerSurface, T.danger
         else
-            bgCol, borderCol, textCol = T.bgCardTop, T.borderSpecular, T.textSecondary
+            bgCol, textCol = { 1, 1, 1, 0.06 }, T.textSecondary
         end
 
         self.bg:SetVertexColor(unpack(bgCol))
-        GSI_UI:ApplyMicroBorder(self, borderCol, borderCol)
         self.label:SetTextColor(unpack(textCol))
 
         local textWidth = math.ceil(self.label:GetStringWidth() or 30)
-        self:SetWidth(math.max(34, textWidth + 16))
+        self:SetWidth(math.max(34, textWidth + 14))
     end
 
     pill:SetPillStyle(text, variant)
@@ -1138,4 +1137,348 @@ end
 function GSI_UI:FormatStatValue(k, v)
     if self ~= GSI_UI then k, v = self, k; self = GSI_UI end
     return FormatStatValue(k, v)
+end
+
+
+-- ----------------------------------------------------------------------------
+-- 8. FLAT MATERIAL-DESIGN CHEVRON (UP / DOWN)
+-- ----------------------------------------------------------------------------
+function GSI_UI:CreateChevron(parentBtn, size)
+    if self ~= GSI_UI then
+        size = parentBtn
+        parentBtn = self
+        self = GSI_UI
+    end
+    size = size or 14
+    local T = self.THEME
+    local holder = CreateFrame("Frame", nil, parentBtn)
+    holder:SetSize(size, size)
+    holder:EnableMouse(false)
+    holder._dir = -1 -- -1 = down (closed), +1 = up (expanded)
+    holder._targetDir = -1
+    holder._expanded = false
+    holder._hovered = false
+
+    local hasLine = type(holder.CreateLine) == "function"
+    local leftLine, rightLine, fallbackText
+
+    if hasLine then
+        local okL, l1 = pcall(holder.CreateLine, holder, nil, "OVERLAY", nil, 2)
+        local okR, l2 = pcall(holder.CreateLine, holder, nil, "OVERLAY", nil, 2)
+        if okL and okR and l1 and l2 then
+            leftLine, rightLine = l1, l2
+            leftLine:SetThickness(1.75)
+            rightLine:SetThickness(1.75)
+        end
+    end
+
+    if not leftLine or not rightLine then
+        fallbackText = self:CreateText(holder, "SMALL", "v", "CENTER")
+        fallbackText:SetAllPoints()
+    end
+
+    local function UpdateColor()
+        local r, g, b = T.textSecondary[1], T.textSecondary[2], T.textSecondary[3]
+        if holder._expanded then
+            local cr, cg, cb = self:GetClassColor()
+            r = math.min(1, cr + 0.18)
+            g = math.min(1, cg + 0.18)
+            b = math.min(1, cb + 0.18)
+        elseif holder._hovered then
+            r, g, b = T.textPrimary[1], T.textPrimary[2], T.textPrimary[3]
+        end
+        if leftLine and rightLine then
+            leftLine:SetColorTexture(r, g, b, 1.0)
+            rightLine:SetColorTexture(r, g, b, 1.0)
+        elseif fallbackText then
+            fallbackText:SetTextColor(r, g, b, 1.0)
+        end
+    end
+
+    local function ApplyGeometry(dir)
+        if leftLine and rightLine then
+            leftLine:SetStartPoint("CENTER", holder, -4.0, -2.1 * dir)
+            leftLine:SetEndPoint("CENTER", holder, 0.58, 2.48 * dir)
+            rightLine:SetStartPoint("CENTER", holder, 4.0, -2.1 * dir)
+            rightLine:SetEndPoint("CENTER", holder, -0.58, 2.48 * dir)
+        elseif fallbackText then
+            fallbackText:SetText(dir >= 0 and "^" or "v")
+        end
+    end
+
+    ApplyGeometry(-1)
+    UpdateColor()
+
+    if parentBtn and parentBtn.HookScript then
+        parentBtn:HookScript("OnEnter", function()
+            holder._hovered = true
+            UpdateColor()
+        end)
+        parentBtn:HookScript("OnLeave", function()
+            holder._hovered = false
+            UpdateColor()
+        end)
+    end
+
+    function holder:SetExpanded(expanded, instant)
+        self._expanded = (expanded == true)
+        self._targetDir = self._expanded and 1 or -1
+        UpdateColor()
+        if instant then
+            self._dir = self._targetDir
+            ApplyGeometry(self._dir)
+            self:SetScript("OnUpdate", nil)
+            return
+        end
+        self:SetScript("OnUpdate", function(f, elapsed)
+            local step = ((elapsed or 0.016) / 0.11) * 2.0
+            if f._dir < f._targetDir then
+                f._dir = math.min(f._targetDir, f._dir + step)
+            elseif f._dir > f._targetDir then
+                f._dir = math.max(f._targetDir, f._dir - step)
+            end
+            ApplyGeometry(f._dir)
+            if math.abs(f._dir - f._targetDir) < 0.001 then
+                f._dir = f._targetDir
+                ApplyGeometry(f._dir)
+                f:SetScript("OnUpdate", nil)
+            end
+        end)
+    end
+
+    return holder
+end
+
+
+-- ----------------------------------------------------------------------------
+-- 9. FLAT MATERIAL-DESIGN CHECKBOX (Vector Checkmark)
+-- ----------------------------------------------------------------------------
+function GSI_UI:SkinCheckbox(cb)
+    if self ~= GSI_UI then
+        cb = self
+        self = GSI_UI
+    end
+    if not cb or cb._gsiSkinned then return cb end
+    cb._gsiSkinned = true
+
+    local T = self.THEME
+
+    local function StripBlizzTex(tex)
+        if not tex then return end
+        if tex.SetTexture then pcall(tex.SetTexture, tex, nil) end
+        if tex.SetAtlas then pcall(tex.SetAtlas, tex, nil) end
+        if tex.SetAlpha then tex:SetAlpha(0) end
+        if tex.Hide then tex:Hide() end
+        if hooksecurefunc and tex.Show and not tex._gsiHiddenHook then
+            tex._gsiHiddenHook = true
+            hooksecurefunc(tex, "Show", function(t)
+                t:SetAlpha(0)
+                t:Hide()
+            end)
+        end
+    end
+
+    if cb.SetNormalTexture then pcall(cb.SetNormalTexture, cb, "") end
+    if cb.SetPushedTexture then pcall(cb.SetPushedTexture, cb, "") end
+    if cb.SetHighlightTexture then pcall(cb.SetHighlightTexture, cb, "") end
+    if cb.SetCheckedTexture then pcall(cb.SetCheckedTexture, cb, "") end
+    if cb.SetDisabledCheckedTexture then pcall(cb.SetDisabledCheckedTexture, cb, "") end
+
+    StripBlizzTex(cb.GetNormalTexture and cb:GetNormalTexture())
+    StripBlizzTex(cb.GetPushedTexture and cb:GetPushedTexture())
+    StripBlizzTex(cb.GetHighlightTexture and cb:GetHighlightTexture())
+    StripBlizzTex(cb.GetCheckedTexture and cb:GetCheckedTexture())
+    StripBlizzTex(cb.GetDisabledCheckedTexture and cb:GetDisabledCheckedTexture())
+
+    local numRegions = cb.GetNumRegions and cb:GetNumRegions() or 0
+    for i = 1, numRegions do
+        local reg = select(i, cb:GetRegions())
+        if reg and reg.GetObjectType and reg:GetObjectType() == "Texture" then
+            StripBlizzTex(reg)
+        end
+    end
+    if cb.Left then StripBlizzTex(cb.Left) end
+    if cb.Right then StripBlizzTex(cb.Right) end
+    if cb.Middle then StripBlizzTex(cb.Middle) end
+    if cb.bg then StripBlizzTex(cb.bg) end
+
+    local w = cb.GetWidth and cb:GetWidth() or 32
+    if w > 24 then
+        cb:SetSize(22, 22)
+    end
+
+    local box = CreateFrame("Frame", nil, cb)
+    box:SetSize(16, 16)
+    box:SetPoint("CENTER", cb, "CENTER", 0, 0)
+    box:EnableMouse(false)
+    self:SkinFrame(box, T.bgInput, false)
+    cb._gsiBox = box
+
+    local fill = box:CreateTexture(nil, "ARTWORK", nil, 0)
+    fill:SetPoint("TOPLEFT", box, "TOPLEFT", 1, -1)
+    fill:SetPoint("BOTTOMRIGHT", box, "BOTTOMRIGHT", -1, 1)
+    fill:SetTexture("Interface\\Buttons\\WHITE8x8")
+    fill:Hide()
+    box.fill = fill
+
+    local l1, l2, fallbackMark
+    if type(box.CreateLine) == "function" then
+        local ok1, a = pcall(box.CreateLine, box, nil, "OVERLAY", nil, 2)
+        local ok2, b = pcall(box.CreateLine, box, nil, "OVERLAY", nil, 2)
+        if ok1 and ok2 and a and b then
+            l1, l2 = a, b
+            l1:SetThickness(1.8)
+            l2:SetThickness(1.8)
+            l1:SetStartPoint("CENTER", box, -3.6, -0.2)
+            l1:SetEndPoint("CENTER", box, -0.8, -3.0)
+            l2:SetStartPoint("CENTER", box, -1.1, -3.0)
+            l2:SetEndPoint("CENTER", box, 3.8, 2.6)
+            l1:SetColorTexture(1, 1, 1, 1)
+            l2:SetColorTexture(1, 1, 1, 1)
+            l1:Hide()
+            l2:Hide()
+        end
+    end
+    if not l1 or not l2 then
+        fallbackMark = self:CreateText(box, "SMALL", "x", "CENTER")
+        fallbackMark:SetAllPoints()
+        fallbackMark:SetTextColor(1, 1, 1, 1)
+        fallbackMark:Hide()
+    end
+
+    local function SyncVisual()
+        local checked = cb.GetChecked and cb:GetChecked() and true or false
+        local cr, cg, cbCol = GSI_UI:GetClassColor()
+        if checked then
+            fill:SetVertexColor(cr, cg, cbCol, 1.0)
+            fill:Show()
+            if l1 and l2 then l1:Show(); l2:Show() end
+            if fallbackMark then fallbackMark:Show() end
+            if box.SetBorderColor then
+                box:SetBorderColor(cr, cg, cbCol, 1.0)
+            end
+        else
+            fill:Hide()
+            if l1 and l2 then l1:Hide(); l2:Hide() end
+            if fallbackMark then fallbackMark:Hide() end
+            if box.SetBorderColor then
+                if cb._gsiHovered then
+                    box:SetBorderColor(T.borderHover[1], T.borderHover[2], T.borderHover[3], 0.8)
+                else
+                    box:SetBorderColor(T.borderSubtle[1], T.borderSubtle[2], T.borderSubtle[3], 0.6)
+                end
+            end
+        end
+    end
+
+    if hooksecurefunc and cb.SetChecked then
+        hooksecurefunc(cb, "SetChecked", SyncVisual)
+    end
+    if cb.HookScript then
+        cb:HookScript("PostClick", SyncVisual)
+        cb:HookScript("OnEnter", function() cb._gsiHovered = true; SyncVisual() end)
+        cb:HookScript("OnLeave", function() cb._gsiHovered = false; SyncVisual() end)
+    end
+    SyncVisual()
+    return cb
+end
+
+-- ----------------------------------------------------------------------------
+-- 10. ITEM NAME RESOLUTION & ASYNC CACHE REFRESH
+-- ----------------------------------------------------------------------------
+local _uiNameScanTip = nil
+local function GetUINameScanTooltip()
+    if not _uiNameScanTip then
+        _uiNameScanTip = CreateFrame("GameTooltip", "GSI_UINameScanTooltip", nil, "GameTooltipTemplate")
+        _uiNameScanTip:SetOwner(WorldFrame or UIParent, "ANCHOR_NONE")
+    end
+    return _uiNameScanTip
+end
+
+local _itemInfoRefreshPending = false
+local function EnsureItemInfoListener()
+    if GSI_UI._itemInfoListener then return end
+    local f = CreateFrame("Frame")
+    pcall(f.RegisterEvent, f, "GET_ITEM_INFO_RECEIVED")
+    f:SetScript("OnEvent", function()
+        if _itemInfoRefreshPending then return end
+        _itemInfoRefreshPending = true
+        local function DoRefresh()
+            _itemInfoRefreshPending = false
+            if GSI_ItemScore and GSI_ItemScore.ResetCache then
+                GSI_ItemScore:ResetCache()
+            end
+            if GSI_OptimizationEngine and GSI_OptimizationEngine.ResetCache then
+                GSI_OptimizationEngine:ResetCache()
+            end
+            if GSI_UI.mainFrame and GSI_UI.mainFrame:IsShown() and GSI_UI.RefreshPanel then
+                pcall(GSI_UI.RefreshPanel, GSI_UI)
+            end
+            if GSI_UI.merchantOverlay and GSI_UI.merchantOverlay:IsShown() and GSI_UI.UpdateMerchantPanel then
+                pcall(GSI_UI.UpdateMerchantPanel, GSI_UI)
+            end
+        end
+        if C_Timer and C_Timer.After then
+            C_Timer.After(0.08, DoRefresh)
+        else
+            DoRefresh()
+        end
+    end)
+    GSI_UI._itemInfoListener = f
+end
+
+function GSI_UI:ResolveItemDisplayText(link, invSlotID, bagID, bagSlot)
+    if self ~= GSI_UI then
+        link, invSlotID, bagID, bagSlot = self, link, invSlotID, bagID
+        self = GSI_UI
+    end
+    if not link or link == "" then return "" end
+
+    local existing = link:match("|h%[([^%]]+)%]|h")
+    if existing and existing ~= "" then
+        return link
+    end
+
+    EnsureItemInfoListener()
+
+    local itemName, fullLink = GetItemInfo(link)
+    if fullLink then
+        local fullExisting = fullLink:match("|h%[([^%]]+)%]|h")
+        if fullExisting and fullExisting ~= "" then
+            return fullLink
+        end
+    end
+    if itemName and itemName ~= "" then
+        return (link:gsub("|h%[%]|h", "|h[" .. itemName .. "]|h"))
+    end
+
+    -- Fallback: query hidden GameTooltip for equipped/bag/hyperlink item name
+    local tip = GetUINameScanTooltip()
+    tip:ClearLines()
+    local ok = false
+    if invSlotID then
+        ok = pcall(tip.SetInventoryItem, tip, "player", invSlotID)
+    elseif bagID and bagSlot then
+        ok = pcall(tip.SetBagItem, tip, bagID, bagSlot)
+    else
+        ok = pcall(tip.SetHyperlink, tip, link)
+    end
+    if ok and (tip:NumLines() or 0) > 0 then
+        local fs = _G["GSI_UINameScanTooltipTextLeft1"]
+        local rawName = fs and fs:GetText()
+        if rawName and rawName ~= "" then
+            local clean = rawName:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", "")
+            local lower = clean:lower()
+            if clean ~= "" and not lower:find("retrieving item") and not lower:find("gegenstandsinformationen") then
+                return (link:gsub("|h%[%]|h", "|h[" .. clean .. "]|h"))
+            end
+        end
+    end
+
+    local itemID = tonumber(link:match("item:(%d+)")) or select(1, GetItemInfoInstant(link))
+    if itemID and C_Item and C_Item.RequestLoadItemDataByID then
+        pcall(C_Item.RequestLoadItemDataByID, itemID)
+    end
+
+    return "|cff888894Loading...|r"
 end

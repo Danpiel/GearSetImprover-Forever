@@ -2,17 +2,19 @@
 
 **GearSetImprover Forever** is a gear scoring and Best-in-Bag optimizer built exclusively for **WoW Forever (Client 1.60.1 / Interface 16001)**.
 
-> **Fork** of [GearSetImprover Forever](https://www.curseforge.com/wow/addons/gearsetimprover) by Yakilo. Yakilo's v1.4.4 took in part of these changes; this repository is merged with v1.4.4 and is the source of the CurseForge releases from v1.4.5 on. Changes:
+> **Fork** of [GearSetImprover Forever](https://www.curseforge.com/wow/addons/gearsetimprover) by Yakilo. Yakilo's v1.5.0 is built on this fork's v1.4.6; this repository is merged with v1.5.0 and is the source of the fork's CurseForge releases. Changes:
 >
 > - Item stats: combat ratings from `GetItemStats` are converted to percent (crit 14, hit/haste/expertise 10, dodge 12, parry 15, block 5 rating per 1%), armor/resistances/weapon DPS come from the API, weapon speed is read on every client, and Russian tooltips are parsed.
 > - Set bonuses on clients whose set names are not in the English/German table (ruRU) are learned from the item tooltips and kept in SavedVariables.
 > - Spec: follows the talent tree with the most points by default (on Forever the three trees are trait groups of one talent tree); the header dropdown has an **Auto** entry, `/gsi spec auto` returns to it. Feral druids pick Cat or Bear once.
 > - On a spec or talent change, open item tooltips, upgrade toasts and the Best in Bag list are scored again with the new weights; the "Upgrade(s) found" chat line is printed once per scan instead of on every talent event.
-> - Equipment Sets per spec: by default the sets GSI saved for the spec ("GSI: Cat ST", "GSI: Resto AoE", ...), or one or more sets ticked in the Settings tab. Put on when the spec changes; with several sets a window asks which one. `/gsi set` does it by hand.
+> - Equipment Sets per spec: by default the sets GSI saved for the spec ("Cat ST", "Resto AoE", ...; on a Russian client "Кошка", "Исцеление АоЕ"), or one or more sets ticked in the Settings tab. Put on when the spec changes; with several sets a window asks which one. `/gsi set` does it by hand.
 > - In tooltips every spec of the class gets one line per set it has ("vs <set>"), ticked in Tooltip Orientations or not; a set GSI saved for a mode is scored with that mode's weights. The active spec keeps its lines against the gear worn and adds its sets that are not on (Settings, on by default).
 > - Dual spec: the "GSI Dual Spec" macro (`/gsi toggle`) switches to the other talent group and, once it is active, puts on the gear of the spec it plays; its icon is the spec it switches to. `/gsi go <spec> [mode]` goes to a given spec's group (Auto from the group builds, or chosen in Settings).
 > - Login error "Module TooltipHook error: bad argument #2" fixed.
 > - `/gsi dump` writes item/tooltip/spec diagnostics to SavedVariables.
+>
+> - Since v1.4.6: one settings card per spec (sets, the weights each set turns on, tooltip lines, talent group); a set put on turns its spec and weights on, weights picked in GSI put on their set; compact two-column tooltip lines; upgrade toasts wait 3 s after a spec change; a GearSetImprover section in the EllesmereUI panel and EllesmereUI's font; Russian translation (Locales).
 
 ---
 
@@ -82,8 +84,8 @@ On top of that, raw stat calculators fail on items with strong procs or on-use e
 
 ### Versioning & Release Status
 
-* **Current Version:** `1.4.1` (Official Release - Shield-Tank 1H+Shield Enforcement Hotfix)
-* GearSetImprover Forever is in official release with full support for WoW Forever (Client 1.60.1 / Interface 16001). Includes audited theorycrafting values across all 28 specs (Build 70755 post-launch hotfix audit) and strict 1H + Shield enforcement for Protection Warriors and Protection Paladins.
+* **Current Version:** `1.5.0` (Official Release - Build 1.60.1.71091 Stat Audit, Live `C_Traits` Talent Integration & Flat Material UI)
+* GearSetImprover Forever is in official release with full support for WoW Forever (Client 1.60.1 / Interface 16001), featuring audited theorycrafting values across all 28 specs (Build 71091 hotfixes), live `C_ClassTalents` / `C_Traits` talent integration, Dual Spec macros, and a modern Flat Material UI.
 
 ---
 

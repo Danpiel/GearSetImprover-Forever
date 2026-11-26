@@ -1,4 +1,28 @@
-﻿# GearSetImprover Forever v1.4.6
+# GearSetImprover Forever v1.5.0
+
+### Build 1.60.1.71091 Stat Audit, Live `C_Traits` Talent Integration & Modularization
+
+* **WoW: Forever Hotfixes (Nov 19–25, 2026):**
+  - **Balance Druid (`druide_gleichgewicht` & `_aoe`):** Updated for *Moonkin Form* (+10% Arcane/Nature dmg), *Dreamstate* replacing *Moonfury* (Spirit sustain), *Eclipse* (+7/13/20% permanent Wrath Crit), *Starlight Wrath* (-0.5s Starfire cast), and *Hurricane* final-tick + *Genesis* scaling.
+  - **Beast Mastery Hunter (`j_ger_tierherrschaft` & `_aoe`):** Recalibrated `Crit` (`12.65`), `AP`/`RAP` (`0.44`), `Hit`, `Haste`, and `RangedDPS` following the pet 0%-melee-crit and *Summoned Hawks* fixes.
+  - **Paladin / Shadow Priest / Resto Shaman / Combat Rogue AoE:** Updated for *Exorcism* crits, *Dark Inspiration* Mind Flay Spirit fix, *Riptide* HoT-only SP scaling, and *Blade Flurry* + *Shank* cleave.
+  - **Set Bonuses (`SetBonus.lua`):** Updated *Feralheart Raiment* 4pc (4 Energy/s for 5s proc) and *Stormshroud Armor* 3pc (nerfed to 3% / 18 Energy).
+* **Critical Bug Fixes:**
+  - **Live `C_Traits` Talent Integration (`TalentIntegration.lua`):** Rewrote talent reader to use WoW Forever's live `C_ClassTalents` / `C_Traits` API via exact `nodeID`s & `spellID`s (with event-cached snapshots and legacy `GetTalentInfo` fallback), plus `TRAIT_NODE_CHANGED`, `TRAIT_CONFIG_UPDATED`, and `ACTIVE_TALENT_GROUP_CHANGED` event hooks.
+  - **Off-Spec Talent Bleed Fix (`StatWeights.lua`):** Off-spec scoring no longer applies active-spec 0-rank talent overrides.
+  - **GUID-Safe Spec Sets (`SpecSets.lua`):** Replaced `Name-Realm` character keys with `UnitGUID("player")` + automatic legacy migration (fixes Nov 20 surname/empty-realm update).
+  - **Rogue 1H Axes (`ClassicData.lua`, `JunkTab.lua`):** Fixed Clean-up falsely flagging 1H Axes as unusable on Rogues.
+* **Modern Flat Material UI Redesign (`UI_Shared.lua`, `UI.lua`, `UI_Tab_Overview.lua`, `UI_Tab_Gear.lua`, `UI_Tab_Macros.lua`, `UI_Tab_BiB.lua`, `JunkTab.lua`, `MerchantOverlay.lua`, `UI_Tab_Weights.lua`, `UI_Tab_Settings.lua`, `UI_Modals.lua`):**
+  - **Frameless Hero Header & Liquid Stat Bars:** Replaced boxed Hero cards with a frameless 3D portrait + 3 hairline-separated KPI columns, and widened Overview stat bars (`365x14`) with a class-colored flowing liquid wave animation and `1.0s` left-to-right fill on open.
+  - **2-Column Character-Window Gear Slots:** Redesigned `Gear Slots` into a borderless 2-column `PaperDoll` layout with per-slot empty silhouettes, quality micro-borders, and tonal status pills.
+  - **Homogeneous Flat Controls:** Replaced row backgrounds with `1px` hairline dividers across all tabs, added flat Material vector dropdown chevrons (`∨` / `∧`), stripped native Blizzard checkbox frames for clean vector checkmarks, and added async `GET_ITEM_INFO_RECEIVED` name/score resolution for uncached items.
+* **Modularization & Performance:**
+  - Split `Profiles_v2_2.lua` into `modules/profiles/` (`Profiles_Core`, `Plate`, `Mail`, `Leather`, `Cloth`) with memoized weight normalization.
+  - Extracted `TooltipScanner.lua`, `CapMath.lua`, `EquipManager.lua`, `SpecSets.lua`, and `MacroPresets.lua`, and added revision-based weight caching (`GetWeightsReadOnly`).
+
+---
+
+# GearSetImprover Forever v1.4.6
 
 ### Cleaner Tooltip Lines & Active Spec Highlight
 
